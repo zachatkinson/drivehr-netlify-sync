@@ -93,6 +93,7 @@ jobs:
           file: ./coverage/lcov.info
           flags: unittests
           name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
   # Build Verification
