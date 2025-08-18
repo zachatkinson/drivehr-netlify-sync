@@ -222,15 +222,11 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Install Netlify CLI
-        run: pnpm add -g netlify-cli
-
       - name: Deploy to Netlify
         id: deploy
-        run: |
-          deployment=$(netlify deploy --prod --dir=dist --json)
-          url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
-          echo "url=$url" >> $GITHUB_OUTPUT
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --prod --dir=dist
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
