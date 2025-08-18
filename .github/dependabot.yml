@@ -1,0 +1,72 @@
+version: 2
+
+updates:
+  # npm dependencies
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'UTC'
+    open-pull-requests-limit: 10
+    reviewers:
+      - 'zachatkinson'
+    assignees:
+      - 'zachatkinson'
+    commit-message:
+      prefix: 'deps'
+      include: 'scope'
+    versioning-strategy: 'increase'
+
+    # Security updates
+    allow:
+      - dependency-type: 'all'
+
+    # Group dependency updates
+    groups:
+      typescript:
+        patterns:
+          - '@typescript-eslint/*'
+          - 'typescript'
+          - '@types/*'
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - 'c8'
+      linting:
+        patterns:
+          - 'eslint*'
+          - 'prettier'
+      security:
+        patterns:
+          - '*'
+        update-types:
+          - 'security'
+
+    # Ignore specific dependencies that need manual review
+    ignore:
+      - dependency-name: 'node-fetch'
+        # Keep on v2 for compatibility
+        versions: ['3.x', '4.x']
+      - dependency-name: 'cheerio'
+        # Keep on stable rc version
+        versions: ['>= 1.0.0']
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'UTC'
+    open-pull-requests-limit: 5
+    reviewers:
+      - 'zachatkinson'
+    assignees:
+      - 'zachatkinson'
+    commit-message:
+      prefix: 'ci'
+      include: 'scope'
