@@ -156,13 +156,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Run Snyk security test
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
-        continue-on-error: true
+      - name: Run npm audit for vulnerabilities
+        run: pnpm audit --audit-level moderate || echo "Security audit completed with warnings"
 
       - name: CodeQL Analysis
         uses: github/codeql-action/init@v3
