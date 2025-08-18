@@ -4,7 +4,7 @@
   "description": "TypeScript-based Netlify serverless function that scrapes DriveHRIS job postings and syncs them to WordPress via REST API",
   "main": "dist/functions/sync-jobs.js",
   "scripts": {
-    "build": "tsc && cp netlify.toml dist/",
+    "build": "tsc && cp netlify.toml dist/ && mkdir -p dist/functions && cp dist/src/functions/* dist/functions/",
     "dev": "tsc --watch",
     "test": "vitest",
     "test:ui": "vitest --ui",
