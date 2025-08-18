@@ -53,9 +53,10 @@ export default defineConfig({
     maxConcurrency: 5,
 
     // Reporting
-    reporters: ['verbose', 'json'],
+    reporters: ['verbose', 'json', 'junit'],
     outputFile: {
       json: './coverage/test-results.json',
+      junit: './test-report.junit.xml',
     },
 
     // Security and isolation

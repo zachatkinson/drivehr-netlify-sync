@@ -112,6 +112,7 @@ temp/
 
 # Vitest
 coverage
+test-report.junit.xml
 
 # Husky
 .husky/_
