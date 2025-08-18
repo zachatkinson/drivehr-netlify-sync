@@ -1,6 +1,6 @@
 [build]
   functions = "dist/functions"
-  command = "pnpm run build"
+  command = "echo 'Using pre-built files from CI/CD'"
   publish = "dist"
 
 [build.environment]
