@@ -2,14 +2,7 @@
   functions = "dist/functions"
   command = "echo 'Using pre-built files from CI/CD'"
   publish = "dist"
-
-[build.environment]
-  NODE_VERSION = "18"
-  PNPM_VERSION = "8"
-
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["node-fetch", "cheerio"]
+  ignore = "true"
 
 # Function-specific configurations
 [functions."sync-jobs"]
