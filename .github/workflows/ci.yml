@@ -9,6 +9,11 @@ on:
     # Run security audits daily at 2 AM UTC
     - cron: '0 2 * * *'
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 env:
   NODE_VERSION: '18'
 

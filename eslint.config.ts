@@ -25,7 +25,15 @@ const config: Linter.Config[] = [
     rules: {
       // TypeScript-specific rules
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          // Allow unused parameters in interfaces and type definitions
+          args: 'after-used',
+        },
+      ],
       '@typescript-eslint/explicit-function-return-type': 'error',
       '@typescript-eslint/explicit-module-boundary-types': 'error',
       '@typescript-eslint/no-inferrable-types': 'off',
@@ -48,6 +56,7 @@ const config: Linter.Config[] = [
       'no-var': 'error',
       'no-duplicate-imports': 'error',
       'no-unused-expressions': 'error',
+      'no-unused-vars': 'off', // Disabled in favor of @typescript-eslint/no-unused-vars for better TypeScript support
       'no-unreachable': 'error',
       eqeqeq: ['error', 'always'],
       'no-fallthrough': 'error',
