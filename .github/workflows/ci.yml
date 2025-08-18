@@ -225,7 +225,7 @@ jobs:
       - name: Deploy to Netlify
         id: deploy
         run: |
-          deployment=$(npx netlify deploy --prod --dir=dist --json)
+          deployment=$(npx netlify deploy --prod --dir=dist --functions=dist/functions --json)
           url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
           echo "url=$url" >> $GITHUB_OUTPUT
         env:
