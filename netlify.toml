@@ -49,9 +49,11 @@
     X-API-Version = "1.0.0"
     X-Service = "DriveHR-Sync"
 
-# Edge function settings for better performance
-[edge_functions]
-  # Add any edge functions if needed
+# Edge function settings for better performance (none currently used)
+# Example edge function configuration:
+# [[edge_functions]]
+#   path = "/api/*"  
+#   function = "auth-check"
 
 # Environment-specific settings
 [context.production.environment]
