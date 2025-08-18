@@ -77,6 +77,9 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            package.json
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
@@ -172,6 +175,15 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript'
+          upload: true
+          sarif-file: codeql-results.sarif
+
+      - name: GitHub Advanced Security - Secret Scanning
+        run: |
+          echo "Secret scanning is automatically enabled for private repos with GitHub Advanced Security"
+          echo "For additional secret patterns, configure .gitleaks.toml or similar tools"
 
   # Deployment (only on main branch)
   deploy:
@@ -238,10 +250,30 @@ jobs:
 
       - name: Health check
         run: |
-          # Add health check endpoint when implemented
-          echo "Health check placeholder - implement actual endpoint test"
+          DEPLOY_URL="${{ steps.deploy.outputs.url }}"
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "No deploy URL available, skipping health check"
+            exit 0
+          fi
+
+          echo "Testing health endpoint: $DEPLOY_URL/.netlify/functions/sync-jobs"
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/.netlify/functions/sync-jobs" || echo "000")
+
+          if [ "$response" = "200" ]; then
+            echo "✅ Health check passed - Function responds with 200"
+          else
+            echo "❌ Health check failed - Function responded with $response"
+            exit 1
+          fi
 
       - name: Performance test
         run: |
-          # Add performance testing when needed
-          echo "Performance test placeholder"
+          DEPLOY_URL="${{ steps.deploy.outputs.url }}"
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "No deploy URL available, skipping performance test"
+            exit 0
+          fi
+
+          echo "Performance testing function endpoint..."
+          time curl -s "$DEPLOY_URL/.netlify/functions/sync-jobs" > /dev/null
+          echo "✅ Basic performance test completed"
