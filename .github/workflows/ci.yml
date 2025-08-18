@@ -225,6 +225,13 @@ jobs:
       - name: Deploy to Netlify
         id: deploy
         run: |
+          echo "🔍 Debug: Checking dist directory structure"
+          ls -la dist/
+          echo "🔍 Debug: Checking functions directory"
+          ls -la dist/functions/
+          echo "🔍 Debug: Running Netlify deploy with verbose output"
+          npx netlify deploy --prod --dir=dist --functions=dist/functions --debug
+          echo "🔍 Debug: If that worked, trying JSON output"
           deployment=$(npx netlify deploy --prod --dir=dist --functions=dist/functions --json)
           url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
           echo "url=$url" >> $GITHUB_OUTPUT
