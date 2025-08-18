@@ -224,9 +224,10 @@ jobs:
 
       - name: Deploy to Netlify
         id: deploy
-        uses: netlify/actions/cli@master
-        with:
-          args: deploy --prod --dir=dist
+        run: |
+          deployment=$(npx netlify deploy --prod --dir=dist --json)
+          url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
+          echo "url=$url" >> $GITHUB_OUTPUT
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
