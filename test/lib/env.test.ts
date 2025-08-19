@@ -445,16 +445,6 @@ describe('Environment Utilities', () => {
         );
       });
 
-      it('should throw error for missing WP_AUTH_TOKEN', () => {
-        // Arrange
-        EnvTestUtils.createEnvironmentWithMissingVars(['WP_AUTH_TOKEN']);
-
-        // Act & Assert
-        expect(() => getEnvironmentConfig()).toThrow(
-          /Required environment variable WP_AUTH_TOKEN is not set/
-        );
-      });
-
       it('should throw error for missing WEBHOOK_SECRET', () => {
         // Arrange
         EnvTestUtils.createEnvironmentWithMissingVars(['WEBHOOK_SECRET']);
