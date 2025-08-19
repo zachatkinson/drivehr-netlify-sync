@@ -74,6 +74,8 @@ jobs:
             pattern: 'test/lib/logger.test.ts'
           - name: 'Utils'
             pattern: 'test/lib/utils.test.ts'
+          - name: 'Job Fetch Utils'
+            pattern: 'test/lib/job-fetch-utils.test.ts'
 
     steps:
       - name: Checkout code
