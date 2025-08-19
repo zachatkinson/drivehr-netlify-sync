@@ -64,6 +64,13 @@ jobs:
     strategy:
       matrix:
         node-version: [18, 20]
+        test-suite:
+          - name: 'Config Tests'
+            pattern: 'test/lib/config.test.ts'
+          - name: 'HTTP Client Tests'
+            pattern: 'test/lib/http-client.test.ts'
+          - name: 'Environment Utilities Tests'
+            pattern: 'test/lib/env.test.ts'
 
     steps:
       - name: Checkout code
@@ -84,8 +91,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Run tests with coverage
-        run: pnpm run test:coverage
+      - name: Run ${{ matrix.test-suite.name }} (Node ${{ matrix.node-version }})
+        run: pnpm exec vitest run ${{ matrix.test-suite.pattern }} --coverage
         env:
           NODE_ENV: test
 
@@ -95,7 +102,7 @@ jobs:
         with:
           file: ./coverage/lcov.info
           flags: unittests
-          name: codecov-umbrella
+          name: ${{ matrix.test-suite.name }}-node${{ matrix.node-version }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
