@@ -155,8 +155,8 @@ jobs:
             echo "Build output missing - sync-jobs.mjs not found"
             exit 1
           fi
-          if [ ! -f "dist/netlify.toml" ]; then
-            echo "Build output missing - netlify.toml not found"
+          if [ ! -f "netlify.toml" ]; then
+            echo "Build output missing - netlify.toml not found in root"
             exit 1
           fi
           echo "Build verification successful - modern ES module format (.mjs) detected"
