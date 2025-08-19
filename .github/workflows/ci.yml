@@ -15,7 +15,7 @@ permissions:
   actions: read
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
   # Code Quality and Security Checks
@@ -63,7 +63,6 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18, 20]
         test-suite:
           - name: 'Config Tests'
             pattern: 'test/lib/config.test.ts'
@@ -79,10 +78,10 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 20
           cache: 'pnpm'
           cache-dependency-path: |
             pnpm-lock.yaml
@@ -91,23 +90,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Run ${{ matrix.test-suite.name }} (Node ${{ matrix.node-version }})
+      - name: Run ${{ matrix.test-suite.name }}
         run: pnpm exec vitest run ${{ matrix.test-suite.pattern }} --coverage
         env:
           NODE_ENV: test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
-        if: matrix.node-version == 18
         with:
           file: ./coverage/lcov.info
           flags: unittests
-          name: ${{ matrix.test-suite.name }}-node${{ matrix.node-version }}
+          name: ${{ matrix.test-suite.name }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() && matrix.node-version == 18 }}
+        if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
