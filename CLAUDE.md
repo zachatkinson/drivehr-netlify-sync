@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-A TypeScript-based Netlify serverless function that scrapes DriveHRIS job
-postings and syncs them to WordPress via REST API, built with enterprise-grade
-security and code quality standards.
+A TypeScript-based Netlify serverless function that scrapes DriveHR job postings
+and syncs them to WordPress via REST API, built with enterprise-grade security
+and code quality standards.
 
 ## Core Development Principles
 

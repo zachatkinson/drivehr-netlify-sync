@@ -29,7 +29,7 @@ import {
   type IHtmlParser,
 } from '../../src/services/job-fetcher.js';
 import type { IHttpClient, HttpResponse } from '../../src/lib/http-client.js';
-import type { DriveHrisApiConfig } from '../../src/types/api.js';
+import type { DriveHrApiConfig } from '../../src/types/api.js';
 import type { RawJobData, NormalizedJob, JobFetchResult } from '../../src/types/job.js';
 import { BaseTestUtils } from '../shared/base-test-utils.js';
 import * as logger from '../../src/lib/logger.js';
@@ -82,10 +82,10 @@ class JobFetcherTestUtils extends BaseTestUtils {
    * Standard DriveHR API configuration for testing
    * @since 1.0.0
    */
-  static readonly STANDARD_CONFIG: DriveHrisApiConfig = {
+  static readonly STANDARD_CONFIG: DriveHrApiConfig = {
     companyId: 'test-company',
     apiBaseUrl: 'https://api.test-company.com',
-    careersUrl: 'https://drivehris.app/careers/test-company/list',
+    careersUrl: 'https://drivehr.app/careers/test-company/list',
     timeout: 30000,
     retries: 3,
   };
@@ -100,14 +100,14 @@ class JobFetcherTestUtils extends BaseTestUtils {
       config: {
         companyId: 'api-only',
         apiBaseUrl: 'https://api.api-only.com',
-      } as DriveHrisApiConfig,
+      } as DriveHrApiConfig,
     },
     {
       name: 'JSON only config',
       config: {
         companyId: 'json-only',
         careersUrl: 'https://json-only.com/careers/list',
-      } as DriveHrisApiConfig,
+      } as DriveHrApiConfig,
     },
     {
       name: 'Complete config',
@@ -117,7 +117,7 @@ class JobFetcherTestUtils extends BaseTestUtils {
       name: 'Minimal config',
       config: {
         companyId: 'minimal',
-      } as DriveHrisApiConfig,
+      } as DriveHrApiConfig,
     },
   ] as const;
 
@@ -169,7 +169,7 @@ class JobFetcherTestUtils extends BaseTestUtils {
       type: 'Full-time',
       postedDate: '2024-01-01T00:00:00.000Z',
       applyUrl: 'https://example.com/apply/job-001',
-      source: 'drivehris',
+      source: 'drivehr',
       rawData: this.SAMPLE_RAW_JOBS[0] as RawJobData,
       processedAt: '2024-01-01T12:00:00.000Z',
     },
@@ -182,7 +182,7 @@ class JobFetcherTestUtils extends BaseTestUtils {
       type: 'Full-time',
       postedDate: '2024-01-02T00:00:00.000Z',
       applyUrl: 'https://example.com/apply/job-002',
-      source: 'drivehris',
+      source: 'drivehr',
       rawData: this.SAMPLE_RAW_JOBS[1] as RawJobData,
       processedAt: '2024-01-01T12:00:00.000Z',
     },
@@ -446,17 +446,17 @@ describe('Job Fetcher Service', () => {
       });
 
       it('should return false when companyId is missing', () => {
-        const config = { apiBaseUrl: 'https://api.example.com' } as DriveHrisApiConfig;
+        const config = { apiBaseUrl: 'https://api.example.com' } as DriveHrApiConfig;
         expect(strategy.canHandle(config)).toBe(false);
       });
 
       it('should return false when apiBaseUrl is missing', () => {
-        const config = { companyId: 'test-company' } as DriveHrisApiConfig;
+        const config = { companyId: 'test-company' } as DriveHrApiConfig;
         expect(strategy.canHandle(config)).toBe(false);
       });
 
       it('should return false when both are missing', () => {
-        const config = {} as DriveHrisApiConfig;
+        const config = {} as DriveHrApiConfig;
         expect(strategy.canHandle(config)).toBe(false);
       });
     });
@@ -464,8 +464,8 @@ describe('Job Fetcher Service', () => {
     describe('fetchJobs', () => {
       beforeEach(() => {
         vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildApiUrls').mockReturnValue([
-          'https://drivehris.app/api/careers/test-company/jobs',
-          'https://drivehris.app/api/v1/careers/test-company/positions',
+          'https://drivehr.app/api/careers/test-company/jobs',
+          'https://drivehr.app/api/v1/careers/test-company/positions',
           'https://api.test-company.com/api/jobs',
         ]);
         vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
@@ -488,7 +488,7 @@ describe('Job Fetcher Service', () => {
 
         expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
         expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledWith(
-          'https://drivehris.app/api/careers/test-company/jobs'
+          'https://drivehr.app/api/careers/test-company/jobs'
         );
         expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledTimes(1);
       });
@@ -587,7 +587,7 @@ describe('Job Fetcher Service', () => {
         const config = {
           companyId: 'test-company',
           apiBaseUrl: 'https://api.example.com',
-        } as DriveHrisApiConfig;
+        } as DriveHrApiConfig;
         expect(strategy.canHandle(config)).toBe(false);
       });
     });
@@ -595,7 +595,7 @@ describe('Job Fetcher Service', () => {
     describe('fetchJobs', () => {
       beforeEach(() => {
         vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildCareersJsonUrl').mockReturnValue(
-          'https://drivehris.app/careers/test-company.json'
+          'https://drivehr.app/careers/test-company.json'
         );
       });
 
@@ -612,7 +612,7 @@ describe('Job Fetcher Service', () => {
 
         expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
         expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledWith(
-          'https://drivehris.app/careers/test-company.json'
+          'https://drivehr.app/careers/test-company.json'
         );
       });
 
@@ -693,7 +693,7 @@ describe('Job Fetcher Service', () => {
         const config = {
           companyId: 'test-company',
           apiBaseUrl: 'https://api.example.com',
-        } as DriveHrisApiConfig;
+        } as DriveHrApiConfig;
         expect(strategy.canHandle(config)).toBe(false);
       });
     });
@@ -775,7 +775,7 @@ describe('Job Fetcher Service', () => {
         const config = {
           companyId: 'test-company',
           apiBaseUrl: 'https://api.example.com',
-        } as DriveHrisApiConfig;
+        } as DriveHrApiConfig;
         expect(strategy.canHandle(config)).toBe(false);
       });
     });
@@ -948,13 +948,13 @@ describe('Job Fetcher Service', () => {
       });
 
       it('should skip strategies that cannot handle configuration', async () => {
-        const minimalConfig = { companyId: 'test' } as DriveHrisApiConfig;
+        const minimalConfig = { companyId: 'test' } as DriveHrApiConfig;
 
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockRejectedValue(
           new Error('No strategies available')
         );
 
-        const result = await service.fetchJobs(minimalConfig, 'drivehris');
+        const result = await service.fetchJobs(minimalConfig, 'drivehr');
 
         JobFetcherTestUtils.verifyJobFetchResult(result, false);
         expect(result.error).toBe('All fetch strategies failed');
@@ -968,7 +968,7 @@ describe('Job Fetcher Service', () => {
           throw new Error('HTML parsing failed');
         });
 
-        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehris');
+        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
 
         JobFetcherTestUtils.verifyJobFetchResult(result, false);
         expect(result.error).toBe('All fetch strategies failed');
@@ -1012,7 +1012,7 @@ describe('Job Fetcher Service', () => {
           JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobsWithMissingTitles })
         );
 
-        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehris');
+        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
 
         expect(result.success).toBe(true);
         expect(result.jobs).toHaveLength(2); // Only jobs with valid titles
@@ -1043,7 +1043,7 @@ describe('Job Fetcher Service', () => {
           JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobWithVariations })
         );
 
-        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehris');
+        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
 
         const normalizedJob = result.jobs[0];
         expect(normalizedJob?.id).toBe('variant-job');
@@ -1070,7 +1070,7 @@ describe('Job Fetcher Service', () => {
           JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobWithoutId })
         );
 
-        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehris');
+        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
 
         const normalizedJob = result.jobs[0];
         expect(normalizedJob?.id).toBe('generated-frontend-engineer-1704067200000');
@@ -1092,7 +1092,7 @@ describe('Job Fetcher Service', () => {
           JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobWithoutDate })
         );
 
-        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehris');
+        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
 
         const normalizedJob = result.jobs[0];
         expect(normalizedJob?.postedDate).toBe('2024-01-01T12:00:00.000Z');
@@ -1112,7 +1112,7 @@ describe('Job Fetcher Service', () => {
 
       // Setup comprehensive mocks for integration testing
       vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildApiUrls').mockReturnValue([
-        'https://drivehris.app/api/careers/test-company/jobs',
+        'https://drivehr.app/api/careers/test-company/jobs',
       ]);
       vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
         JobFetcherTestUtils.SAMPLE_RAW_JOBS
@@ -1209,7 +1209,7 @@ describe('Job Fetcher Service', () => {
             JobFetcherTestUtils.createSuccessResponse({ jobs: JobFetcherTestUtils.SAMPLE_RAW_JOBS })
           );
 
-          const result = await service.fetchJobs(config as DriveHrisApiConfig, 'drivehris');
+          const result = await service.fetchJobs(config as DriveHrApiConfig, 'drivehr');
           expect(result.success).toBe(true);
           expect(result.method).toBe('api');
         }

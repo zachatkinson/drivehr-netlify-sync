@@ -114,7 +114,7 @@ const getRequiredEnvVar = (key: string): string => {
  * ```typescript
  * try {
  *   const config = getEnvironmentConfig();
- *   console.log(`DriveHR Company: ${config.driveHrisCompanyId}`);
+ *   console.log(`DriveHR Company: ${config.driveHrCompanyId}`);
  *   console.log(`WordPress URL: ${config.wpApiUrl}`);
  * } catch (error) {
  *   console.error('Missing required configuration:', error);
@@ -127,7 +127,7 @@ const getRequiredEnvVar = (key: string): string => {
  */
 export const getEnvironmentConfig = (): EnvironmentConfig => {
   return {
-    driveHrisCompanyId: getRequiredEnvVar('DRIVEHR_COMPANY_ID'),
+    driveHrCompanyId: getRequiredEnvVar('DRIVEHR_COMPANY_ID'),
     wpApiUrl: getRequiredEnvVar('WP_API_URL'),
     wpAuthToken: getRequiredEnvVar('WP_AUTH_TOKEN'),
     webhookSecret: getRequiredEnvVar('WEBHOOK_SECRET'),

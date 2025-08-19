@@ -25,7 +25,7 @@
  * @example
  * ```typescript
  * const envConfig: EnvironmentConfig = {
- *   driveHrisCompanyId: process.env.DRIVEHR_COMPANY_ID!,
+ *   driveHrCompanyId: process.env.DRIVEHR_COMPANY_ID!,
  *   wpApiUrl: process.env.WP_API_URL!,
  *   wpAuthToken: process.env.WP_AUTH_TOKEN!,
  *   webhookSecret: process.env.WEBHOOK_SECRET!,
@@ -34,7 +34,7 @@
  * };
  *
  * // Validate required environment variables
- * if (!envConfig.driveHrisCompanyId) {
+ * if (!envConfig.driveHrCompanyId) {
  *   throw new Error('DRIVEHR_COMPANY_ID environment variable is required');
  * }
  * ```
@@ -43,7 +43,7 @@
  */
 export interface EnvironmentConfig {
   /** DriveHR company UUID identifier from environment */
-  readonly driveHrisCompanyId: string;
+  readonly driveHrCompanyId: string;
   /** WordPress API endpoint URL for job synchronization */
   readonly wpApiUrl: string;
   /** WordPress authentication token for API access */

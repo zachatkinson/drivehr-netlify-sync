@@ -2,7 +2,7 @@
  * DriveHR to WordPress Job Sync - Netlify Function
  *
  * Enterprise-grade serverless function that:
- * 1. Scrapes job postings from DriveHRIS using multiple strategies
+ * 1. Scrapes job postings from DriveHR using multiple strategies
  * 2. Validates and normalizes the data
  * 3. Syncs to WordPress via secure webhook
  *
@@ -125,7 +125,7 @@ function initializeDependencies(): AppDependencies {
  * Main Netlify function handler
  *
  * Enterprise-grade serverless function that synchronizes job postings from
- * DriveHRIS to WordPress. Supports multiple HTTP methods and implements
+ * DriveHR to WordPress. Supports multiple HTTP methods and implements
  * comprehensive security, logging, and error handling.
  *
  * **Supported endpoints:**
@@ -274,7 +274,7 @@ async function handleGetRequest(
 ): Promise<HandlerResponse> {
   try {
     const config = getAppConfig();
-    const result = await deps.jobFetchService.fetchJobs(config.driveHris, 'manual');
+    const result = await deps.jobFetchService.fetchJobs(config.driveHr, 'manual');
 
     return {
       statusCode: 200,
@@ -282,7 +282,7 @@ async function handleGetRequest(
       body: JSON.stringify({
         success: result.success,
         data: {
-          source: config.driveHris.careersUrl,
+          source: config.driveHr.careersUrl,
           method: result.method,
           jobCount: result.totalCount,
           jobs: result.jobs,
@@ -347,7 +347,7 @@ async function handlePostRequest(
 
     // Fetch jobs
     const config = getAppConfig();
-    const fetchResult = await deps.jobFetchService.fetchJobs(config.driveHris, source);
+    const fetchResult = await deps.jobFetchService.fetchJobs(config.driveHr, source);
 
     if (!fetchResult.success || fetchResult.jobs.length === 0) {
       return {

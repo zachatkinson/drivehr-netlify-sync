@@ -24,7 +24,7 @@ import {
   JobFetchErrorHandler,
   JobDataExtractor,
 } from '../../src/lib/job-fetch-utils.js';
-import type { DriveHrisApiConfig } from '../../src/types/api.js';
+import type { DriveHrApiConfig } from '../../src/types/api.js';
 import type { RawJobData } from '../../src/types/job.js';
 import { BaseTestUtils } from '../shared/base-test-utils.js';
 import * as logger from '../../src/lib/logger.js';
@@ -57,7 +57,7 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
    * Provides consistent test data for URL building and configuration tests
    * @since 1.0.0
    */
-  static readonly STANDARD_CONFIG: DriveHrisApiConfig = {
+  static readonly STANDARD_CONFIG: DriveHrApiConfig = {
     companyId: 'test-company',
     apiBaseUrl: 'https://api.test-company.com',
     careersUrl: 'https://drivehris.app/careers/test-company/list',
@@ -78,7 +78,7 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
       config: {
         companyId: 'minimal-co',
         apiBaseUrl: 'https://api.minimal.com',
-      } as DriveHrisApiConfig,
+      } as DriveHrApiConfig,
     },
     {
       name: 'custom careers URL',
@@ -86,14 +86,14 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
         companyId: 'custom-corp',
         apiBaseUrl: 'https://custom-api.com',
         careersUrl: 'https://jobs.custom-corp.com/openings',
-      } as DriveHrisApiConfig,
+      } as DriveHrApiConfig,
     },
     {
       name: 'special characters in company ID',
       config: {
         companyId: 'tech-startup-2024',
         apiBaseUrl: 'https://tech-startup-2024.api.com',
-      } as DriveHrisApiConfig,
+      } as DriveHrApiConfig,
     },
   ] as const;
 
@@ -328,7 +328,7 @@ describe('Job Fetch Utils', () => {
 
       it('should handle different company IDs correctly', () => {
         JobFetchUtilsTestUtils.CONFIG_VARIATIONS.forEach(({ name: _name, config }) => {
-          const urls = DriveHrUrlBuilder.buildApiUrls(config as DriveHrisApiConfig);
+          const urls = DriveHrUrlBuilder.buildApiUrls(config as DriveHrApiConfig);
 
           expect(urls).toHaveLength(3);
           urls.forEach((url, index) => {

@@ -199,7 +199,7 @@ export interface WordPressApiConfig extends ApiCredentials {
  *
  * @example
  * ```typescript
- * const driveHrConfig: DriveHrisApiConfig = {
+ * const driveHrConfig: DriveHrApiConfig = {
  *   careersUrl: 'https://drivehris.app/careers/acme-corp/list',
  *   companyId: 'acme-corp-uuid-here',
  *   apiBaseUrl: 'https://drivehris.app/careers/acme-corp',
@@ -209,7 +209,7 @@ export interface WordPressApiConfig extends ApiCredentials {
  * ```
  * @since 1.0.0
  */
-export interface DriveHrisApiConfig {
+export interface DriveHrApiConfig {
   /** URL to the company's careers page for HTML scraping */
   readonly careersUrl: string;
   /** Unique company identifier (UUID format) */

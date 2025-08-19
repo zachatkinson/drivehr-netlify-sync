@@ -46,7 +46,7 @@ export class BaseTestUtils {
    * @since 1.0.0
    */
   static readonly ENV_MAPPING = {
-    driveHrisCompanyId: 'DRIVEHR_COMPANY_ID',
+    driveHrCompanyId: 'DRIVEHR_COMPANY_ID',
     wpApiUrl: 'WP_API_URL',
     wpAuthToken: 'WP_AUTH_TOKEN',
     webhookSecret: 'WEBHOOK_SECRET',
@@ -74,7 +74,7 @@ export class BaseTestUtils {
    * @example
    * ```typescript
    * BaseTestUtils.setupMockEnvironment({
-   *   driveHrisCompanyId: '123e4567-e89b-12d3-a456-426614174000',
+   *   driveHrCompanyId: '123e4567-e89b-12d3-a456-426614174000',
    *   environment: 'test'
    * });
    * ```
@@ -433,7 +433,7 @@ export class TestFixtures {
    * Standard valid environment configuration
    */
   static readonly VALID_ENV_CONFIG: EnvironmentConfig = {
-    driveHrisCompanyId: BaseTestUtils.generateTestUuid(),
+    driveHrCompanyId: BaseTestUtils.generateTestUuid(),
     wpApiUrl: BaseTestUtils.generateTestUrl('example.com', '/wp-json/drivehr/v1/sync'),
     wpAuthToken: BaseTestUtils.generateTestToken('wp_auth', 32),
     webhookSecret: BaseTestUtils.generateTestSecret(32),
@@ -445,7 +445,7 @@ export class TestFixtures {
    * Standard invalid environment configuration for error testing
    */
   static readonly INVALID_ENV_CONFIG = {
-    driveHrisCompanyId: 'invalid-uuid',
+    driveHrCompanyId: 'invalid-uuid',
     wpApiUrl: 'not-a-url',
     wpAuthToken: '',
     webhookSecret: 'short',

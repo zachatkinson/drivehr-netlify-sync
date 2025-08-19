@@ -32,7 +32,7 @@ import type {
   FetchMethod,
   JobSource,
 } from '../types/job.js';
-import type { DriveHrisApiConfig } from '../types/api.js';
+import type { DriveHrApiConfig } from '../types/api.js';
 
 /**
  * Interface for job fetching strategies
@@ -47,18 +47,18 @@ import type { DriveHrisApiConfig } from '../types/api.js';
  * class CustomJobFetchStrategy implements IJobFetchStrategy {
  *   readonly name: FetchMethod = 'custom';
  *
- *   canHandle(config: DriveHrisApiConfig): boolean {
+ *   canHandle(config: DriveHrApiConfig): boolean {
  *     return Boolean(config.customEndpoint);
  *   }
  *
- *   async fetchJobs(config: DriveHrisApiConfig, httpClient: IHttpClient): Promise<RawJobData[]> {
+ *   async fetchJobs(config: DriveHrApiConfig, httpClient: IHttpClient): Promise<RawJobData[]> {
  *     // Implementation here
  *   }
  * }
  * ```
  * @since 1.0.0
  * @see {@link FetchMethod} for available strategy types
- * @see {@link DriveHrisApiConfig} for configuration structure
+ * @see {@link DriveHrApiConfig} for configuration structure
  */
 export interface IJobFetchStrategy {
   /** Unique identifier for this strategy */
@@ -69,7 +69,7 @@ export interface IJobFetchStrategy {
    * @param config - DriveHR API configuration to evaluate
    * @returns True if strategy can process this configuration
    */
-  canHandle(config: DriveHrisApiConfig): boolean;
+  canHandle(config: DriveHrApiConfig): boolean;
 
   /**
    * Fetch jobs using this strategy's specific method
@@ -78,7 +78,7 @@ export interface IJobFetchStrategy {
    * @returns Promise resolving to array of raw job data
    * @throws {Error} When strategy fails to fetch job data
    */
-  fetchJobs(config: DriveHrisApiConfig, httpClient: IHttpClient): Promise<RawJobData[]>;
+  fetchJobs(config: DriveHrApiConfig, httpClient: IHttpClient): Promise<RawJobData[]>;
 }
 
 /**
@@ -98,7 +98,7 @@ export interface IJobFetchStrategy {
  * const strategy = new ApiJobFetchStrategy();
  * const config = {
  *   companyId: 'acme-corp',
- *   apiBaseUrl: 'https://api.drivehris.app'
+ *   apiBaseUrl: 'https://api.drivehr.app'
  * };
  *
  * if (strategy.canHandle(config)) {
@@ -123,7 +123,7 @@ export class ApiJobFetchStrategy implements IJobFetchStrategy {
    * @returns True if both companyId and apiBaseUrl are provided
    * @since 1.0.0
    */
-  public canHandle(config: DriveHrisApiConfig): boolean {
+  public canHandle(config: DriveHrApiConfig): boolean {
     return Boolean(config.companyId && config.apiBaseUrl);
   }
 
@@ -150,10 +150,7 @@ export class ApiJobFetchStrategy implements IJobFetchStrategy {
    * ```
    * @since 1.0.0
    */
-  public async fetchJobs(
-    config: DriveHrisApiConfig,
-    httpClient: IHttpClient
-  ): Promise<RawJobData[]> {
+  public async fetchJobs(config: DriveHrApiConfig, httpClient: IHttpClient): Promise<RawJobData[]> {
     const apiUrls = DriveHrUrlBuilder.buildApiUrls(config);
 
     for (const url of apiUrls) {
@@ -213,7 +210,7 @@ export class JsonJobFetchStrategy implements IJobFetchStrategy {
    * @returns True if careersUrl is provided
    * @since 1.0.0
    */
-  public canHandle(config: DriveHrisApiConfig): boolean {
+  public canHandle(config: DriveHrApiConfig): boolean {
     return Boolean(config.careersUrl);
   }
 
@@ -240,10 +237,7 @@ export class JsonJobFetchStrategy implements IJobFetchStrategy {
    * ```
    * @since 1.0.0
    */
-  public async fetchJobs(
-    config: DriveHrisApiConfig,
-    httpClient: IHttpClient
-  ): Promise<RawJobData[]> {
+  public async fetchJobs(config: DriveHrApiConfig, httpClient: IHttpClient): Promise<RawJobData[]> {
     const jsonUrl = DriveHrUrlBuilder.buildCareersJsonUrl(config);
 
     const response = await httpClient.get<{
@@ -337,7 +331,7 @@ export class HtmlJobFetchStrategy implements IJobFetchStrategy {
    * @returns True if careersUrl is provided
    * @since 1.0.0
    */
-  public canHandle(config: DriveHrisApiConfig): boolean {
+  public canHandle(config: DriveHrApiConfig): boolean {
     return Boolean(config.careersUrl);
   }
 
@@ -368,10 +362,7 @@ export class HtmlJobFetchStrategy implements IJobFetchStrategy {
    * ```
    * @since 1.0.0
    */
-  public async fetchJobs(
-    config: DriveHrisApiConfig,
-    httpClient: IHttpClient
-  ): Promise<RawJobData[]> {
+  public async fetchJobs(config: DriveHrApiConfig, httpClient: IHttpClient): Promise<RawJobData[]> {
     const careersUrl = DriveHrUrlBuilder.buildCareersPageUrl(config);
     const response = await httpClient.get<string>(careersUrl, {
       Accept: 'text/html,application/xhtml+xml',
@@ -434,7 +425,7 @@ export class EmbeddedJobFetchStrategy implements IJobFetchStrategy {
    * @returns True if careersUrl is provided
    * @since 1.0.0
    */
-  public canHandle(config: DriveHrisApiConfig): boolean {
+  public canHandle(config: DriveHrApiConfig): boolean {
     return Boolean(config.careersUrl);
   }
 
@@ -461,10 +452,7 @@ export class EmbeddedJobFetchStrategy implements IJobFetchStrategy {
    * ```
    * @since 1.0.0
    */
-  public async fetchJobs(
-    config: DriveHrisApiConfig,
-    httpClient: IHttpClient
-  ): Promise<RawJobData[]> {
+  public async fetchJobs(config: DriveHrApiConfig, httpClient: IHttpClient): Promise<RawJobData[]> {
     const careersUrl = DriveHrUrlBuilder.buildCareersPageUrl(config);
     const response = await httpClient.get<string>(careersUrl, {
       Accept: 'text/html,application/xhtml+xml',
@@ -622,8 +610,8 @@ export class EmbeddedJobFetchStrategy implements IJobFetchStrategy {
  *
  * const config = {
  *   companyId: 'acme-corp',
- *   apiBaseUrl: 'https://api.drivehris.app',
- *   careersUrl: 'https://drivehris.app/careers/acme-corp/list'
+ *   apiBaseUrl: 'https://api.drivehr.app',
+ *   careersUrl: 'https://drivehr.app/careers/acme-corp/list'
  * };
  *
  * const result = await jobFetcher.fetchJobs(config, 'manual');
@@ -672,8 +660,8 @@ export class JobFetchService {
    * const jobFetcher = new JobFetchService(httpClient, htmlParser);
    * const config = {
    *   companyId: 'tech-startup',
-   *   apiBaseUrl: 'https://api.drivehris.app',
-   *   careersUrl: 'https://drivehris.app/careers/tech-startup/list'
+   *   apiBaseUrl: 'https://api.drivehr.app',
+   *   careersUrl: 'https://drivehr.app/careers/tech-startup/list'
    * };
    *
    * const result = await jobFetcher.fetchJobs(config, 'webhook');
@@ -690,8 +678,8 @@ export class JobFetchService {
    * @see {@link IJobFetchStrategy} for individual strategy implementations
    */
   public async fetchJobs(
-    config: DriveHrisApiConfig,
-    source: JobSource = 'drivehris'
+    config: DriveHrApiConfig,
+    source: JobSource = 'drivehr'
   ): Promise<JobFetchResult> {
     const fetchedAt = new Date().toISOString();
 

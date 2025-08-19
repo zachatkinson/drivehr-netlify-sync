@@ -306,13 +306,13 @@ export interface JobSyncResponse {
  * const manualJob: JobSource = 'manual';
  *
  * // Direct DriveHR system fetch
- * const driveHrJob: JobSource = 'drivehris';
+ * const driveHrJob: JobSource = 'drivehr';
  * ```
  * @since 1.0.0
  */
 export type JobSource =
   /** Job data fetched directly from DriveHR system */
-  | 'drivehris'
+  | 'drivehr'
   /** Job data fetched via manual user-initiated sync */
   | 'manual'
   /** Job data fetched via automated webhook trigger */

@@ -103,7 +103,7 @@ class NetlifyFunctionTestUtils extends BaseTestUtils {
    */
   static readonly SAMPLE_CONFIG = {
     environment: 'test' as const,
-    driveHris: {
+    driveHr: {
       companyId: 'test-company',
       apiBaseUrl: 'https://api.test-company.com',
       careersUrl: 'https://test-company.com/careers',
@@ -801,7 +801,7 @@ describe('Netlify Function Handler', () => {
 
         expect(
           NetlifyFunctionTestUtils.mockServices.jobFetchService.fetchJobs
-        ).toHaveBeenCalledWith(NetlifyFunctionTestUtils.SAMPLE_CONFIG.driveHris, 'manual');
+        ).toHaveBeenCalledWith(NetlifyFunctionTestUtils.SAMPLE_CONFIG.driveHr, 'manual');
         expect(NetlifyFunctionTestUtils.mockServices.wordPressClient.syncJobs).toHaveBeenCalledWith(
           fetchResult.jobs,
           'manual'
@@ -912,7 +912,7 @@ describe('Netlify Function Handler', () => {
 
         expect(
           NetlifyFunctionTestUtils.mockServices.jobFetchService.fetchJobs
-        ).toHaveBeenCalledWith(NetlifyFunctionTestUtils.SAMPLE_CONFIG.driveHris, 'webhook');
+        ).toHaveBeenCalledWith(NetlifyFunctionTestUtils.SAMPLE_CONFIG.driveHr, 'webhook');
         expect(NetlifyFunctionTestUtils.mockServices.wordPressClient.syncJobs).toHaveBeenCalledWith(
           fetchResult.jobs,
           'webhook'
@@ -1125,7 +1125,7 @@ describe('Netlify Function Handler', () => {
 
       // Verify workflow completion
       expect(NetlifyFunctionTestUtils.mockServices.jobFetchService.fetchJobs).toHaveBeenCalledWith(
-        NetlifyFunctionTestUtils.SAMPLE_CONFIG.driveHris,
+        NetlifyFunctionTestUtils.SAMPLE_CONFIG.driveHr,
         'manual'
       );
       expect(NetlifyFunctionTestUtils.mockServices.wordPressClient.syncJobs).toHaveBeenCalledWith(

@@ -17,7 +17,7 @@
  */
 
 import { getLogger } from './logger.js';
-import type { DriveHrisApiConfig } from '../types/api.js';
+import type { DriveHrApiConfig } from '../types/api.js';
 import type { RawJobData } from '../types/job.js';
 
 /**
@@ -82,7 +82,7 @@ export const DRIVEHR_API_CONSTANTS = {
  * ```
  * @since 1.0.0
  * @see {@link DRIVEHR_API_CONSTANTS} for endpoint constants
- * @see {@link DriveHrisApiConfig} for configuration interface
+ * @see {@link DriveHrApiConfig} for configuration interface
  */
 export class DriveHrUrlBuilder {
   /**
@@ -112,7 +112,7 @@ export class DriveHrUrlBuilder {
    * @since 1.0.0
    * @see {@link DRIVEHR_API_CONSTANTS.API_PATHS} for endpoint path definitions
    */
-  public static buildApiUrls(config: DriveHrisApiConfig): string[] {
+  public static buildApiUrls(config: DriveHrApiConfig): string[] {
     const { companyId, apiBaseUrl } = config;
 
     return [
@@ -149,7 +149,7 @@ export class DriveHrUrlBuilder {
    * @since 1.0.0
    * @see {@link buildCareersJsonUrl} for JSON endpoint variant
    */
-  public static buildCareersPageUrl(config: DriveHrisApiConfig): string {
+  public static buildCareersPageUrl(config: DriveHrApiConfig): string {
     return (
       config.careersUrl || `${DRIVEHR_API_CONSTANTS.BASE_URL}/careers/${config.companyId}/list`
     );
@@ -182,7 +182,7 @@ export class DriveHrUrlBuilder {
    * @since 1.0.0
    * @see {@link buildCareersPageUrl} for the base careers page URL
    */
-  public static buildCareersJsonUrl(config: DriveHrisApiConfig): string {
+  public static buildCareersJsonUrl(config: DriveHrApiConfig): string {
     const careersUrl = this.buildCareersPageUrl(config);
     return careersUrl.replace('/list', '.json');
   }
@@ -260,7 +260,7 @@ export class JobFetchErrorHandler {
    * @example
    * ```typescript
    * export class APIStrategy implements JobFetchStrategy {
-   *   async fetchJobs(config: DriveHrisApiConfig): Promise<JobFetchResult> {
+   *   async fetchJobs(config: DriveHrApiConfig): Promise<JobFetchResult> {
    *     try {
    *       // ... strategy implementation
    *     } catch (error) {

@@ -18,7 +18,7 @@
  */
 
 import { z } from 'zod';
-import type { WordPressApiConfig, DriveHrisApiConfig, WebhookConfig } from './api.js';
+import type { WordPressApiConfig, DriveHrApiConfig, WebhookConfig } from './api.js';
 
 /**
  * Main application configuration interface
@@ -37,7 +37,7 @@ import type { WordPressApiConfig, DriveHrisApiConfig, WebhookConfig } from './ap
  *     enableStructured: true,
  *     redactSensitive: true
  *   },
- *   driveHris: {
+ *   driveHr: {
  *     careersUrl: 'https://drivehris.app/careers/company/list',
  *     companyId: 'company-uuid',
  *     apiBaseUrl: 'https://drivehris.app/careers/company'
@@ -54,7 +54,7 @@ export interface AppConfig {
   /** Logging configuration and settings */
   readonly logging: LoggingConfig;
   /** DriveHR API integration configuration */
-  readonly driveHris: DriveHrisApiConfig;
+  readonly driveHr: DriveHrApiConfig;
   /** WordPress API integration configuration */
   readonly wordPress: WordPressApiConfig;
   /** Webhook security configuration */
@@ -387,14 +387,14 @@ export const PerformanceConfigSchema = z.object({
  *   retries: 3
  * };
  *
- * const result = DriveHrisConfigSchema.safeParse(driveHrConfig);
+ * const result = DriveHrConfigSchema.safeParse(driveHrConfig);
  * if (result.success) {
  *   initializeDriveHrClient(result.data);
  * }
  * ```
  * @since 1.0.0
  */
-export const DriveHrisConfigSchema = z.object({
+export const DriveHrConfigSchema = z.object({
   careersUrl: z.string().url(),
   companyId: z.string().uuid(),
   apiBaseUrl: z.string().url(),
@@ -472,7 +472,7 @@ export const WebhookConfigSchema = z.object({
  * const fullConfig = {
  *   environment: 'production',
  *   logging: { level: 'info', enableConsole: true, enableStructured: true, redactSensitive: true },
- *   driveHris: { careersUrl: '...', companyId: '...', apiBaseUrl: '...' },
+ *   driveHr: { careersUrl: '...', companyId: '...', apiBaseUrl: '...' },
  *   wordPress: { baseUrl: '...', token: '...' },
  *   webhook: { secret: '...', algorithm: 'sha256', headerName: 'x-webhook-signature' },
  *   security: { enableCors: true, corsOrigins: ['...'] },
@@ -491,7 +491,7 @@ export const WebhookConfigSchema = z.object({
 export const AppConfigSchema = z.object({
   environment: EnvironmentSchema,
   logging: LoggingConfigSchema,
-  driveHris: DriveHrisConfigSchema,
+  driveHr: DriveHrConfigSchema,
   wordPress: WordPressConfigSchema,
   webhook: WebhookConfigSchema,
   security: SecurityConfigSchema,

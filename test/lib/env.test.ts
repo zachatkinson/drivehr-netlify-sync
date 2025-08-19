@@ -118,13 +118,13 @@ class EnvTestUtils extends BaseTestUtils {
     // Use base utility for common property validation
     this.assertHasRequiredProperties(
       config,
-      ['driveHrisCompanyId', 'wpApiUrl', 'wpAuthToken', 'webhookSecret', 'environment', 'logLevel'],
+      ['driveHrCompanyId', 'wpApiUrl', 'wpAuthToken', 'webhookSecret', 'environment', 'logLevel'],
       'EnvironmentConfig'
     );
 
     // Validate specific values if provided
-    if (expectedValues.driveHrisCompanyId) {
-      expect(config.driveHrisCompanyId).toBe(expectedValues.driveHrisCompanyId);
+    if (expectedValues.driveHrCompanyId) {
+      expect(config.driveHrCompanyId).toBe(expectedValues.driveHrCompanyId);
     }
     if (expectedValues.wpApiUrl) {
       expect(config.wpApiUrl).toBe(expectedValues.wpApiUrl);
@@ -413,7 +413,7 @@ describe('Environment Utilities', () => {
       it('should apply default values for optional variables', () => {
         // Arrange - Set only required variables
         BaseTestUtils.setupMockEnvironment({
-          driveHrisCompanyId: TestFixtures.VALID_ENV_CONFIG.driveHrisCompanyId,
+          driveHrCompanyId: TestFixtures.VALID_ENV_CONFIG.driveHrCompanyId,
           wpApiUrl: TestFixtures.VALID_ENV_CONFIG.wpApiUrl,
           wpAuthToken: TestFixtures.VALID_ENV_CONFIG.wpAuthToken,
           webhookSecret: TestFixtures.VALID_ENV_CONFIG.webhookSecret,
@@ -493,7 +493,7 @@ describe('Environment Utilities', () => {
         const config = getEnvironmentConfig();
 
         // Assert
-        expect(typeof config.driveHrisCompanyId).toBe('string');
+        expect(typeof config.driveHrCompanyId).toBe('string');
         expect(typeof config.wpApiUrl).toBe('string');
         expect(typeof config.wpAuthToken).toBe('string');
         expect(typeof config.webhookSecret).toBe('string');
@@ -549,7 +549,7 @@ describe('Environment Utilities', () => {
       it('should work correctly with real environment variable patterns', () => {
         // Arrange - Realistic environment variable values
         const realisticConfig = {
-          driveHrisCompanyId: BaseTestUtils.generateTestUuid(),
+          driveHrCompanyId: BaseTestUtils.generateTestUuid(),
           wpApiUrl: BaseTestUtils.generateTestUrl('mycompany.com', '/wp-json/drivehr/v1/sync'),
           wpAuthToken: BaseTestUtils.generateTestToken('wp', 64),
           webhookSecret: BaseTestUtils.generateTestSecret(32),
@@ -565,7 +565,7 @@ describe('Environment Utilities', () => {
         EnvTestUtils.assertEnvironmentConfig(config, realisticConfig);
 
         // Validate realistic patterns
-        expect(config.driveHrisCompanyId).toMatch(
+        expect(config.driveHrCompanyId).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         );
         expect(config.wpApiUrl).toMatch(/^https:\/\/.*\/wp-json\/drivehr\/v1\/sync$/);

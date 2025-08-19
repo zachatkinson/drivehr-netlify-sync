@@ -239,7 +239,7 @@ export class ConfigService {
    *
    * if (result.isValid) {
    *   const config = configService.getConfig();
-   *   console.log(`DriveHR Company ID: ${config.driveHris.companyId}`);
+   *   console.log(`DriveHR Company ID: ${config.driveHr.companyId}`);
    *   console.log(`WordPress URL: ${config.wordPress.baseUrl}`);
    * }
    * ```
@@ -265,7 +265,7 @@ export class ConfigService {
 
   private getEnvVarName(fieldPath: string): string {
     const pathToEnvVar: Record<string, string> = {
-      'driveHris.companyId': 'DRIVEHR_COMPANY_ID',
+      'driveHr.companyId': 'DRIVEHR_COMPANY_ID',
       'wordPress.baseUrl': 'WP_API_URL',
       'wordPress.token': 'WP_AUTH_TOKEN',
       'webhook.secret': 'WEBHOOK_SECRET',
@@ -380,8 +380,8 @@ export class ConfigService {
     const rateLimitMax = this.parseNumber('RATE_LIMIT_MAX', 60);
     const rateLimitMaxRequests = this.parseNumber('RATE_LIMIT_MAX_REQUESTS', rateLimitMax);
 
-    // Generate DriveHRIS URLs from company ID
-    const driveHrisUrl = companyId ? `https://drivehris.app/careers/${companyId}/list` : '';
+    // Generate DriveHR URLs from company ID
+    const driveHrUrl = companyId ? `https://drivehris.app/careers/${companyId}/list` : '';
     const apiBaseUrl = companyId ? `https://drivehris.app/careers/${companyId}` : '';
 
     return {
@@ -392,8 +392,8 @@ export class ConfigService {
         enableStructured: environment === 'production',
         redactSensitive: environment === 'production',
       },
-      driveHris: {
-        careersUrl: driveHrisUrl,
+      driveHr: {
+        careersUrl: driveHrUrl,
         companyId,
         apiBaseUrl,
         timeout: requestTimeout,
@@ -476,7 +476,7 @@ export class ConfigService {
  *
  * const config = getAppConfig();
  * console.log(`Environment: ${config.environment}`);
- * console.log(`DriveHR Company: ${config.driveHris.companyId}`);
+ * console.log(`DriveHR Company: ${config.driveHr.companyId}`);
  * ```
  * @since 1.0.0
  * @see {@link loadAppConfig} for loading configuration first

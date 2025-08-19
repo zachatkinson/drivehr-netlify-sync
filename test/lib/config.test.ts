@@ -97,7 +97,7 @@ class ConfigTestUtils extends BaseTestUtils {
     // Use base utility for common property validation
     this.assertHasRequiredProperties(
       config,
-      ['environment', 'logging', 'security', 'performance', 'driveHris', 'wordPress', 'webhook'],
+      ['environment', 'logging', 'security', 'performance', 'driveHr', 'wordPress', 'webhook'],
       'AppConfig'
     );
 
@@ -267,7 +267,7 @@ describe('Config Service', () => {
         ConfigTestUtils.assertValidConfig(config);
         expect(config.environment).toBe('development');
         expect(config.logging.level).toBe('debug');
-        expect(config.driveHris.companyId).toBe(TEST_FIXTURES.validEnvironment.driveHrisCompanyId);
+        expect(config.driveHr.companyId).toBe(TEST_FIXTURES.validEnvironment.driveHrCompanyId);
         expect(config.wordPress.baseUrl).toBe(TEST_FIXTURES.validEnvironment.wpApiUrl);
         expect(config.webhook.secret).toBe(TEST_FIXTURES.validEnvironment.webhookSecret);
       });
@@ -297,7 +297,7 @@ describe('Config Service', () => {
         // Arrange
         ConfigTestUtils.setupMockEnvironment({
           ...TEST_FIXTURES.validEnvironment,
-          driveHrisCompanyId: undefined as never,
+          driveHrCompanyId: undefined as never,
         });
 
         // Act & Assert
@@ -342,7 +342,7 @@ describe('Config Service', () => {
         // Arrange
         ConfigTestUtils.setupMockEnvironment({
           ...TEST_FIXTURES.validEnvironment,
-          driveHrisCompanyId: 'invalid-uuid-format',
+          driveHrCompanyId: 'invalid-uuid-format',
         });
 
         // Act & Assert
@@ -397,7 +397,7 @@ describe('Config Service', () => {
 
       it('should fall back to defaults for missing optional variables', () => {
         // Arrange - Only set required environment variables
-        vi.stubEnv('DRIVEHR_COMPANY_ID', TEST_FIXTURES.validEnvironment.driveHrisCompanyId);
+        vi.stubEnv('DRIVEHR_COMPANY_ID', TEST_FIXTURES.validEnvironment.driveHrCompanyId);
         vi.stubEnv('WP_API_URL', TEST_FIXTURES.validEnvironment.wpApiUrl);
         vi.stubEnv('WP_AUTH_TOKEN', TEST_FIXTURES.validEnvironment.wpAuthToken);
         vi.stubEnv('WEBHOOK_SECRET', TEST_FIXTURES.validEnvironment.webhookSecret);
@@ -456,7 +456,7 @@ describe('Config Service', () => {
       it('should return validation failure for invalid UUID', () => {
         // Arrange
         const invalidConfig = {
-          driveHris: {
+          driveHr: {
             careersUrl: 'https://valid-url.com',
             companyId: 'invalid-uuid',
             apiBaseUrl: 'https://valid-url.com',
@@ -501,7 +501,7 @@ describe('Config Service', () => {
         // Arrange
         const invalidConfig = {
           environment: 'invalid',
-          driveHris: {
+          driveHr: {
             companyId: 'invalid-uuid',
             careersUrl: 'invalid-url',
             apiBaseUrl: 'another-invalid-url',
@@ -529,7 +529,7 @@ describe('Config Service', () => {
           enableStructured: true,
           redactSensitive: true,
         },
-        driveHris: {
+        driveHr: {
           careersUrl: 'https://drivehris.app/careers/company/list',
           companyId: '123e4567-e89b-12d3-a456-426614174000',
           apiBaseUrl: 'https://drivehris.app/careers/company',
