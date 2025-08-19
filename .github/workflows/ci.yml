@@ -225,8 +225,8 @@ jobs:
       - name: Deploy to Netlify
         id: deploy
         run: |
-          echo "🚀 Deploying with CLI-only settings (no config file interference)"
-          deployment=$(npx netlify deploy --prod --dir=dist --functions=dist/functions --skip-functions-cache --json)
+          echo "🚀 Testing deployment without functions flag"
+          deployment=$(npx netlify deploy --prod --dir=dist --json)
           url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
           echo "url=$url" >> $GITHUB_OUTPUT
         env:
