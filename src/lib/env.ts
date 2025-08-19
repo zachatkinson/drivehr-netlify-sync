@@ -127,7 +127,7 @@ const getRequiredEnvVar = (key: string): string => {
  */
 export const getEnvironmentConfig = (): EnvironmentConfig => {
   return {
-    driveHrisCompanyId: getRequiredEnvVar('DRIVEHRIS_COMPANY_ID'),
+    driveHrisCompanyId: getRequiredEnvVar('DRIVEHR_COMPANY_ID'),
     wpApiUrl: getRequiredEnvVar('WP_API_URL'),
     wpAuthToken: getRequiredEnvVar('WP_AUTH_TOKEN'),
     webhookSecret: getRequiredEnvVar('WEBHOOK_SECRET'),

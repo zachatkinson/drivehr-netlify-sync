@@ -293,7 +293,7 @@ describe('Config Service', () => {
     });
 
     describe('when required environment variables are missing', () => {
-      it('should throw an error for missing DRIVEHRIS_COMPANY_ID', () => {
+      it('should throw an error for missing DRIVEHR_COMPANY_ID', () => {
         // Arrange
         ConfigTestUtils.setupMockEnvironment({
           ...TEST_FIXTURES.validEnvironment,
@@ -397,7 +397,7 @@ describe('Config Service', () => {
 
       it('should fall back to defaults for missing optional variables', () => {
         // Arrange - Only set required environment variables
-        vi.stubEnv('DRIVEHRIS_COMPANY_ID', TEST_FIXTURES.validEnvironment.driveHrisCompanyId);
+        vi.stubEnv('DRIVEHR_COMPANY_ID', TEST_FIXTURES.validEnvironment.driveHrisCompanyId);
         vi.stubEnv('WP_API_URL', TEST_FIXTURES.validEnvironment.wpApiUrl);
         vi.stubEnv('WP_AUTH_TOKEN', TEST_FIXTURES.validEnvironment.wpAuthToken);
         vi.stubEnv('WEBHOOK_SECRET', TEST_FIXTURES.validEnvironment.webhookSecret);

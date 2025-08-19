@@ -548,8 +548,8 @@ export interface ConfigValidationResult {
  * ```typescript
  * const envVars: EnvironmentVariable[] = [
  *   {
- *     name: 'DRIVEHRIS_COMPANY_ID',
- *     value: process.env.DRIVEHRIS_COMPANY_ID,
+ *     name: 'DRIVEHR_COMPANY_ID',
+ *     value: process.env.DRIVEHR_COMPANY_ID,
  *     required: true,
  *     description: 'UUID of the company in DriveHR system'
  *   },

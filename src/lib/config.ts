@@ -34,9 +34,9 @@ const ENV_VARIABLES: readonly EnvironmentVariable[] = [
     description: 'Logging level',
   },
   {
-    name: 'DRIVEHRIS_COMPANY_ID',
+    name: 'DRIVEHR_COMPANY_ID',
     required: true,
-    description: 'DriveHRIS company ID',
+    description: 'DriveHR company ID',
   },
   {
     name: 'WP_API_URL',
@@ -265,7 +265,7 @@ export class ConfigService {
 
   private getEnvVarName(fieldPath: string): string {
     const pathToEnvVar: Record<string, string> = {
-      'driveHris.companyId': 'DRIVEHRIS_COMPANY_ID',
+      'driveHris.companyId': 'DRIVEHR_COMPANY_ID',
       'wordPress.baseUrl': 'WP_API_URL',
       'wordPress.token': 'WP_AUTH_TOKEN',
       'webhook.secret': 'WEBHOOK_SECRET',
@@ -366,7 +366,7 @@ export class ConfigService {
     // Prioritize ENVIRONMENT over NODE_ENV for configuration validation
     const environment = getEnvVar('ENVIRONMENT') ?? getEnvVar('NODE_ENV') ?? 'development';
     const logLevel = getEnvVar('LOG_LEVEL') ?? 'info';
-    const companyId = getEnvVar('DRIVEHRIS_COMPANY_ID') ?? '';
+    const companyId = getEnvVar('DRIVEHR_COMPANY_ID') ?? '';
     const wpApiUrl = getEnvVar('WP_API_URL') ?? '';
     const wpAuthToken = getEnvVar('WP_AUTH_TOKEN') ?? '';
     const webhookSecret = getEnvVar('WEBHOOK_SECRET') ?? '';

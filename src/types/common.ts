@@ -25,7 +25,7 @@
  * @example
  * ```typescript
  * const envConfig: EnvironmentConfig = {
- *   driveHrisCompanyId: process.env.DRIVEHRIS_COMPANY_ID!,
+ *   driveHrisCompanyId: process.env.DRIVEHR_COMPANY_ID!,
  *   wpApiUrl: process.env.WP_API_URL!,
  *   wpAuthToken: process.env.WP_AUTH_TOKEN!,
  *   webhookSecret: process.env.WEBHOOK_SECRET!,
@@ -35,7 +35,7 @@
  *
  * // Validate required environment variables
  * if (!envConfig.driveHrisCompanyId) {
- *   throw new Error('DRIVEHRIS_COMPANY_ID environment variable is required');
+ *   throw new Error('DRIVEHR_COMPANY_ID environment variable is required');
  * }
  * ```
  * @since 1.0.0

@@ -46,7 +46,7 @@ export class BaseTestUtils {
    * @since 1.0.0
    */
   static readonly ENV_MAPPING = {
-    driveHrisCompanyId: 'DRIVEHRIS_COMPANY_ID',
+    driveHrisCompanyId: 'DRIVEHR_COMPANY_ID',
     wpApiUrl: 'WP_API_URL',
     wpAuthToken: 'WP_AUTH_TOKEN',
     webhookSecret: 'WEBHOOK_SECRET',

@@ -152,7 +152,7 @@ class EnvTestUtils extends BaseTestUtils {
    * @param missingVars - Array of environment variable names to leave unset
    * @example
    * ```typescript
-   * EnvTestUtils.createEnvironmentWithMissingVars(['DRIVEHRIS_COMPANY_ID', 'WP_API_URL']);
+   * EnvTestUtils.createEnvironmentWithMissingVars(['DRIVEHR_COMPANY_ID', 'WP_API_URL']);
    * ```
    * @since 1.0.0
    */
@@ -429,13 +429,13 @@ describe('Environment Utilities', () => {
     });
 
     describe('when required variables are missing', () => {
-      it('should throw error for missing DRIVEHRIS_COMPANY_ID', () => {
+      it('should throw error for missing DRIVEHR_COMPANY_ID', () => {
         // Arrange
-        EnvTestUtils.createEnvironmentWithMissingVars(['DRIVEHRIS_COMPANY_ID']);
+        EnvTestUtils.createEnvironmentWithMissingVars(['DRIVEHR_COMPANY_ID']);
 
         // Act & Assert
         expect(() => getEnvironmentConfig()).toThrow(
-          /Required environment variable DRIVEHRIS_COMPANY_ID is not set/
+          /Required environment variable DRIVEHR_COMPANY_ID is not set/
         );
       });
 
@@ -472,14 +472,14 @@ describe('Environment Utilities', () => {
       it('should throw error for multiple missing variables (first one encountered)', () => {
         // Arrange
         EnvTestUtils.createEnvironmentWithMissingVars([
-          'DRIVEHRIS_COMPANY_ID',
+          'DRIVEHR_COMPANY_ID',
           'WP_API_URL',
           'WEBHOOK_SECRET',
         ]);
 
         // Act & Assert
         expect(() => getEnvironmentConfig()).toThrow(
-          /Required environment variable DRIVEHRIS_COMPANY_ID is not set/
+          /Required environment variable DRIVEHR_COMPANY_ID is not set/
         );
       });
     });
