@@ -226,7 +226,14 @@ jobs:
         id: deploy
         run: |
           echo "🚀 Deploying with pnpm exec (proper package manager)"
-          deployment=$(pnpm exec netlify deploy --prod --dir=dist --json)
+          echo "📦 Netlify CLI version:"
+          pnpm exec netlify --version
+          echo "📁 Checking dist directory contents:"
+          ls -la dist/
+          echo "📋 Checking netlify.toml in dist:"
+          cat dist/netlify.toml
+          echo "🔧 Using deployment flags: --prod --dir=dist --functions=dist/functions --skip-functions-cache --build=false"
+          deployment=$(pnpm exec netlify deploy --prod --dir=dist --functions=dist/functions --skip-functions-cache --build=false --json)
           url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
           echo "url=$url" >> $GITHUB_OUTPUT
         env:

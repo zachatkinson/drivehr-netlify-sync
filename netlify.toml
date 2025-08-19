@@ -1,6 +1,6 @@
 [build]
   functions = "dist/functions"
-  command = "echo 'Using pre-built files from CI/CD'"
+  command = ""
   publish = "dist"
   ignore = "true"
 
