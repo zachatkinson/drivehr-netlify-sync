@@ -304,7 +304,7 @@ describe('Config Service', () => {
         const result = loadAppConfig();
         ConfigTestUtils.assertValidationFailure(result);
         expect(
-          result.errors.some(error => error.toLowerCase().includes('drivehris_company_id'))
+          result.errors.some(error => error.toLowerCase().includes('drivehr_company_id'))
         ).toBe(true);
       });
 
