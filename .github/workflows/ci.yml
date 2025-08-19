@@ -215,6 +215,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [quality, test, build, security]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      deploy_url: ${{ steps.deploy.outputs.url }}
 
     environment:
       name: production
@@ -286,7 +288,7 @@ jobs:
 
       - name: Health check
         run: |
-          DEPLOY_URL="${{ steps.deploy.outputs.url }}"
+          DEPLOY_URL="${{ needs.deploy.outputs.deploy_url }}"
           if [ -z "$DEPLOY_URL" ]; then
             echo "No deploy URL available, skipping health check"
             exit 0
@@ -304,7 +306,7 @@ jobs:
 
       - name: Performance test
         run: |
-          DEPLOY_URL="${{ steps.deploy.outputs.url }}"
+          DEPLOY_URL="${{ needs.deploy.outputs.deploy_url }}"
           if [ -z "$DEPLOY_URL" ]; then
             echo "No deploy URL available, skipping performance test"
             exit 0
