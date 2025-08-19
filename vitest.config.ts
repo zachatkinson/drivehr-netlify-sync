@@ -9,8 +9,8 @@ export default defineConfig({
     // Environment
     environment: 'node',
 
-    // Test file patterns
-    include: ['tests/**/*.{test,spec}.{ts,js}', 'src/**/*.{test,spec}.{ts,js}'],
+    // Test file patterns - using enterprise directory structure
+    include: ['test/**/*.{test,spec}.{ts,js}'],
     exclude: ['node_modules', 'dist', 'coverage'],
 
     // Coverage configuration
@@ -22,7 +22,7 @@ export default defineConfig({
         'node_modules/',
         'dist/',
         'coverage/',
-        'tests/',
+        'test/',
         '**/*.d.ts',
         '**/*.config.{ts,js}',
         '**/index.ts',

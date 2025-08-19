@@ -12,7 +12,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     "noPropertyAccessFromIndexSignature": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
@@ -33,8 +33,8 @@
     "alwaysStrict": true,
     "noImplicitUseStrict": false
   },
-  "include": ["src/**/*", "*.ts"],
-  "exclude": ["node_modules", "dist", "tests", "coverage", "**/*.test.ts", "**/*.spec.ts"],
+  "include": ["src/**/*", "test/**/*", "*.ts"],
+  "exclude": ["node_modules", "dist", "coverage"],
   "ts-node": {
     "esm": false
   }

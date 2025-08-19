@@ -16,6 +16,21 @@ const config: Linter.Config[] = [
         sourceType: 'module',
         project: './tsconfig.json',
       },
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        require: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        AbortController: 'readonly',
+        URL: 'readonly',
+        global: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+      },
     },
     plugins: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Third-party library compatibility issue that cannot be resolved
@@ -42,6 +57,7 @@ const config: Linter.Config[] = [
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
       '@typescript-eslint/prefer-optional-chain': 'error',
+      '@typescript-eslint/no-redeclare': ['error', { ignoreDeclarationMerge: true }],
 
       // Security rules
       'no-eval': 'error',
@@ -57,6 +73,7 @@ const config: Linter.Config[] = [
       'no-duplicate-imports': 'error',
       'no-unused-expressions': 'error',
       'no-unused-vars': 'off', // Disabled in favor of @typescript-eslint/no-unused-vars for better TypeScript support
+      'no-redeclare': 'off', // Disabled in favor of @typescript-eslint/no-redeclare for better function overload support
       'no-unreachable': 'error',
       eqeqeq: ['error', 'always'],
       'no-fallthrough': 'error',
@@ -76,7 +93,7 @@ const config: Linter.Config[] = [
   },
   // Test files should have relaxed rules
   {
-    files: ['**/*.test.ts', '**/*.spec.ts', 'tests/**/*.ts'],
+    files: ['**/*.test.ts', '**/*.spec.ts', 'test/**/*.ts'],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',
       complexity: 'off',

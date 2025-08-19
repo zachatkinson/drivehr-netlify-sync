@@ -54,6 +54,133 @@ security and code quality standards.
 - Implement comprehensive interfaces for all external API responses
 - Use generic types for reusable functions and classes
 
+#### JSDoc Documentation Standards (2025 Best Practices)
+
+**ALL public functions, classes, and interfaces must have comprehensive JSDoc:**
+
+````typescript
+/**
+ * Brief description of what the function does
+ *
+ * Detailed explanation if needed, including business logic,
+ * architectural decisions, or important implementation details.
+ *
+ * @param paramName - Description of parameter, including constraints
+ * @param optionalParam - Description with default behavior
+ * @returns Description of return value and possible states
+ * @throws {ErrorType} When and why this error is thrown
+ * @example
+ * ```typescript
+ * const result = await fetchJobs(config, 'manual');
+ * if (result.success) {
+ *   console.log(`Fetched ${result.jobs.length} jobs`);
+ * }
+ * ```
+ * @since 1.0.0
+ * @see {@link RelatedFunction} for related functionality
+ */
+````
+
+**Required JSDoc tags:**
+
+- `@param` for all parameters
+- `@returns` for all return values (except void)
+- `@throws` for all possible exceptions
+- `@example` for complex functions or public APIs
+- `@since` for version tracking
+- `@deprecated` with migration path for deprecated code
+
+**Documentation requirements:**
+
+- Explain WHY not just WHAT (business logic, architectural decisions)
+- Include usage examples for complex APIs
+- Document error conditions and recovery strategies
+- Reference related functions/classes with `@see`
+- Use proper TypeScript syntax in examples
+
+#### Test File JSDoc Standards (2025 Best Practices)
+
+**ALL test files must follow comprehensive JSDoc documentation:**
+
+**File-level documentation:** Every test file must have complete module JSDoc
+with:
+
+````typescript
+/**
+ * Service Name Test Suite
+ *
+ * Comprehensive test coverage for [service description] following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates [key functionality areas].
+ *
+ * Test Features:
+ * - [Feature 1 description]
+ * - [Feature 2 description]
+ * - [Feature 3 description]
+ *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/path/service.test.ts -- --grep "pattern"
+ * ```
+ *
+ * @module service-test-suite
+ * @since 1.0.0
+ * @see {@link ../../src/path/service.ts} for the service being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
+ */
+````
+
+**Test utility classes:** All utility classes extending BaseTestUtils must have:
+
+````typescript
+/**
+ * Service-specific test utilities
+ *
+ * Extends BaseTestUtils with service-specific testing patterns.
+ * Maintains DRY principles while providing specialized testing methods.
+ *
+ * @since 1.0.0
+ */
+class ServiceTestUtils extends BaseTestUtils {
+  /**
+   * Brief description of utility method
+   *
+   * Detailed explanation of what the method does, how it helps with testing,
+   * and when to use it. Include any important implementation details.
+   *
+   * @param param1 - Description of parameter
+   * @param param2 - Description of parameter
+   * @returns Description of return value
+   * @example
+   * ```typescript
+   * ServiceTestUtils.utilityMethod(param1, param2);
+   * ```
+   * @since 1.0.0
+   */
+  static utilityMethod(param1: type, param2: type): returnType {}
+}
+````
+
+**CRITICAL: Test JSDoc Requirements:**
+
+- All test utility classes must have comprehensive JSDoc
+- All utility methods must have @param, @returns, @example, @since
+- File-level JSDoc must explain test scope and features
+- Examples must show real usage patterns
+- Reference the source file being tested with @see
+- Follow the same enterprise standards as production code
+
+**Test File Creation Checklist:**
+
+- [ ] File-level JSDoc with comprehensive description
+- [ ] Test utility class with full JSDoc documentation
+- [ ] All utility methods have @param, @returns, @example, @since
+- [ ] Examples show realistic usage patterns
+- [ ] References to source files and standards with @see
+- [ ] Module name follows kebab-case pattern
+- [ ] Test features clearly documented
+
 ### 3. ESLint Policy (Zero Tolerance)
 
 #### eslint-disable Usage
@@ -118,12 +245,173 @@ security and code quality standards.
 - Integration tests for all API endpoints
 - Security tests for authentication and authorization
 
+#### Test Naming Standards
+
+Test names must be descriptive and follow this format:
+
+```
+describe('[ServiceName/FunctionName]', () => {
+  describe('when [specific condition]', () => {
+    it('should [expected behavior]', () => {
+      // Test implementation
+    });
+  });
+});
+```
+
+**Examples of GOOD test names:**
+
+- `should return valid normalized job when given complete raw job data`
+- `should throw WordPressClientError when webhook signature validation fails`
+- `should retry HTTP requests with exponential backoff when rate limited`
+- `should parse job listings from HTML using CSS selectors successfully`
+
+**Examples of BAD test names:**
+
+- `should work`
+- `test job fetch`
+- `config test`
+- `it works properly`
+
+#### Test Organization
+
+- Group related tests using nested `describe` blocks
+- Each test file should test ONE module/service/class
+- Use descriptive describe blocks that explain the component being tested
+- Use descriptive it blocks that explain the specific behavior being verified
+- Test files must end with `.test.ts` or `.spec.ts`
+
+#### DRY and SOLID Principles for Test Code (MANDATORY)
+
+**Test code must follow the same DRY and SOLID principles as source code:**
+
+- **NO duplicate mock setup** - Create shared mock factories and utilities
+- **NO repeated assertion patterns** - Extract common assertion helpers
+- **Single Responsibility** - Each test helper has one clear purpose
+- **Interface Segregation** - Mock interfaces should only include methods under
+  test
+- **Dependency Inversion** - Tests should depend on abstractions, not concrete
+  implementations
+
+**Required test utilities pattern:**
+
+```typescript
+// test/utils/mock-helpers.ts
+export function createMockHttpClient(): MockHttpClient & {
+  asInterface(): IHttpClient;
+};
+export function expectDefined<T>(value: T | undefined): asserts value is T;
+export function expectArrayWithLength<T>(
+  array: T[],
+  length: number
+): asserts array is T[];
+```
+
+**Examples of DRY violations to avoid:**
+
+- Repeating the same mock setup in multiple test files
+- Duplicating the same assertion patterns across tests
+- Copy-pasting test helper functions instead of sharing them
+- Creating multiple similar test fixtures instead of parameterized factories
+
+#### Test Directory Structure (Enterprise Standard)
+
+**REQUIRED: Use separate test directory with mirrored structure**
+
+```
+/test/                          # Root test directory
+  fixtures/                     # Shared test data and mock objects
+    raw-job-data.ts            # Mock job data for testing
+    http-responses.ts          # Mock HTTP responses
+    environment-configs.ts     # Mock configuration data
+    netlify-events.ts          # Mock Netlify function events
+  utils/                        # Shared test utilities and factories
+    test-factories.ts          # Factory functions for generating test data
+  lib/                          # Tests for src/lib/ (mirrors source structure)
+    config.test.ts
+    http-client.test.ts
+  services/                     # Tests for src/services/
+    job-fetcher.test.ts
+    html-parser.test.ts
+    wordpress-client.test.ts
+  functions/                    # Tests for src/functions/
+    sync-jobs.test.ts
+```
+
+**Why separate directory over co-located tests:**
+
+- Better for enterprise/production builds (easier to exclude tests)
+- Cleaner directory structure for large codebases
+- Industry standard for enterprise applications
+- Easier to configure build tools to exclude test files
+- Better separation of concerns between production and test code
+
+#### Test Structure Standards
+
+```typescript
+// REQUIRED: All tests must follow this structure
+describe('ServiceName', () => {
+  // Setup and teardown
+  beforeEach(() => {
+    // Reset mocks, initialize test data
+  });
+
+  describe('when [condition/scenario]', () => {
+    it('should [expected behavior]', () => {
+      // Arrange: Set up test data
+      // Act: Execute the code under test
+      // Assert: Verify the results
+    });
+
+    it('should [different expected behavior]', () => {
+      // Test implementation
+    });
+  });
+
+  describe('when [different condition]', () => {
+    it('should [expected behavior for this condition]', () => {
+      // Test implementation
+    });
+  });
+});
+```
+
+#### Mock and Test Data Standards
+
+- Create realistic test fixtures that mirror production data
+- Use factory functions for generating test data
+- Mock external dependencies at the interface level
+- Never use real API keys or sensitive data in tests
+- Create separate test data files in `src/test/fixtures/`
+
+#### Error Testing Requirements
+
+- Test all error conditions and edge cases
+- Verify error messages are appropriate for each scenario
+- Test error handling doesn't leak sensitive information
+- Verify proper cleanup happens during error scenarios
+
+#### Security Testing Requirements
+
+- Test authentication and authorization flows
+- Verify input validation and sanitization
+- Test rate limiting and abuse prevention
+- Verify no sensitive data is logged or exposed
+
+#### Performance Testing Standards
+
+- Test performance of critical paths
+- Verify memory usage stays within bounds
+- Test with realistic data volumes
+- Measure and assert on response times for key operations
+
 #### Vitest Configuration
 
 - Use TypeScript configuration files
 - Mock external dependencies appropriately
-- Test error conditions and edge cases
-- Performance testing for critical paths
+- Generate JUnit XML reports for CI/CD integration
+- Include code coverage reporting
+- Use watch mode for development
 
 ### 6. Performance Standards
 
@@ -160,6 +448,28 @@ security and code quality standards.
 - Never log sensitive information (passwords, tokens, PII)
 
 ### 8. Git Workflow Standards
+
+#### Pre-Commit Requirements (MANDATORY)
+
+**CRITICAL: Before ANY commit can be made, ALL of the following must be executed
+and pass without errors:**
+
+1. **Code Formatting**: `pnpm run format`
+   - Must complete successfully with no errors
+   - All code must be properly formatted according to Prettier rules
+
+2. **Type Checking**: `pnpm typecheck`
+   - Must pass with zero TypeScript errors
+   - All type issues must be resolved properly, not bypassed
+
+3. **Linting**: `pnpm lint --fix`
+   - Must pass with zero ESLint errors or warnings
+   - Auto-fixable issues will be corrected
+   - All remaining issues must be resolved manually
+   - No eslint-disable additions without architectural justification
+
+**These checks are NOT optional - they are requirements. Commits that bypass
+these checks will be rejected.**
 
 #### Commit Messages
 
@@ -235,6 +545,7 @@ security and code quality standards.
 - [ ] Proper error handling
 - [ ] Security considerations addressed
 - [ ] Tests written and passing
+- [ ] Test files have comprehensive JSDoc (classes and methods)
 - [ ] Documentation updated
 - [ ] No eslint-disable without justification
 - [ ] Performance implications considered

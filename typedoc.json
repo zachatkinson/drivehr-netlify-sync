@@ -1,0 +1,26 @@
+{
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": false,
+  "includeVersion": true,
+  "sort": ["source-order"],
+  "groupOrder": ["Classes", "Interfaces", "Type Aliases", "Variables", "Functions"],
+  "categorizeByGroup": true,
+  "defaultCategory": "Other",
+  "categoryOrder": ["Services", "Utilities", "Types", "Configuration", "*"],
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": true
+  },
+  "treatWarningsAsErrors": true,
+  "gitRevision": "main",
+  "hideGenerator": true,
+  "includeInternalComment": false,
+  "stripInternal": true
+}
