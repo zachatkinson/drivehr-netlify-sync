@@ -11,3 +11,5 @@ syncs them to WordPress via Netlify Functions.
 - Fixed deployment configuration for proper function discovery
 
 Last updated: August 19, 2025
+
+Environment variables now configured in Netlify - triggering fresh deployment.
