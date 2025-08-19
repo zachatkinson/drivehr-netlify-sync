@@ -64,11 +64,11 @@ jobs:
     strategy:
       matrix:
         test-suite:
-          - name: 'Config Tests'
+          - name: 'Config'
             pattern: 'test/lib/config.test.ts'
-          - name: 'HTTP Client Tests'
+          - name: 'HTTP Client'
             pattern: 'test/lib/http-client.test.ts'
-          - name: 'Environment Utilities Tests'
+          - name: 'Environment Utilities'
             pattern: 'test/lib/env.test.ts'
 
     steps:
