@@ -70,6 +70,8 @@ jobs:
             pattern: 'test/lib/http-client.test.ts'
           - name: 'Environment Utilities'
             pattern: 'test/lib/env.test.ts'
+          - name: 'Logger'
+            pattern: 'test/lib/logger.test.ts'
 
     steps:
       - name: Checkout code
