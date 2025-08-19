@@ -166,7 +166,7 @@ class UtilsTestUtils extends BaseTestUtils {
    * Verify timing-safe comparison takes consistent time
    *
    * Tests that timing-safe comparison functions don't leak timing information
-   * that could be exploited in timing attacks. This is a basic check - 
+   * that could be exploited in timing attacks. This is a basic check -
    * in test environments, timing can be highly variable, so we use generous
    * thresholds and multiple samples.
    *
@@ -191,7 +191,7 @@ class UtilsTestUtils extends BaseTestUtils {
     expect(compareFn(testString, identical)).toBe(true);
     expect(compareFn(testString, differentAtStart)).toBe(false);
     expect(compareFn(testString, differentAtEnd)).toBe(false);
-    
+
     // Basic timing measurement - if it completes without hanging, it's working
     const start = Date.now();
     for (let i = 0; i < 100; i++) {
@@ -199,7 +199,7 @@ class UtilsTestUtils extends BaseTestUtils {
       compareFn(testString, differentAtEnd);
     }
     const elapsed = Date.now() - start;
-    
+
     // Should complete in reasonable time (less than 100ms for 200 comparisons)
     expect(elapsed).toBeLessThan(100);
   }
@@ -294,10 +294,10 @@ describe('String Utils', () => {
 
       const title = 'Software Engineer';
       const id1 = StringUtils.generateIdFromTitle(title);
-      
+
       // Add small delay to ensure different timestamps
       await new Promise(resolve => setTimeout(resolve, 2));
-      
+
       const id2 = StringUtils.generateIdFromTitle(title);
       expect(id1).not.toBe(id2);
       expect(id1).toMatch(/^software-engineer-\d+$/);
@@ -475,7 +475,7 @@ describe('Security Utils', () => {
       // which will work with any values that can be converted to strings
       expect(() => SecurityUtils.timingSafeEqual(123 as unknown as string, 'test')).not.toThrow();
       expect(() => SecurityUtils.timingSafeEqual('test', 123 as unknown as string)).not.toThrow();
-      
+
       // Test the actual behavior
       expect(SecurityUtils.timingSafeEqual('123', '123')).toBe(true);
       expect(SecurityUtils.timingSafeEqual('123', '456')).toBe(false);
