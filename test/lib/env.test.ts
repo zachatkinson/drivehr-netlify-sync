@@ -118,7 +118,7 @@ class EnvTestUtils extends BaseTestUtils {
     // Use base utility for common property validation
     this.assertHasRequiredProperties(
       config,
-      ['driveHrCompanyId', 'wpApiUrl', 'wpAuthToken', 'webhookSecret', 'environment', 'logLevel'],
+      ['driveHrCompanyId', 'wpApiUrl', 'webhookSecret', 'environment', 'logLevel'],
       'EnvironmentConfig'
     );
 
@@ -128,9 +128,6 @@ class EnvTestUtils extends BaseTestUtils {
     }
     if (expectedValues.wpApiUrl) {
       expect(config.wpApiUrl).toBe(expectedValues.wpApiUrl);
-    }
-    if (expectedValues.wpAuthToken) {
-      expect(config.wpAuthToken).toBe(expectedValues.wpAuthToken);
     }
     if (expectedValues.webhookSecret) {
       expect(config.webhookSecret).toBe(expectedValues.webhookSecret);
@@ -415,7 +412,6 @@ describe('Environment Utilities', () => {
         BaseTestUtils.setupMockEnvironment({
           driveHrCompanyId: TestFixtures.VALID_ENV_CONFIG.driveHrCompanyId,
           wpApiUrl: TestFixtures.VALID_ENV_CONFIG.wpApiUrl,
-          wpAuthToken: TestFixtures.VALID_ENV_CONFIG.wpAuthToken,
           webhookSecret: TestFixtures.VALID_ENV_CONFIG.webhookSecret,
         });
 
@@ -495,7 +491,6 @@ describe('Environment Utilities', () => {
         // Assert
         expect(typeof config.driveHrCompanyId).toBe('string');
         expect(typeof config.wpApiUrl).toBe('string');
-        expect(typeof config.wpAuthToken).toBe('string');
         expect(typeof config.webhookSecret).toBe('string');
         expect(typeof config.environment).toBe('string');
         expect(typeof config.logLevel).toBe('string');
@@ -551,7 +546,6 @@ describe('Environment Utilities', () => {
         const realisticConfig = {
           driveHrCompanyId: BaseTestUtils.generateTestUuid(),
           wpApiUrl: BaseTestUtils.generateTestUrl('mycompany.com', '/wp-json/drivehr/v1/sync'),
-          wpAuthToken: BaseTestUtils.generateTestToken('wp', 64),
           webhookSecret: BaseTestUtils.generateTestSecret(32),
           environment: 'production' as const,
           logLevel: 'info' as const,
@@ -569,7 +563,6 @@ describe('Environment Utilities', () => {
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         );
         expect(config.wpApiUrl).toMatch(/^https:\/\/.*\/wp-json\/drivehr\/v1\/sync$/);
-        expect(config.wpAuthToken).toMatch(/^wp_[a-f0-9]{64}$/);
         expect(config.webhookSecret.length).toBeGreaterThanOrEqual(32);
       });
     });

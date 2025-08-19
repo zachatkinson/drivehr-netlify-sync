@@ -27,7 +27,6 @@
  * const envConfig: EnvironmentConfig = {
  *   driveHrCompanyId: process.env.DRIVEHR_COMPANY_ID!,
  *   wpApiUrl: process.env.WP_API_URL!,
- *   wpAuthToken: process.env.WP_AUTH_TOKEN!,
  *   webhookSecret: process.env.WEBHOOK_SECRET!,
  *   environment: (process.env.NODE_ENV as any) || 'development',
  *   logLevel: (process.env.LOG_LEVEL as any) || 'info'
@@ -46,8 +45,6 @@ export interface EnvironmentConfig {
   readonly driveHrCompanyId: string;
   /** WordPress API endpoint URL for job synchronization */
   readonly wpApiUrl: string;
-  /** WordPress authentication token for API access */
-  readonly wpAuthToken: string;
   /** Secret key for webhook signature verification (minimum 32 characters) */
   readonly webhookSecret: string;
   /** Current application environment */

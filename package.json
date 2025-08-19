@@ -24,7 +24,7 @@
     "prepare": "husky install",
     "precommit": "lint-staged",
     "netlify:watch": "netlify watch",
-    "netlify:logs": "netlify logs:function sync-jobs --tail",
+    "netlify:logs": "netlify logs:function sync-jobs",
     "netlify:status": "netlify status",
     "netlify:open": "netlify open:site"
   },

@@ -399,7 +399,6 @@ describe('Config Service', () => {
         // Arrange - Only set required environment variables
         vi.stubEnv('DRIVEHR_COMPANY_ID', TEST_FIXTURES.validEnvironment.driveHrCompanyId);
         vi.stubEnv('WP_API_URL', TEST_FIXTURES.validEnvironment.wpApiUrl);
-        vi.stubEnv('WP_AUTH_TOKEN', TEST_FIXTURES.validEnvironment.wpAuthToken);
         vi.stubEnv('WEBHOOK_SECRET', TEST_FIXTURES.validEnvironment.webhookSecret);
         // Explicitly clear optional environment variables to test defaults
         vi.stubEnv('NODE_ENV', '');

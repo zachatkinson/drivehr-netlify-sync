@@ -129,7 +129,6 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
   return {
     driveHrCompanyId: getRequiredEnvVar('DRIVEHR_COMPANY_ID'),
     wpApiUrl: getRequiredEnvVar('WP_API_URL'),
-    wpAuthToken: getRequiredEnvVar('WP_AUTH_TOKEN'),
     webhookSecret: getRequiredEnvVar('WEBHOOK_SECRET'),
     environment: (getEnvVar('ENVIRONMENT') as EnvironmentConfig['environment']) || 'production',
     logLevel: (getEnvVar('LOG_LEVEL') as EnvironmentConfig['logLevel']) || 'info',

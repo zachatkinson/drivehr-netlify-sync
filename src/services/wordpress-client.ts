@@ -446,7 +446,6 @@ export class WordPressClientError extends Error {
  * ```typescript
  * const config = {
  *   baseUrl: 'https://mysite.com/wp-json/drivehr/v1/sync',
- *   token: process.env.WP_AUTH_TOKEN,
  *   timeout: 30000,
  *   retries: 3
  * };

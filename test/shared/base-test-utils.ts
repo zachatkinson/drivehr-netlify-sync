@@ -435,7 +435,6 @@ export class TestFixtures {
   static readonly VALID_ENV_CONFIG: EnvironmentConfig = {
     driveHrCompanyId: BaseTestUtils.generateTestUuid(),
     wpApiUrl: BaseTestUtils.generateTestUrl('example.com', '/wp-json/drivehr/v1/sync'),
-    wpAuthToken: BaseTestUtils.generateTestToken('wp_auth', 32),
     webhookSecret: BaseTestUtils.generateTestSecret(32),
     environment: 'development',
     logLevel: 'debug',
@@ -447,7 +446,6 @@ export class TestFixtures {
   static readonly INVALID_ENV_CONFIG = {
     driveHrCompanyId: 'invalid-uuid',
     wpApiUrl: 'not-a-url',
-    wpAuthToken: '',
     webhookSecret: 'short',
     environment: 'invalid' as never,
     logLevel: 'invalid' as never,

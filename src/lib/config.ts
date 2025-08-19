@@ -44,11 +44,6 @@ const ENV_VARIABLES: readonly EnvironmentVariable[] = [
     description: 'WordPress API base URL',
   },
   {
-    name: 'WP_AUTH_TOKEN',
-    required: true,
-    description: 'WordPress authentication token',
-  },
-  {
     name: 'WEBHOOK_SECRET',
     required: true,
     description: 'Webhook signature verification secret',
@@ -267,7 +262,6 @@ export class ConfigService {
     const pathToEnvVar: Record<string, string> = {
       'driveHr.companyId': 'DRIVEHR_COMPANY_ID',
       'wordPress.baseUrl': 'WP_API_URL',
-      'wordPress.token': 'WP_AUTH_TOKEN',
       'webhook.secret': 'WEBHOOK_SECRET',
       environment: 'ENVIRONMENT',
       'logging.level': 'LOG_LEVEL',
@@ -368,7 +362,6 @@ export class ConfigService {
     const logLevel = getEnvVar('LOG_LEVEL') ?? 'info';
     const companyId = getEnvVar('DRIVEHR_COMPANY_ID') ?? '';
     const wpApiUrl = getEnvVar('WP_API_URL') ?? '';
-    const wpAuthToken = getEnvVar('WP_AUTH_TOKEN') ?? '';
     const webhookSecret = getEnvVar('WEBHOOK_SECRET') ?? '';
 
     // Parse optional configuration
@@ -401,7 +394,6 @@ export class ConfigService {
       },
       wordPress: {
         baseUrl: wpApiUrl,
-        token: wpAuthToken,
         timeout: requestTimeout,
         retries: maxRetries,
       },

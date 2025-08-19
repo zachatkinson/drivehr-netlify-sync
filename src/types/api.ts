@@ -173,7 +173,6 @@ export interface ApiCredentials {
  * ```typescript
  * const wpConfig: WordPressApiConfig = {
  *   baseUrl: 'https://mysite.com/wp-json/drivehr/v1/sync',
- *   token: process.env.WP_AUTH_TOKEN,
  *   timeout: 30000,
  *   retries: 3
  * };
