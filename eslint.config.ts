@@ -6,6 +6,18 @@ import prettierConfig from 'eslint-config-prettier';
 import type { Linter } from 'eslint';
 
 const config: Linter.Config[] = [
+  // Global ignores
+  {
+    ignores: [
+      'dist/**',
+      'build/**',
+      'node_modules/**',
+      '.netlify/**',
+      'coverage/**',
+      'docs/**',
+      '*.d.ts',
+    ],
+  },
   js.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],
