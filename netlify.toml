@@ -1,8 +1,8 @@
 [build]
-  functions = "functions"
-  command = ""
-  publish = "."
-  ignore = "true"
+  functions = "dist/functions"
+  command = "pnpm run build"
+  publish = "dist"
+  ignore = "false"
 
 # Function-specific configurations
 [functions."sync-jobs"]

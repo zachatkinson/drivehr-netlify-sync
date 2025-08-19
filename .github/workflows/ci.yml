@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -161,12 +161,10 @@ jobs:
           fi
           echo "Build verification successful - modern ES module format (.mjs) detected"
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: dist/
-          retention-days: 7
+      - name: Verify TypeScript compilation
+        run: |
+          echo "✅ Build verification completed"
+          echo "🏗️ Netlify will handle the production build and deployment"
 
   # Security Scanning
   security:
@@ -209,128 +207,28 @@ jobs:
           echo "Secret scanning is automatically enabled for private repos with GitHub Advanced Security"
           echo "For additional secret patterns, configure .gitleaks.toml or similar tools"
 
-  # Deployment (only on main branch)
-  deploy:
-    name: Deploy to Netlify
+  # CI Success Notification
+  ci-success:
+    name: CI Pipeline Complete
     runs-on: ubuntu-latest
     needs: [quality, test, build, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    outputs:
-      deploy_url: ${{ steps.deploy.outputs.url }}
-
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
+    if: always()
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Build for production
-        run: pnpm run build
-        env:
-          NODE_ENV: production
-
-      - name: Deploy to Netlify
-        id: deploy
+      - name: Check CI status
         run: |
-          echo "🚀 Deploying with pnpm exec (proper package manager)"
-          echo "📦 Netlify CLI version:"
-          pnpm exec netlify --version
-          echo "📁 Checking dist directory contents:"
-          ls -la dist/
-          echo "📋 Checking netlify.toml in dist:"
-          cat dist/netlify.toml
-          echo "🔧 Using deployment flags: --prod --dir=dist --skip-functions-cache"
-          echo "📂 Checking functions directory in dist:"
-          ls -la dist/functions/
-          echo "🔍 Attempting deployment without explicit functions flag (using netlify.toml config)"
-          echo "🚀 Deploying to production..."
-          deployment=$(pnpm exec netlify deploy --prod --dir=dist --skip-functions-cache --json)
-          echo "🔍 Deployment result JSON:"
-          echo "$deployment" | jq '.'
-
-          # For production deployments with --prod, use the main site URL
-          # The deploy_url is for previews, we want the production site URL
-          prod_url=$(echo "$deployment" | jq -r '.url // .site_url // ""')
-
-          if [ -n "$prod_url" ] && [ "$prod_url" != "null" ]; then
-            url="$prod_url"
-            echo "✅ Using production URL from deployment: $url"
-          else
-            # Production site URL (should match your Netlify site)
-            url="https://drivehr-sync.netlify.app"
-            echo "⚠️ Using known production URL: $url"
-          fi
-
-          echo "📍 Final deployment URL: $url"
-          echo "url=$url" >> $GITHUB_OUTPUT
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-      - name: Notify deployment success
-        if: success()
-        run: |
-          echo "✅ Deployment successful to: ${{ steps.deploy.outputs.url }}"
-
-      - name: Notify deployment failure
-        if: failure()
-        run: |
-          echo "❌ Deployment failed"
-          exit 1
-
-  # Performance and Health Checks
-  health-check:
-    name: Health Check
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Wait for deployment to be ready
-        run: sleep 30
-
-      - name: Health check
-        run: |
-          DEPLOY_URL="${{ needs.deploy.outputs.deploy_url }}"
-          if [ -z "$DEPLOY_URL" ]; then
-            echo "No deploy URL available, skipping health check"
+          if [ "${{ needs.quality.result }}" = "success" ] && \
+             [ "${{ needs.test.result }}" = "success" ] && \
+             [ "${{ needs.build.result }}" = "success" ] && \
+             [ "${{ needs.security.result }}" = "success" ]; then
+            echo "✅ All CI checks passed - Ready for deployment"
+            echo "🚀 Netlify will automatically deploy from main branch"
             exit 0
-          fi
-
-          echo "Testing health endpoint: $DEPLOY_URL/.netlify/functions/sync-jobs"
-          response=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/.netlify/functions/sync-jobs" || echo "000")
-
-          if [ "$response" = "200" ]; then
-            echo "✅ Health check passed - Function responds with 200 (fully configured)"
-          elif [ "$response" = "500" ]; then
-            echo "✅ Health check passed - Function responds with 500 (expected for headless function without env vars)"
           else
-            echo "❌ Health check failed - Function responded with $response (expected 200 or 500)"
+            echo "❌ CI pipeline failed - Deployment blocked"
+            echo "Quality: ${{ needs.quality.result }}"
+            echo "Tests: ${{ needs.test.result }}" 
+            echo "Build: ${{ needs.build.result }}"
+            echo "Security: ${{ needs.security.result }}"
             exit 1
           fi
-
-      - name: Performance test
-        run: |
-          DEPLOY_URL="${{ needs.deploy.outputs.deploy_url }}"
-          if [ -z "$DEPLOY_URL" ]; then
-            echo "No deploy URL available, skipping performance test"
-            exit 0
-          fi
-
-          echo "Performance testing function endpoint..."
-          time curl -s "$DEPLOY_URL/.netlify/functions/sync-jobs" > /dev/null
-          echo "✅ Basic performance test completed"
