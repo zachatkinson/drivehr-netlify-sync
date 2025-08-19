@@ -225,8 +225,8 @@ jobs:
       - name: Deploy to Netlify
         id: deploy
         run: |
-          echo "🚀 Testing deployment without functions flag"
-          deployment=$(npx netlify deploy --prod --dir=dist --json)
+          echo "🚀 Deploying with pnpm exec (proper package manager)"
+          deployment=$(pnpm exec netlify deploy --prod --dir=dist --json)
           url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
           echo "url=$url" >> $GITHUB_OUTPUT
         env:
