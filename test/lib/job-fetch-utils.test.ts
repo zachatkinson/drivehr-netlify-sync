@@ -298,7 +298,7 @@ describe('Job Fetch Utils', () => {
       // They are not frozen at runtime, but TypeScript ensures they cannot be modified
       expect(DRIVEHR_API_CONSTANTS).toBeDefined();
       expect(DRIVEHR_API_CONSTANTS.API_PATHS).toBeDefined();
-      
+
       // Verify structure is correct and values are not modifiable via TypeScript
       expect(typeof DRIVEHR_API_CONSTANTS).toBe('object');
       expect(typeof DRIVEHR_API_CONSTANTS.API_PATHS).toBe('object');
