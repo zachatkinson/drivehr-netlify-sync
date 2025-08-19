@@ -428,14 +428,15 @@ export class HttpTestUtils {
   static verifyFetchCall(
     expectedUrl: string,
     expectedMethod: string,
-    expectedHeaders?: Record<string, string>,
+    expectedHeaders?: Record<string, string> | ReturnType<typeof expect.not.objectContaining>,
     expectedBody?: string
   ): void {
     expect(this.mockFetch).toHaveBeenCalledWith(
       expectedUrl,
       expect.objectContaining({
         method: expectedMethod,
-        headers: expectedHeaders ? expect.objectContaining(expectedHeaders) : expect.any(Object),
+        headers: expectedHeaders ?? expect.any(Object),
+        signal: expect.any(Object), // AbortController signal is always present
         ...(expectedBody !== undefined && { body: expectedBody }),
       })
     );

@@ -309,6 +309,13 @@ export class HttpClient implements IHttpClient {
         return await this.processResponse<T>(response);
       } catch (error) {
         clearTimeout(timeoutId);
+
+        // If it's already an HttpClientError from processResponse, re-throw it as-is
+        if (error instanceof HttpClientError) {
+          throw error;
+        }
+
+        // Otherwise, handle it as a network/fetch error
         throw this.handleRequestError(error, fullUrl, method);
       }
     });
