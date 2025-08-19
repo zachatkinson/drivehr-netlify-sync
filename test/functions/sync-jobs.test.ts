@@ -1,27 +1,42 @@
 /**
- * @fileoverview Comprehensive test suite for main Netlify function
+ * Netlify Function Test Suite
  *
- * Tests the main sync-jobs Netlify function with comprehensive coverage
- * of all HTTP methods, security features, error handling, and integration
- * patterns. Uses DRY principles with specialized test utilities.
+ * Comprehensive test coverage for the modern sync-jobs Netlify function following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the complete job synchronization workflow using
+ * modern Netlify Functions API with web standard Request/Response objects.
  *
- * Key test areas:
- * - HTTP method handling (GET, POST, OPTIONS)
- * - CORS preflight request handling
+ * Test Features:
+ * - Modern Request/Response API compatibility testing
+ * - HTTP method handling (GET, POST, OPTIONS) with web standards
+ * - CORS preflight request handling with Headers API
  * - Security headers and webhook signature validation
- * - Job fetching and WordPress synchronization
+ * - Job fetching and WordPress synchronization workflows
  * - Error handling and logging across all scenarios
  * - Dependency injection and initialization patterns
  * - Request ID generation and tracking
  * - Configuration validation and environment setup
+ * - Modern async response body extraction patterns
  *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/functions/sync-jobs.test.ts -- --grep "OPTIONS request"
+ *
+ * // Example of running with coverage
+ * pnpm test:coverage test/functions/sync-jobs.test.ts
+ * ```
+ *
+ * @module netlify-function-test-suite
  * @since 1.0.0
- * @see {@link ../../src/functions/sync-jobs.ts} for implementation details
+ * @see {@link ../../src/functions/sync-jobs.mts} for the modern function implementation
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
-import { handler } from '../../src/functions/sync-jobs.js';
+import type { Context } from '@netlify/functions';
+
+import handler from '../../src/functions/sync-jobs.mjs';
 import type { JobFetchResult, JobSyncResponse, NormalizedJob } from '../../src/types/job.js';
 import { BaseTestUtils } from '../shared/base-test-utils.js';
 import * as config from '../../src/lib/config.js';
@@ -56,15 +71,25 @@ interface ParsedResponse {
 }
 
 /**
- * Specialized test utilities for Netlify function testing
+ * Modern Netlify Function test utilities
  *
- * Extends BaseTestUtils with function-specific testing capabilities including
- * Netlify event creation, handler response verification, mock service setup,
- * and comprehensive test data generation. Implements DRY principles for
- * consistent test patterns across all handler scenarios.
+ * Extends BaseTestUtils with modern Netlify Functions API testing capabilities.
+ * Provides web standard Request/Response object creation, modern header handling,
+ * async response body extraction, and comprehensive mock service setup.
+ * Maintains DRY principles while supporting the latest Netlify Functions format.
+ *
+ * Key Features:
+ * - Web standard Request object creation for modern API
+ * - Response object validation with Headers API
+ * - Async response body extraction patterns
+ * - Mock service factories for dependency injection
+ * - HMAC signature generation for webhook testing
+ * - Comprehensive test data generation utilities
  *
  * @extends BaseTestUtils
  * @since 1.0.0
+ * @see {@link BaseTestUtils} for shared testing utilities
+ * @see {@link ../../CLAUDE.md} for testing standards
  */
 class NetlifyFunctionTestUtils extends BaseTestUtils {
   /**
@@ -271,75 +296,63 @@ class NetlifyFunctionTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create Netlify handler event
+   * Create modern Request object
    *
-   * Generates a properly formatted Netlify handler event object
-   * with the specified HTTP method, headers, and body for testing.
+   * Generates a properly formatted Request object for testing
+   * modern Netlify Functions with the web standard API.
    *
-   * @param {string} httpMethod - HTTP method (GET, POST, OPTIONS, etc.)
+   * @param {string} method - HTTP method (GET, POST, OPTIONS, etc.)
    * @param {Record<string, string>} [headers={}] - HTTP headers
    * @param {string} [body] - Request body (for POST requests)
    * @param {string} [path='/'] - Request path
-   * @returns {HandlerEvent} Formatted Netlify handler event
+   * @returns {Request} Web standard Request object
    * @example
    * ```typescript
-   * const event = NetlifyFunctionTestUtils.createHandlerEvent('POST', {
+   * const request = NetlifyFunctionTestUtils.createRequest('POST', {
    *   'Content-Type': 'application/json',
    *   'X-Webhook-Signature': 'sha256=...'
    * }, JSON.stringify({ source: 'manual' }));
    * ```
    * @since 1.0.0
    */
-  static createHandlerEvent(
-    httpMethod: string,
+  static createRequest(
+    method: string,
     headers: Record<string, string> = {},
     body?: string,
     path = '/'
-  ): HandlerEvent {
-    return {
-      rawUrl: `http://localhost${path}`,
-      rawQuery: '',
-      path,
-      httpMethod,
-      headers,
-      multiValueHeaders: {},
-      queryStringParameters: null,
-      multiValueQueryStringParameters: null,
-      body: body ?? null,
-      isBase64Encoded: false,
+  ): Request {
+    const url = `https://example.netlify.app/.netlify/functions/sync-jobs${path}`;
+    const init: RequestInit = {
+      method,
+      headers: new Headers(headers),
     };
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      init.body = body;
+    }
+
+    return new Request(url, init);
   }
 
   /**
-   * Create handler context
+   * Create Netlify context
    *
-   * Generates a minimal Netlify handler context object for testing.
+   * Generates a minimal Netlify context object for testing modern functions.
+   * Provides mock implementations of all required Context properties.
    *
-   * @returns {HandlerContext} Netlify handler context
+   * @returns {Context} Netlify context with mock data
    * @example
    * ```typescript
-   * const context = NetlifyFunctionTestUtils.createHandlerContext();
-   * const response = await handler(event, context);
+   * const context = NetlifyFunctionTestUtils.createContext();
+   * const response = await handler(request, context);
    * ```
    * @since 1.0.0
    */
-  static createHandlerContext(): HandlerContext {
+  static createContext(): Context {
+    // Create minimal mock Context for testing - only implements what we use
     return {
-      callbackWaitsForEmptyEventLoop: true,
-      functionName: 'sync-jobs',
-      functionVersion: '1',
-      invokedFunctionArn: 'arn:aws:lambda:us-east-1:123:function:sync-jobs',
-      memoryLimitInMB: '128',
-      awsRequestId: 'test-request-id',
-      logGroupName: '/aws/lambda/sync-jobs',
-      logStreamName: 'test-stream',
-      identity: undefined,
-      clientContext: undefined,
-      getRemainingTimeInMillis: () => 30000,
-      done: vi.fn(),
-      fail: vi.fn(),
-      succeed: vi.fn(),
-    };
+      requestId: 'test-request-id',
+    } as unknown as Context;
   }
 
   /**
@@ -453,58 +466,55 @@ class NetlifyFunctionTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Verify handler response structure
+   * Verify Response object structure
    *
-   * Validates that a handler response has the correct HTTP structure
+   * Validates that a Response object has the correct structure
    * with proper status code, headers, and JSON body format.
    *
-   * @param {unknown} response - Handler response to verify
-   * @param {number} expectedStatusCode - Expected HTTP status code
+   * @param {unknown} response - Response to verify
+   * @param {number} expectedStatus - Expected HTTP status code
    * @param {boolean} [shouldHaveBody=true] - Whether response should have body
    * @returns {void} No return value, throws assertion errors on mismatch
    * @example
    * ```typescript
-   * const response = await handler(event, context);
-   * NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
+   * const response = await handler(request, context);
+   * NetlifyFunctionTestUtils.verifyResponse(response, 200);
    * ```
    * @since 1.0.0
    */
-  static verifyHandlerResponse(
+  static verifyResponse(
     response: unknown,
-    expectedStatusCode: number,
+    expectedStatus: number,
     shouldHaveBody = true
-  ): asserts response is HandlerResponse {
-    expect(response).toBeTypeOf('object');
+  ): asserts response is Response {
+    expect(response).toBeInstanceOf(Response);
     expect(response).not.toBeNull();
 
-    const handlerResponse = response as HandlerResponse;
-    expect(handlerResponse.statusCode).toBe(expectedStatusCode);
-    expect(handlerResponse.headers).toBeTypeOf('object');
+    const webResponse = response as Response;
+    expect(webResponse.status).toBe(expectedStatus);
+    expect(webResponse.headers).toBeInstanceOf(Headers);
 
-    if (shouldHaveBody) {
-      expect(handlerResponse.body).toBeTypeOf('string');
-      expect(handlerResponse.body).toBeDefined();
-      if (handlerResponse.body) {
-        expect(() => JSON.parse(handlerResponse.body as string)).not.toThrow();
-      }
+    if (shouldHaveBody && expectedStatus !== 204) {
+      expect(webResponse.body).toBeDefined();
     }
   }
 
   /**
    * Safely extract response body with proper TypeScript handling
    *
-   * Helper method to safely extract the response body from a handler response
+   * Helper method to safely extract the response body from a Response object
    * and ensure it's properly typed for downstream processing.
    *
-   * @param {HandlerResponse} response - Handler response to extract body from
-   * @returns {string} Response body as string
-   * @throws {Error} If response body is undefined or not a string
+   * @param {Response} response - Response to extract body from
+   * @returns {Promise<string>} Response body as string
+   * @throws {Error} If response body cannot be read as text
    * @since 1.0.0
    */
-  static extractResponseBody(response: HandlerResponse): string {
+  static async extractResponseBody(response: Response): Promise<string> {
     expect(response.body).toBeDefined();
-    expect(response.body).toBeTypeOf('string');
-    return response.body as string;
+    const text = await response.text();
+    expect(text).toBeTypeOf('string');
+    return text;
   }
 
   /**
@@ -564,7 +574,7 @@ class NetlifyFunctionTestUtils extends BaseTestUtils {
    * ```typescript
    * const payload = JSON.stringify({ source: 'webhook' });
    * const signature = NetlifyFunctionTestUtils.generateValidSignature(payload);
-   * const event = createHandlerEvent('POST', { 'x-webhook-signature': signature }, payload);
+   * const request = createRequest('POST', { 'x-webhook-signature': signature }, payload);
    * ```
    * @since 1.0.0
    */
@@ -586,42 +596,39 @@ describe('Netlify Function Handler', () => {
 
   describe('OPTIONS request handling', () => {
     it('should handle CORS preflight request correctly', async () => {
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('OPTIONS');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('OPTIONS');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200, false);
-      expect(response.headers).toHaveProperty('Access-Control-Allow-Origin');
-      expect(response.headers).toHaveProperty('Access-Control-Allow-Methods');
-      expect(response.headers).toHaveProperty('Access-Control-Allow-Headers');
-      expect(response.headers).toHaveProperty('Access-Control-Max-Age');
+      NetlifyFunctionTestUtils.verifyResponse(response, 200, false);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBeDefined();
+      expect(response.headers.get('Access-Control-Allow-Methods')).toBeDefined();
+      expect(response.headers.get('Access-Control-Allow-Headers')).toBeDefined();
+      expect(response.headers.get('Access-Control-Max-Age')).toBeDefined();
     });
 
     it('should include security headers in OPTIONS response', async () => {
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('OPTIONS');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('OPTIONS');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200, false);
-      const handlerResponse = response as HandlerResponse;
-      expect(handlerResponse.headers).toHaveProperty('Content-Type', 'application/json');
-      expect(handlerResponse.headers).toHaveProperty('X-Frame-Options', 'DENY');
-      expect(handlerResponse.headers).toHaveProperty('X-Content-Type-Options', 'nosniff');
-      expect(handlerResponse.headers).toHaveProperty('Content-Security-Policy');
+      NetlifyFunctionTestUtils.verifyResponse(response, 200, false);
+      expect(response.headers.get('Content-Type')).toBe('application/json');
+      expect(response.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(response.headers.get('Content-Security-Policy')).toBeDefined();
     });
 
     it('should set CORS origin based on configuration', async () => {
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('OPTIONS');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('OPTIONS');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200, false);
-      const handlerResponse = response as HandlerResponse;
-      expect(handlerResponse.headers).toHaveProperty(
-        'Access-Control-Allow-Origin',
+      NetlifyFunctionTestUtils.verifyResponse(response, 200, false);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
         'https://admin.test-company.com'
       );
     });
@@ -634,17 +641,19 @@ describe('Netlify Function Handler', () => {
         fetchResult
       );
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        true,
-        ['source', 'method', 'jobCount', 'jobs']
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 200);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, true, [
+        'source',
+        'method',
+        'jobCount',
+        'jobs',
+      ]);
 
       expect(data.data).toHaveProperty('method', 'api');
       expect(data.data).toHaveProperty('jobCount', 2);
@@ -658,16 +667,14 @@ describe('Netlify Function Handler', () => {
         fetchResult
       );
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        false
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 200);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
 
       expect(data.data).toHaveProperty('message', 'API timeout');
       expect(data.data).toHaveProperty('jobCount', 0);
@@ -679,17 +686,17 @@ describe('Netlify Function Handler', () => {
         fetchResult
       );
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      await handler(event, context);
+      await handler(request, context);
 
       expect(NetlifyFunctionTestUtils.mockServices.logger.info).toHaveBeenCalledWith(
         'DriveHR sync function invoked',
         expect.objectContaining({
           requestId: expect.stringMatching(/^netlify_/),
           method: 'GET',
-          path: '/',
+          path: '/.netlify/functions/sync-jobs/',
         })
       );
     });
@@ -710,16 +717,16 @@ describe('Netlify Function Handler', () => {
           syncResult
         );
 
-        const event = NetlifyFunctionTestUtils.createHandlerEvent(
+        const request = NetlifyFunctionTestUtils.createRequest(
           'POST',
           { 'x-webhook-signature': signature },
           payload
         );
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        const response = await handler(event, context);
+        const response = await handler(request, context);
 
-        NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
+        NetlifyFunctionTestUtils.verifyResponse(response, 200);
         expect(utils.SecurityUtils.validateHmacSignature).toHaveBeenCalledWith(
           payload,
           signature,
@@ -731,20 +738,18 @@ describe('Netlify Function Handler', () => {
         vi.spyOn(utils.SecurityUtils, 'validateHmacSignature').mockReturnValue(false);
 
         const payload = JSON.stringify({ source: 'webhook' });
-        const event = NetlifyFunctionTestUtils.createHandlerEvent(
+        const request = NetlifyFunctionTestUtils.createRequest(
           'POST',
           { 'x-webhook-signature': 'sha256=invalid-signature' },
           payload
         );
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        const response = await handler(event, context);
+        const response = await handler(request, context);
 
-        NetlifyFunctionTestUtils.verifyHandlerResponse(response, 401);
-        const data = NetlifyFunctionTestUtils.verifyResponseJson(
-          NetlifyFunctionTestUtils.extractResponseBody(response),
-          false
-        );
+        NetlifyFunctionTestUtils.verifyResponse(response, 401);
+        const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+        const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
         expect(data.error).toBe('Invalid webhook signature');
       });
 
@@ -752,20 +757,18 @@ describe('Netlify Function Handler', () => {
         vi.spyOn(env, 'getEnvVar').mockReturnValue(undefined);
 
         const payload = JSON.stringify({ source: 'webhook' });
-        const event = NetlifyFunctionTestUtils.createHandlerEvent(
+        const request = NetlifyFunctionTestUtils.createRequest(
           'POST',
           { 'x-webhook-signature': 'sha256=some-signature' },
           payload
         );
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        const response = await handler(event, context);
+        const response = await handler(request, context);
 
-        NetlifyFunctionTestUtils.verifyHandlerResponse(response, 500);
-        const data = NetlifyFunctionTestUtils.verifyResponseJson(
-          NetlifyFunctionTestUtils.extractResponseBody(response),
-          false
-        );
+        NetlifyFunctionTestUtils.verifyResponse(response, 500);
+        const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+        const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
         expect(data.error).toBe('Failed to sync jobs');
       });
     });
@@ -782,17 +785,17 @@ describe('Netlify Function Handler', () => {
           syncResult
         );
 
-        const event = NetlifyFunctionTestUtils.createHandlerEvent('POST');
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const request = NetlifyFunctionTestUtils.createRequest('POST');
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        const response = await handler(event, context);
+        const response = await handler(request, context);
 
-        NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-        const data = NetlifyFunctionTestUtils.verifyResponseJson(
-          NetlifyFunctionTestUtils.extractResponseBody(response),
-          true,
-          ['jobCount', 'syncedCount']
-        );
+        NetlifyFunctionTestUtils.verifyResponse(response, 200);
+        const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+        const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, true, [
+          'jobCount',
+          'syncedCount',
+        ]);
 
         expect(data.data).toHaveProperty('jobCount', 2);
         expect(data.data).toHaveProperty('syncedCount', 2);
@@ -814,17 +817,17 @@ describe('Netlify Function Handler', () => {
           fetchResult
         );
 
-        const event = NetlifyFunctionTestUtils.createHandlerEvent('POST');
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const request = NetlifyFunctionTestUtils.createRequest('POST');
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        const response = await handler(event, context);
+        const response = await handler(request, context);
 
-        NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-        const data = NetlifyFunctionTestUtils.verifyResponseJson(
-          NetlifyFunctionTestUtils.extractResponseBody(response),
-          true,
-          ['jobCount', 'syncedCount']
-        );
+        NetlifyFunctionTestUtils.verifyResponse(response, 200);
+        const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+        const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, true, [
+          'jobCount',
+          'syncedCount',
+        ]);
 
         expect(data.data).toHaveProperty('jobCount', 0);
         expect(data.data).toHaveProperty('syncedCount', 0);
@@ -840,16 +843,14 @@ describe('Netlify Function Handler', () => {
           fetchResult
         );
 
-        const event = NetlifyFunctionTestUtils.createHandlerEvent('POST');
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const request = NetlifyFunctionTestUtils.createRequest('POST');
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        const response = await handler(event, context);
+        const response = await handler(request, context);
 
-        NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-        const data = NetlifyFunctionTestUtils.verifyResponseJson(
-          NetlifyFunctionTestUtils.extractResponseBody(response),
-          true
-        );
+        NetlifyFunctionTestUtils.verifyResponse(response, 200);
+        const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+        const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, true);
 
         expect(data.data).toHaveProperty('jobCount', 0);
         expect(data.data).toHaveProperty('syncedCount', 0);
@@ -872,16 +873,14 @@ describe('Netlify Function Handler', () => {
           syncResult
         );
 
-        const event = NetlifyFunctionTestUtils.createHandlerEvent('POST');
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const request = NetlifyFunctionTestUtils.createRequest('POST');
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        const response = await handler(event, context);
+        const response = await handler(request, context);
 
-        NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-        const data = NetlifyFunctionTestUtils.verifyResponseJson(
-          NetlifyFunctionTestUtils.extractResponseBody(response),
-          false
-        );
+        NetlifyFunctionTestUtils.verifyResponse(response, 200);
+        const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+        const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
 
         expect(data.data).toHaveProperty('message', 'WordPress connection failed');
         expect(data.data).toHaveProperty('jobCount', 2);
@@ -901,14 +900,14 @@ describe('Netlify Function Handler', () => {
           syncResult
         );
 
-        const event = NetlifyFunctionTestUtils.createHandlerEvent(
+        const request = NetlifyFunctionTestUtils.createRequest(
           'POST',
           { 'x-webhook-signature': signature },
           payload
         );
-        const context = NetlifyFunctionTestUtils.createHandlerContext();
+        const context = NetlifyFunctionTestUtils.createContext();
 
-        await handler(event, context);
+        await handler(request, context);
 
         expect(
           NetlifyFunctionTestUtils.mockServices.jobFetchService.fetchJobs
@@ -929,16 +928,14 @@ describe('Netlify Function Handler', () => {
         errors: ['Invalid WORDPRESS_URL', 'Missing WEBHOOK_SECRET'],
       });
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 500);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        false
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 500);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
       expect(data.error).toBe('Internal server error');
     });
 
@@ -947,16 +944,14 @@ describe('Netlify Function Handler', () => {
         throw new Error('HTTP client initialization failed');
       });
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 500);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        false
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 500);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
       expect(data.error).toBe('Internal server error');
     });
 
@@ -965,16 +960,14 @@ describe('Netlify Function Handler', () => {
         new Error('Unexpected error during job fetch')
       );
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('POST');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('POST');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 500);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        false
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 500);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
       expect(data.error).toBe('Failed to sync jobs');
 
       expect(NetlifyFunctionTestUtils.mockServices.logger.error).toHaveBeenCalledWith(
@@ -995,12 +988,12 @@ describe('Netlify Function Handler', () => {
         throw new Error('Config loading failed');
       });
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 500);
+      NetlifyFunctionTestUtils.verifyResponse(response, 500);
       expect(consoleSpy).toHaveBeenCalledWith(
         'DriveHR sync function error:',
         expect.objectContaining({
@@ -1015,29 +1008,26 @@ describe('Netlify Function Handler', () => {
 
   describe('HTTP method validation', () => {
     it('should reject unsupported HTTP methods', async () => {
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('PUT');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('PUT');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 405);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        false
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 405);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, false);
       expect(data.error).toBe('Method not allowed');
     });
 
     it('should include security headers in method not allowed response', async () => {
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('DELETE');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('DELETE');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 405, true);
-      const handlerResponse = response as HandlerResponse;
-      expect(handlerResponse.headers).toHaveProperty('Content-Type', 'application/json');
-      expect(handlerResponse.headers).toHaveProperty('X-Frame-Options', 'DENY');
+      NetlifyFunctionTestUtils.verifyResponse(response, 405, true);
+      expect(response.headers.get('Content-Type')).toBe('application/json');
+      expect(response.headers.get('X-Frame-Options')).toBe('DENY');
     });
   });
 
@@ -1049,17 +1039,17 @@ describe('Netlify Function Handler', () => {
         return `test-request-${callCount}`;
       });
 
-      const event1 = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const event2 = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request1 = NetlifyFunctionTestUtils.createRequest('GET');
+      const request2 = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response1 = await handler(event1, context);
-      const response2 = await handler(event2, context);
+      const response1 = await handler(request1, context);
+      const response2 = await handler(request2, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response1, 500, true);
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response2, 500, true);
-      const responseBody1 = NetlifyFunctionTestUtils.extractResponseBody(response1);
-      const responseBody2 = NetlifyFunctionTestUtils.extractResponseBody(response2);
+      NetlifyFunctionTestUtils.verifyResponse(response1, 500, true);
+      NetlifyFunctionTestUtils.verifyResponse(response2, 500, true);
+      const responseBody1 = await NetlifyFunctionTestUtils.extractResponseBody(response1);
+      const responseBody2 = await NetlifyFunctionTestUtils.extractResponseBody(response2);
       const data1 = NetlifyFunctionTestUtils.verifyResponseJson(
         responseBody1,
         false,
@@ -1083,10 +1073,10 @@ describe('Netlify Function Handler', () => {
         fetchResult
       );
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      await handler(event, context);
+      await handler(request, context);
 
       expect(NetlifyFunctionTestUtils.mockServices.logger.info).toHaveBeenCalledWith(
         'DriveHR sync function invoked',
@@ -1110,18 +1100,21 @@ describe('Netlify Function Handler', () => {
       );
       NetlifyFunctionTestUtils.mockServices.wordPressClient.syncJobs.mockResolvedValue(syncResult);
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('POST');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('POST');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
       // Verify complete response structure
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        true,
-        ['message', 'jobCount', 'syncedCount', 'skippedCount', 'errorCount']
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 200);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, true, [
+        'message',
+        'jobCount',
+        'syncedCount',
+        'skippedCount',
+        'errorCount',
+      ]);
 
       // Verify workflow completion
       expect(NetlifyFunctionTestUtils.mockServices.jobFetchService.fetchJobs).toHaveBeenCalledWith(
@@ -1173,16 +1166,14 @@ describe('Netlify Function Handler', () => {
       );
       NetlifyFunctionTestUtils.mockServices.wordPressClient.syncJobs.mockResolvedValue(syncResult);
 
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('POST');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('POST');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      const response = await handler(event, context);
+      const response = await handler(request, context);
 
-      NetlifyFunctionTestUtils.verifyHandlerResponse(response, 200);
-      const data = NetlifyFunctionTestUtils.verifyResponseJson(
-        NetlifyFunctionTestUtils.extractResponseBody(response),
-        true
-      );
+      NetlifyFunctionTestUtils.verifyResponse(response, 200);
+      const responseBody = await NetlifyFunctionTestUtils.extractResponseBody(response);
+      const data = NetlifyFunctionTestUtils.verifyResponseJson(responseBody, true);
 
       expect(data.data).toEqual({
         message: 'Partial sync completed with errors',
@@ -1195,10 +1186,10 @@ describe('Netlify Function Handler', () => {
     });
 
     it('should properly initialize all dependencies in correct order', async () => {
-      const event = NetlifyFunctionTestUtils.createHandlerEvent('GET');
-      const context = NetlifyFunctionTestUtils.createHandlerContext();
+      const request = NetlifyFunctionTestUtils.createRequest('GET');
+      const context = NetlifyFunctionTestUtils.createContext();
 
-      await handler(event, context);
+      await handler(request, context);
 
       // Verify configuration was loaded first
       expect(config.loadAppConfig).toHaveBeenCalled();

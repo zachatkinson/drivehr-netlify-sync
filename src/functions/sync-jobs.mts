@@ -9,7 +9,7 @@
  * Implements SOLID principles, comprehensive error handling, and security best practices.
  */
 
-import type { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
+import type { Context } from '@netlify/functions';
 import { getEnvVar } from '../lib/env.js';
 import { loadAppConfig, getAppConfig } from '../lib/config.js';
 import { createHttpClient } from '../lib/http-client.js';
@@ -122,10 +122,11 @@ function initializeDependencies(): AppDependencies {
 }
 
 /**
- * Main Netlify function handler
+ * Modern Netlify function handler
  *
  * Enterprise-grade serverless function that synchronizes job postings from
- * DriveHR to WordPress. Supports multiple HTTP methods and implements
+ * DriveHR to WordPress using modern Netlify Functions API with web standard
+ * Request/Response objects. Supports multiple HTTP methods and implements
  * comprehensive security, logging, and error handling.
  *
  * **Supported endpoints:**
@@ -139,9 +140,15 @@ function initializeDependencies(): AppDependencies {
  * - Request rate limiting and validation
  * - Comprehensive security headers
  *
- * @param event - Netlify function event containing HTTP request data
- * @param _context - Netlify function context (unused)
- * @returns HTTP response with job sync results or error information
+ * **Modern API Features:**
+ * - Web standard Request/Response objects
+ * - ES6 modules with TypeScript .mts extension
+ * - Async/await request body parsing
+ * - Headers API for header manipulation
+ *
+ * @param req - Web standard Request object containing HTTP request data
+ * @param context - Modern Netlify function context with requestId
+ * @returns Promise<Response> - Web standard Response object with job sync results
  * @throws {Error} Never - all errors are caught and returned as HTTP responses
  * @example
  * ```typescript
@@ -158,13 +165,19 @@ function initializeDependencies(): AppDependencies {
  * // Health check via GET
  * const health = await fetch('/.netlify/functions/sync-jobs');
  * const status = await health.json();
+ *
+ * // Response handling with modern API
+ * if (response.ok) {
+ *   const data = await response.json();
+ *   console.log('Sync result:', data);
+ * }
  * ```
  * @since 1.0.0
  * @see {@link initializeDependencies} for service initialization
  * @see {@link handlePostRequest} for job sync logic
  * @see {@link handleGetRequest} for health check logic
  */
-export const handler: Handler = async (event: HandlerEvent, _context: HandlerContext) => {
+export default async (req: Request, context: Context) => {
   const requestId = generateRequestId();
   const timestamp = new Date().toISOString();
 
@@ -175,36 +188,35 @@ export const handler: Handler = async (event: HandlerEvent, _context: HandlerCon
     const logger = getLogger();
     logger.info('DriveHR sync function invoked', {
       requestId,
-      method: event.httpMethod,
-      path: event.path,
+      method: req.method,
+      path: new URL(req.url).pathname,
     });
 
     // Handle OPTIONS preflight request
-    if (event.httpMethod === 'OPTIONS') {
+    if (req.method === 'OPTIONS') {
       return handleOptionsRequest(deps.securityHeaders, deps.corsConfig);
     }
 
     // Handle GET request (fetch jobs only)
-    if (event.httpMethod === 'GET') {
+    if (req.method === 'GET') {
       return await handleGetRequest(deps, requestId, timestamp);
     }
 
     // Handle POST request (fetch and sync jobs)
-    if (event.httpMethod === 'POST') {
-      return await handlePostRequest(deps, event, requestId, timestamp);
+    if (req.method === 'POST') {
+      return await handlePostRequest(deps, req, requestId, timestamp);
     }
 
     // Method not allowed
-    return {
-      statusCode: 405,
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Method not allowed',
+      requestId,
+      timestamp,
+    }), {
+      status: 405,
       headers: deps.securityHeaders,
-      body: JSON.stringify({
-        success: false,
-        error: 'Method not allowed',
-        requestId,
-        timestamp,
-      }),
-    };
+    });
   } catch (error) {
     // Try to get logger, but fallback to console if not initialized
     try {
@@ -225,34 +237,47 @@ export const handler: Handler = async (event: HandlerEvent, _context: HandlerCon
       });
     }
 
-    return {
-      statusCode: 500,
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Internal server error',
+      requestId,
+      timestamp,
+    }), {
+      status: 500,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        success: false,
-        error: 'Internal server error',
-        requestId,
-        timestamp,
-      }),
-    };
+    });
   }
 };
 
 /**
- * Handle OPTIONS preflight request
+ * Handle OPTIONS preflight request for CORS
+ *
+ * Processes CORS preflight requests by returning appropriate headers
+ * for cross-origin resource sharing. Uses modern Response object
+ * with proper header configuration.
+ *
+ * @param securityHeaders - Standard security headers to include
+ * @param corsConfig - CORS configuration with allowed origins and methods
+ * @returns Response object with CORS headers and 200 status
+ * @example
+ * ```typescript
+ * const response = handleOptionsRequest(securityHeaders, corsConfig);
+ * console.log(response.headers.get('Access-Control-Allow-Origin'));
+ * ```
+ * @since 1.0.0
  */
 function handleOptionsRequest(
   securityHeaders: SecurityHeaders,
   corsConfig: CorsConfig
-): HandlerResponse {
+): Response {
   const origin = Array.isArray(corsConfig.origin)
     ? (corsConfig.origin[0] ?? '*')
     : corsConfig.origin;
 
-  return {
-    statusCode: 200,
+  return new Response('', {
+    status: 200,
     headers: {
       ...securityHeaders,
       'Access-Control-Allow-Origin': origin,
@@ -260,85 +285,116 @@ function handleOptionsRequest(
       'Access-Control-Allow-Headers': corsConfig.headers.join(', '),
       'Access-Control-Max-Age': corsConfig.maxAge.toString(),
     },
-    body: '',
-  };
+  });
 }
 
 /**
  * Handle GET request - fetch jobs without syncing
+ *
+ * Processes health check and job listing requests. Fetches jobs from
+ * DriveHR but does not sync them to WordPress. Returns job data using
+ * modern Response object with JSON payload.
+ *
+ * @param deps - Application dependencies container
+ * @param requestId - Unique request identifier for tracking
+ * @param timestamp - Request timestamp in ISO format
+ * @returns Promise<Response> - Response with job data or error information
+ * @throws Never - All errors are caught and returned as HTTP responses
+ * @example
+ * ```typescript
+ * const response = await handleGetRequest(deps, 'req-123', '2024-01-01T12:00:00Z');
+ * const data = await response.json();
+ * console.log(`Found ${data.data.jobCount} jobs`);
+ * ```
+ * @since 1.0.0
  */
 async function handleGetRequest(
   deps: AppDependencies,
   requestId: string,
   timestamp: string
-): Promise<HandlerResponse> {
+): Promise<Response> {
   try {
     const config = getAppConfig();
     const result = await deps.jobFetchService.fetchJobs(config.driveHr, 'manual');
 
-    return {
-      statusCode: 200,
+    return new Response(JSON.stringify({
+      success: result.success,
+      data: {
+        source: config.driveHr.careersUrl,
+        method: result.method,
+        jobCount: result.totalCount,
+        jobs: result.jobs,
+        message: result.message ?? result.error,
+      },
+      requestId,
+      timestamp,
+    }), {
+      status: 200,
       headers: deps.securityHeaders,
-      body: JSON.stringify({
-        success: result.success,
-        data: {
-          source: config.driveHr.careersUrl,
-          method: result.method,
-          jobCount: result.totalCount,
-          jobs: result.jobs,
-          message: result.message ?? result.error,
-        },
-        requestId,
-        timestamp,
-      }),
-    };
+    });
   } catch (error) {
     const logger = getLogger();
     logger.error('Failed to fetch jobs', { requestId, error });
 
-    return {
-      statusCode: 500,
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Failed to fetch jobs',
+      requestId,
+      timestamp,
+    }), {
+      status: 500,
       headers: deps.securityHeaders,
-      body: JSON.stringify({
-        success: false,
-        error: 'Failed to fetch jobs',
-        requestId,
-        timestamp,
-      }),
-    };
+    });
   }
 }
 
 /**
  * Handle POST request - fetch jobs and sync to WordPress
+ *
+ * Processes job synchronization requests with optional webhook signature
+ * validation. Fetches jobs from DriveHR and syncs them to WordPress.
+ * Uses modern Request object for header access and body parsing.
+ *
+ * @param deps - Application dependencies container
+ * @param req - Modern Request object with headers and body access
+ * @param requestId - Unique request identifier for tracking
+ * @param timestamp - Request timestamp in ISO format
+ * @returns Promise<Response> - Response with sync results or error information
+ * @throws Never - All errors are caught and returned as HTTP responses
+ * @example
+ * ```typescript
+ * const response = await handlePostRequest(deps, request, 'req-123', '2024-01-01T12:00:00Z');
+ * const result = await response.json();
+ * console.log(`Synced ${result.data.syncedCount} jobs`);
+ * ```
+ * @since 1.0.0
  */
 async function handlePostRequest(
   deps: AppDependencies,
-  event: HandlerEvent,
+  req: Request,
   requestId: string,
   timestamp: string
-): Promise<HandlerResponse> {
+): Promise<Response> {
   try {
     // Validate webhook signature if present
-    const signature = event.headers['x-webhook-signature'];
+    const signature = req.headers.get('x-webhook-signature');
     if (signature) {
       const webhookSecret = getEnvVar('WEBHOOK_SECRET');
       if (!webhookSecret) {
         throw new Error('WEBHOOK_SECRET environment variable is required');
       }
-      const payload = event.body ?? '';
+      const payload = await req.text();
 
       if (!validateWebhookSignature(payload, signature, webhookSecret)) {
-        return {
-          statusCode: 401,
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Invalid webhook signature',
+          requestId,
+          timestamp,
+        }), {
+          status: 401,
           headers: deps.securityHeaders,
-          body: JSON.stringify({
-            success: false,
-            error: 'Invalid webhook signature',
-            requestId,
-            timestamp,
-          }),
-        };
+        });
       }
     }
 
@@ -350,68 +406,103 @@ async function handlePostRequest(
     const fetchResult = await deps.jobFetchService.fetchJobs(config.driveHr, source);
 
     if (!fetchResult.success || fetchResult.jobs.length === 0) {
-      return {
-        statusCode: 200,
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          message: fetchResult.error ?? 'No jobs found to sync',
+          jobCount: 0,
+          syncedCount: 0,
+        },
+        requestId,
+        timestamp,
+      }), {
+        status: 200,
         headers: deps.securityHeaders,
-        body: JSON.stringify({
-          success: true,
-          data: {
-            message: fetchResult.error ?? 'No jobs found to sync',
-            jobCount: 0,
-            syncedCount: 0,
-          },
-          requestId,
-          timestamp,
-        }),
-      };
+      });
     }
 
     // Sync to WordPress
     const syncResult = await deps.wordPressClient.syncJobs(fetchResult.jobs, source);
 
-    return {
-      statusCode: 200,
+    return new Response(JSON.stringify({
+      success: syncResult.success,
+      data: {
+        message: syncResult.message,
+        jobCount: fetchResult.totalCount,
+        syncedCount: syncResult.syncedCount,
+        skippedCount: syncResult.skippedCount,
+        errorCount: syncResult.errorCount,
+        errors: syncResult.errors,
+      },
+      requestId,
+      timestamp,
+    }), {
+      status: 200,
       headers: deps.securityHeaders,
-      body: JSON.stringify({
-        success: syncResult.success,
-        data: {
-          message: syncResult.message,
-          jobCount: fetchResult.totalCount,
-          syncedCount: syncResult.syncedCount,
-          skippedCount: syncResult.skippedCount,
-          errorCount: syncResult.errorCount,
-          errors: syncResult.errors,
-        },
-        requestId,
-        timestamp,
-      }),
-    };
+    });
   } catch (error) {
     const logger = getLogger();
     logger.error('Failed to sync jobs', { requestId, error });
 
-    return {
-      statusCode: 500,
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Failed to sync jobs',
+      requestId,
+      timestamp,
+    }), {
+      status: 500,
       headers: deps.securityHeaders,
-      body: JSON.stringify({
-        success: false,
-        error: 'Failed to sync jobs',
-        requestId,
-        timestamp,
-      }),
-    };
+    });
   }
 }
 
 /**
- * Validate webhook HMAC signature
+ * Validate webhook HMAC signature for request authentication
+ *
+ * Validates incoming webhook requests by verifying the HMAC-SHA256
+ * signature against the request payload and configured webhook secret.
+ * This ensures requests are authentic and haven't been tampered with.
+ *
+ * @param payload - Raw request body as string for signature calculation
+ * @param signature - HMAC signature from request headers (format: sha256=<hex>)
+ * @param secret - Webhook secret for signature validation
+ * @returns True if signature is valid, false otherwise
+ * @throws Never - Delegates to SecurityUtils for signature validation
+ * @example
+ * ```typescript
+ * const isValid = validateWebhookSignature(
+ *   JSON.stringify({ source: 'webhook' }),
+ *   'sha256=abc123...',
+ *   'webhook-secret-key'
+ * );
+ * if (!isValid) {
+ *   throw new Error('Invalid webhook signature');
+ * }
+ * ```
+ * @since 1.0.0
+ * @see {@link SecurityUtils.validateHmacSignature} for underlying validation logic
  */
 function validateWebhookSignature(payload: string, signature: string, secret: string): boolean {
   return SecurityUtils.validateHmacSignature(payload, signature, secret);
 }
 
 /**
- * Generate unique request ID for tracking
+ * Generate unique request ID for request tracing and logging
+ *
+ * Creates a unique identifier for each function invocation to enable
+ * request tracking across logs and error reports. Uses Netlify-specific
+ * prefix to distinguish from other request ID formats.
+ *
+ * @returns Unique request ID with netlify_ prefix for identification
+ * @throws Never - Delegates to StringUtils for ID generation
+ * @example
+ * ```typescript
+ * const requestId = generateRequestId();
+ * logger.info('Request started', { requestId });
+ * // Output: "netlify_abc123def456..."
+ * ```
+ * @since 1.0.0
+ * @see {@link StringUtils.generateRequestId} for ID generation logic
  */
 function generateRequestId(): string {
   return `netlify_${StringUtils.generateRequestId()}`;

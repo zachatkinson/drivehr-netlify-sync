@@ -2,7 +2,8 @@
   "name": "drivehr-netlify-sync",
   "version": "1.0.0",
   "description": "TypeScript-based Netlify serverless function that scrapes DriveHR job postings and syncs them to WordPress via REST API",
-  "main": "dist/functions/sync-jobs.js",
+  "main": "dist/functions/sync-jobs.mjs",
+  "type": "module",
   "scripts": {
     "build": "tsc && mkdir -p dist/functions dist/lib dist/services dist/types && cp dist/src/functions/* dist/functions/ && cp dist/src/lib/* dist/lib/ && cp dist/src/services/* dist/services/ && cp dist/src/types/* dist/types/ && cp netlify.toml dist/ && rm -f dist/*.config.* dist/*.d.ts dist/*.map",
     "dev": "tsc --watch",
@@ -26,7 +27,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
     "node-fetch": "^2.7.0"

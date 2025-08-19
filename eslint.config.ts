@@ -42,6 +42,11 @@ const config: Linter.Config[] = [
         global: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
+        // Web APIs available in Node.js 18+ for modern Netlify Functions
+        Request: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        RequestInit: 'readonly',
       },
     },
     plugins: {
