@@ -232,8 +232,11 @@ jobs:
           ls -la dist/
           echo "📋 Checking netlify.toml in dist:"
           cat dist/netlify.toml
-          echo "🔧 Using deployment flags: --prod --dir=dist --functions=dist/functions --skip-functions-cache"
-          deployment=$(pnpm exec netlify deploy --prod --dir=dist --functions=dist/functions --skip-functions-cache --json)
+          echo "🔧 Using deployment flags: --prod --dir=dist --skip-functions-cache"
+          echo "📂 Checking functions directory in dist:"
+          ls -la dist/functions/
+          echo "🔍 Attempting deployment without explicit functions flag (using netlify.toml config)"
+          deployment=$(pnpm exec netlify deploy --prod --dir=dist --skip-functions-cache --json)
           url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
           echo "url=$url" >> $GITHUB_OUTPUT
         env:

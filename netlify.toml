@@ -1,7 +1,7 @@
 [build]
-  functions = "dist/functions"
+  functions = "functions"
   command = ""
-  publish = "dist"
+  publish = "."
   ignore = "true"
 
 # Function-specific configurations
