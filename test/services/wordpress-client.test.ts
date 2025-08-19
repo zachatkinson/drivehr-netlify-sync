@@ -332,6 +332,18 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Setup HTTP client mock for successful sync operation
+   *
+   * Configures the mock HTTP client to return a successful sync response
+   * for testing positive sync scenarios.
+   *
+   * @param {object} [response] - Mock response object to return
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * WordPressClientTestUtils.setupSyncSuccessMock();
+   * const result = await client.syncJobs(jobs, 'webhook');
+   * expect(result.success).toBe(true);
+   * ```
    * @since 1.0.0
    */
   static setupSyncSuccessMock(response = this.SAMPLE_RESPONSES.syncSuccess): void {
@@ -340,6 +352,17 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Setup HTTP client mock for failed sync operation
+   *
+   * Configures the mock HTTP client to return a failed sync response
+   * for testing error handling scenarios.
+   *
+   * @param {object} [response] - Mock error response object to return
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * WordPressClientTestUtils.setupSyncFailureMock();
+   * await expect(client.syncJobs(jobs, 'webhook')).rejects.toThrow();
+   * ```
    * @since 1.0.0
    */
   static setupSyncFailureMock(response = this.SAMPLE_RESPONSES.serverError): void {
@@ -348,6 +371,17 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Setup HTTP client mock for health check success
+   *
+   * Configures the mock HTTP client to return a successful health check
+   * response for testing positive health check scenarios.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * WordPressClientTestUtils.setupHealthSuccessMock();
+   * const isHealthy = await client.healthCheck();
+   * expect(isHealthy).toBe(true);
+   * ```
    * @since 1.0.0
    */
   static setupHealthSuccessMock(): void {
@@ -356,6 +390,17 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Setup HTTP client mock for health check failure
+   *
+   * Configures the mock HTTP client to return a failed health check
+   * response for testing error handling scenarios.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * WordPressClientTestUtils.setupHealthFailureMock();
+   * const isHealthy = await client.healthCheck();
+   * expect(isHealthy).toBe(false);
+   * ```
    * @since 1.0.0
    */
   static setupHealthFailureMock(): void {
@@ -364,6 +409,17 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Setup HTTP client mock to throw network error
+   *
+   * Configures the mock HTTP client to reject with a network error
+   * for testing network failure and timeout scenarios.
+   *
+   * @param {string} [errorMessage] - Custom error message
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * WordPressClientTestUtils.setupNetworkErrorMock('Connection timeout');
+   * await expect(client.syncJobs(jobs, 'webhook')).rejects.toThrow();
+   * ```
    * @since 1.0.0
    */
   static setupNetworkErrorMock(errorMessage = 'Network timeout'): void {
@@ -372,6 +428,23 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Verify HTTP client was called with correct parameters
+   *
+   * Validates that the mock HTTP client was invoked with the expected
+   * URL, payload, and headers for comprehensive test verification.
+   *
+   * @param {string} url - Expected request URL
+   * @param {unknown} payload - Expected request payload
+   * @param {Record<string, string>} expectedHeaders - Expected HTTP headers
+   * @returns {void} No return value, throws assertion errors on mismatch
+   * @example
+   * ```typescript
+   * await client.syncJobs(jobs, 'webhook');
+   * WordPressClientTestUtils.verifyHttpCall(
+   *   'https://example.com/wp-json/drivehr/v1/sync',
+   *   expect.objectContaining({ source: 'webhook' }),
+   *   expect.objectContaining({ 'Content-Type': 'application/json' })
+   * );
+   * ```
    * @since 1.0.0
    */
   static verifyHttpCall(
@@ -384,6 +457,21 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Verify HMAC signature was generated with correct payload
+   *
+   * Validates that the HMAC signature utility was called with the
+   * expected payload and secret for security verification.
+   *
+   * @param {string} expectedPayload - Expected payload string
+   * @param {string} expectedSecret - Expected webhook secret
+   * @returns {void} No return value, throws assertion errors on mismatch
+   * @example
+   * ```typescript
+   * await client.syncJobs(jobs, 'webhook');
+   * WordPressClientTestUtils.verifySignatureGeneration(
+   *   JSON.stringify({ source: 'webhook', jobs }),
+   *   'my-webhook-secret'
+   * );
+   * ```
    * @since 1.0.0
    */
   static verifySignatureGeneration(expectedPayload: string, expectedSecret: string): void {

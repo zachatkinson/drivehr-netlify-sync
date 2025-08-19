@@ -82,6 +82,8 @@ jobs:
             pattern: 'test/services/html-parser.test.ts'
           - name: 'WordPress Client Service'
             pattern: 'test/services/wordpress-client.test.ts'
+          - name: 'Netlify Function Handler'
+            pattern: 'test/functions/sync-jobs.test.ts'
 
     steps:
       - name: Checkout code

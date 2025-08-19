@@ -190,6 +190,18 @@ class JobFetcherTestUtils extends BaseTestUtils {
 
   /**
    * Setup all mocks before tests
+   *
+   * Configures all necessary mocks including logger, HTTP client,
+   * HTML parser, date utilities, and normalization services for
+   * consistent test behavior across all strategy tests.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * beforeEach(() => {
+   *   JobFetcherTestUtils.setupMocks();
+   * });
+   * ```
    * @since 1.0.0
    */
   static setupMocks(): void {
@@ -211,6 +223,18 @@ class JobFetcherTestUtils extends BaseTestUtils {
 
   /**
    * Restore all mocks after tests
+   *
+   * Cleans up all mock functions and restores original implementations
+   * to prevent test interference between test cases. Includes specific
+   * cleanup for HTTP client and HTML parser mocks.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * afterEach(() => {
+   *   JobFetcherTestUtils.restoreMocks();
+   * });
+   * ```
    * @since 1.0.0
    */
   static restoreMocks(): void {
@@ -223,6 +247,19 @@ class JobFetcherTestUtils extends BaseTestUtils {
 
   /**
    * Create successful HTTP response
+   *
+   * Generates a properly formatted successful HTTP response object
+   * with the provided data for mocking HTTP operations.
+   *
+   * @template T - Type of the response data
+   * @param {T} data - Response data to include in the HTTP response
+   * @returns {HttpResponse<T>} Formatted HTTP success response with status 200
+   * @example
+   * ```typescript
+   * const jobData = [{ id: '1', title: 'Engineer' }];
+   * const response = JobFetcherTestUtils.createSuccessResponse(jobData);
+   * mockHttpClient.get.mockResolvedValue(response);
+   * ```
    * @since 1.0.0
    */
   static createSuccessResponse<T>(data: T): HttpResponse<T> {
@@ -237,6 +274,19 @@ class JobFetcherTestUtils extends BaseTestUtils {
 
   /**
    * Create failed HTTP response
+   *
+   * Generates a properly formatted failed HTTP response object
+   * for testing error handling scenarios.
+   *
+   * @param {number} [status=500] - HTTP status code for the error response
+   * @param {string} [statusText='Internal Server Error'] - HTTP status text
+   * @returns {HttpResponse<unknown>} Formatted HTTP error response
+   * @example
+   * ```typescript
+   * const response = JobFetcherTestUtils.createFailureResponse(404, 'Not Found');
+   * mockHttpClient.get.mockResolvedValue(response);
+   * await expect(strategy.fetchJobs(config)).rejects.toThrow();
+   * ```
    * @since 1.0.0
    */
   static createFailureResponse(
@@ -254,6 +304,19 @@ class JobFetcherTestUtils extends BaseTestUtils {
 
   /**
    * Create API response with jobs data
+   *
+   * Generates API response data with jobs in the specified format
+   * for testing different API endpoint response structures.
+   *
+   * @param {'jobs' | 'positions' | 'data'} format - The API response format key
+   * @returns {{ [key: string]: RawJobData[] }} Object with jobs data under the specified key
+   * @example
+   * ```typescript
+   * const response = JobFetcherTestUtils.createApiResponse('jobs');
+   * mockHttpClient.get.mockResolvedValue(
+   *   JobFetcherTestUtils.createSuccessResponse(response)
+   * );
+   * ```
    * @since 1.0.0
    */
   static createApiResponse(format: 'jobs' | 'positions' | 'data'): { [key: string]: RawJobData[] } {
@@ -262,6 +325,18 @@ class JobFetcherTestUtils extends BaseTestUtils {
 
   /**
    * Verify strategy interface compliance
+   *
+   * Validates that a job fetch strategy properly implements the
+   * IJobFetchStrategy interface with correct properties and methods.
+   *
+   * @param {IJobFetchStrategy} strategy - Strategy instance to verify
+   * @param {string} expectedName - Expected strategy name
+   * @returns {void} No return value, throws assertion errors on mismatch
+   * @example
+   * ```typescript
+   * const strategy = new ApiJobFetchStrategy(httpClient);
+   * JobFetcherTestUtils.verifyStrategyInterface(strategy, 'api');
+   * ```
    * @since 1.0.0
    */
   static verifyStrategyInterface(strategy: IJobFetchStrategy, expectedName: string): void {
@@ -272,6 +347,20 @@ class JobFetcherTestUtils extends BaseTestUtils {
 
   /**
    * Verify job fetch result structure
+   *
+   * Validates that a job fetch result has the correct structure,
+   * success status, job count, and method information.
+   *
+   * @param {JobFetchResult} result - The job fetch result to verify
+   * @param {boolean} expectedSuccess - Expected success status
+   * @param {number} [expectedJobCount] - Expected number of jobs fetched
+   * @param {string} [expectedMethod] - Expected fetch method used
+   * @returns {void} No return value, throws assertion errors on mismatch
+   * @example
+   * ```typescript
+   * const result = await strategy.fetchJobs(config);
+   * JobFetcherTestUtils.verifyJobFetchResult(result, true, 3, 'api');
+   * ```
    * @since 1.0.0
    */
   static verifyJobFetchResult(
@@ -298,7 +387,24 @@ class JobFetcherTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Verify normalized job structure
+   * Verify normalized job structure and field values
+   *
+   * Validates that a normalized job object has the correct structure
+   * with all required fields present and properly formatted, plus
+   * specific field values matching expectations.
+   *
+   * @param {NormalizedJob} job - The normalized job object to verify
+   * @param {Partial<NormalizedJob>} expectedFields - Expected field values to validate
+   * @returns {void} No return value, throws assertion errors on mismatch
+   * @example
+   * ```typescript
+   * const normalizedJob = await service.fetchJobs(config, 'webhook');
+   * JobFetcherTestUtils.verifyNormalizedJob(normalizedJob.jobs[0], {
+   *   title: 'Software Engineer',
+   *   source: 'webhook',
+   *   processedAt: '2024-01-01T12:00:00.000Z'
+   * });
+   * ```
    * @since 1.0.0
    */
   static verifyNormalizedJob(job: NormalizedJob, expectedFields: Partial<NormalizedJob>): void {

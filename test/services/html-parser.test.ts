@@ -240,7 +240,18 @@ class HtmlParserTestUtils extends BaseTestUtils {
   } as const;
 
   /**
-   * Setup mocks for testing
+   * Setup mocks for testing HTML parser service
+   *
+   * Configures all necessary mocks including logger, date utilities,
+   * string utilities, and URL utilities for consistent test behavior.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * beforeEach(() => {
+   *   HtmlParserTestUtils.setupMocks();
+   * });
+   * ```
    * @since 1.0.0
    */
   static setupMocks(): void {
@@ -266,6 +277,17 @@ class HtmlParserTestUtils extends BaseTestUtils {
 
   /**
    * Restore mocks after testing
+   *
+   * Cleans up all mock functions and restores original implementations
+   * to prevent test interference between test cases.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * afterEach(() => {
+   *   HtmlParserTestUtils.restoreMocks();
+   * });
+   * ```
    * @since 1.0.0
    */
   static restoreMocks(): void {
@@ -275,6 +297,19 @@ class HtmlParserTestUtils extends BaseTestUtils {
 
   /**
    * Verify job data structure and content
+   *
+   * Performs comprehensive validation of job data objects to ensure
+   * all fields match expected values with proper typing and content.
+   *
+   * @param {RawJobData} actual - The actual job data to validate
+   * @param {RawJobData} expected - The expected job data values
+   * @returns {void} No return value, throws assertion errors on mismatch
+   * @example
+   * ```typescript
+   * const actualJob = parser.parseJobsFromHtml(html)[0];
+   * const expectedJob = HtmlParserTestUtils.EXPECTED_JOB_DATA.standardJobs[0];
+   * HtmlParserTestUtils.verifyJobData(actualJob, expectedJob);
+   * ```
    * @since 1.0.0
    */
   static verifyJobData(actual: RawJobData, expected: RawJobData): void {
@@ -290,6 +325,27 @@ class HtmlParserTestUtils extends BaseTestUtils {
 
   /**
    * Create test HTML with custom structure
+   *
+   * Generates HTML content with job data using customizable selectors
+   * for testing various HTML parser configurations and edge cases.
+   *
+   * @param {Object} jobData - Job data and selector configuration
+   * @param {string} jobData.title - Job title (required)
+   * @param {string} [jobData.department] - Job department (optional)
+   * @param {string} [jobData.location] - Job location (optional)
+   * @param {string} [jobData.type] - Job type (optional)
+   * @param {string} [jobData.description] - Job description (optional)
+   * @param {Object} [jobData.selectors] - Custom CSS selectors (optional)
+   * @returns {string} Generated HTML string with job data
+   * @example
+   * ```typescript
+   * const html = HtmlParserTestUtils.createTestHtml({
+   *   title: 'Software Engineer',
+   *   department: 'Engineering',
+   *   selectors: { container: 'custom-job-card' }
+   * });
+   * const jobs = parser.parseJobsFromHtml(html, 'https://example.com');
+   * ```
    * @since 1.0.0
    */
   static createTestHtml(jobData: {
