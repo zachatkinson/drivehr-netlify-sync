@@ -72,6 +72,8 @@ jobs:
             pattern: 'test/lib/env.test.ts'
           - name: 'Logger'
             pattern: 'test/lib/logger.test.ts'
+          - name: 'Utils'
+            pattern: 'test/lib/utils.test.ts'
 
     steps:
       - name: Checkout code
