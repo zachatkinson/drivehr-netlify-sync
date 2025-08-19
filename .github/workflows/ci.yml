@@ -76,6 +76,12 @@ jobs:
             pattern: 'test/lib/utils.test.ts'
           - name: 'Job Fetch Utils'
             pattern: 'test/lib/job-fetch-utils.test.ts'
+          - name: 'Job Fetcher Service'
+            pattern: 'test/services/job-fetcher.test.ts'
+          - name: 'HTML Parser Service'
+            pattern: 'test/services/html-parser.test.ts'
+          - name: 'WordPress Client Service'
+            pattern: 'test/services/wordpress-client.test.ts'
 
     steps:
       - name: Checkout code
