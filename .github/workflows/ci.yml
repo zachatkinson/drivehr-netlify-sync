@@ -257,8 +257,25 @@ jobs:
           echo "📂 Checking functions directory in dist:"
           ls -la dist/functions/
           echo "🔍 Attempting deployment without explicit functions flag (using netlify.toml config)"
+          echo "🚀 Deploying to production..."
           deployment=$(pnpm exec netlify deploy --prod --dir=dist --skip-functions-cache --json)
-          url=$(echo "$deployment" | jq -r '.deploy_url // .url // ""')
+          echo "🔍 Deployment result JSON:"
+          echo "$deployment" | jq '.'
+
+          # For production deployments with --prod, use the main site URL
+          # The deploy_url is for previews, we want the production site URL
+          prod_url=$(echo "$deployment" | jq -r '.url // .site_url // ""')
+
+          if [ -n "$prod_url" ] && [ "$prod_url" != "null" ]; then
+            url="$prod_url"
+            echo "✅ Using production URL from deployment: $url"
+          else
+            # Production site URL (should match your Netlify site)
+            url="https://drivehr-sync.netlify.app"
+            echo "⚠️ Using known production URL: $url"
+          fi
+
+          echo "📍 Final deployment URL: $url"
           echo "url=$url" >> $GITHUB_OUTPUT
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
