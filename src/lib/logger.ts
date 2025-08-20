@@ -156,7 +156,7 @@ class ApplicationLogger implements Logger {
    * ```typescript
    * logger.warn('Using deprecated API endpoint', {
    *   endpoint: '/v1/legacy',
-   *   deprecatedSince: '2024-01-01',
+   *   deprecatedSince: '2025-01-01',
    *   migrateToEndpoint: '/v2/current'
    * });
    * ```
@@ -311,11 +311,13 @@ class ApplicationLogger implements Logger {
         message,
         ...(context && { context }),
       };
-      // eslint-disable-next-line no-console
+
+      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Console output is the intended behavior for logger implementation. This is the core functionality of the logging service in serverless environments.
       console[level === 'trace' ? 'debug' : level](JSON.stringify(logEntry));
     } else {
       const contextStr = context ? ` ${JSON.stringify(context)}` : '';
-      // eslint-disable-next-line no-console
+
+      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Console output is the intended behavior for logger implementation. This is the core functionality of the logging service in serverless environments.
       console[level === 'trace' ? 'debug' : level](
         `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr}`
       );

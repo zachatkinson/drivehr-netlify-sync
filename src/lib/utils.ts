@@ -58,7 +58,7 @@ export class StringUtils {
    * @example
    * ```typescript
    * const jobId = StringUtils.generateIdFromTitle('Software Engineer');
-   * // Returns: 'software-engineer-1704067200000'
+   * // Returns: 'software-engineer-1735689600000'
    * ```
    * @since 1.0.0
    * @see {@link normalizeForId} for the normalization logic
@@ -239,7 +239,7 @@ export class DateUtils {
    * @example
    * ```typescript
    * const timestamp = DateUtils.getCurrentIsoTimestamp();
-   * // Returns: '2024-01-01T12:00:00.000Z'
+   * // Returns: '2025-01-01T12:00:00.000Z'
    * ```
    * @since 1.0.0
    * @see {@link toIsoString} for converting existing dates
@@ -259,7 +259,7 @@ export class DateUtils {
    * @returns True if the string represents a valid date, false otherwise
    * @example
    * ```typescript
-   * DateUtils.isValidDate('2024-01-01'); // Returns: true
+   * DateUtils.isValidDate('2025-01-01'); // Returns: true
    * DateUtils.isValidDate('invalid-date'); // Returns: false
    * ```
    * @since 1.0.0
@@ -282,7 +282,7 @@ export class DateUtils {
    * @returns ISO 8601 formatted date string
    * @example
    * ```typescript
-   * DateUtils.toIsoString('2024-01-01'); // Returns: '2024-01-01T00:00:00.000Z'
+   * DateUtils.toIsoString('2025-01-01'); // Returns: '2025-01-01T00:00:00.000Z'
    * DateUtils.toIsoString('invalid'); // Returns: current timestamp
    * DateUtils.toIsoString(new Date()); // Returns: date as ISO string
    * ```

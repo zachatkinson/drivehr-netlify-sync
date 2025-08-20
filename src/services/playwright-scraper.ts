@@ -442,6 +442,9 @@ export class PlaywrightScraper {
   private async extractFromStructuredElements(page: Page, baseUrl: string): Promise<RawJobData[]> {
     return await page.evaluate(url => {
       /* eslint-disable no-undef */
+      // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
+      // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
+      // executes this code in the browser context where these globals are standard and safe.
       const jobs: RawJobData[] = [];
 
       // Common selectors for job listings
@@ -549,6 +552,9 @@ export class PlaywrightScraper {
   private async extractFromJsonLd(page: Page): Promise<RawJobData[]> {
     return await page.evaluate(() => {
       /* eslint-disable no-undef */
+      // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
+      // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
+      // executes this code in the browser context where these globals are standard and safe.
       const jobs: RawJobData[] = [];
       const scripts = document.querySelectorAll('script[type="application/ld+json"]');
 
@@ -622,6 +628,9 @@ export class PlaywrightScraper {
   private async extractFromTextPatterns(page: Page, _baseUrl: string): Promise<RawJobData[]> {
     return await page.evaluate(() => {
       /* eslint-disable no-undef */
+      // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
+      // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
+      // executes this code in the browser context where these globals are standard and safe.
       const jobs: RawJobData[] = [];
       const text = document.body.textContent || '';
 

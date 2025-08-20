@@ -673,6 +673,50 @@ describe('HTML Parser Service', () => {
         expect(result[0]?.location).toBe('San Francisco, CA & Remote');
         expect(result[0]?.description).toBe('Work with cutting-edge tech & amazing team!');
       });
+
+      it('should generate DriveHR apply URLs with company ID when present', () => {
+        const html = `
+          <div class="job-listing">
+            <h2>Test Job</h2>
+          </div>
+        `;
+        const baseUrlWithCompanyId = 'https://drivehris.app/careers/abc123-def456/jobs';
+        const result = parser.parseJobsFromHtml(html, baseUrlWithCompanyId);
+
+        expect(result).toHaveLength(1);
+        expect(result[0]?.apply_url).toBe(
+          'https://drivehris.app/careers/abc123-def456/apply/generated-test-job-1704067200000'
+        );
+      });
+
+      it('should handle URL parsing errors gracefully when generating apply URLs', () => {
+        const html = `
+          <div class="job-listing">
+            <h2>Test Job</h2>
+          </div>
+        `;
+
+        // Mock URL constructor to throw an error for this test
+        const originalURL = globalThis.URL;
+        globalThis.URL = class extends originalURL {
+          constructor(url: string) {
+            if (url === 'invalid-url') {
+              throw new Error('Invalid URL');
+            }
+            super(url);
+          }
+        } as typeof URL;
+
+        const result = parser.parseJobsFromHtml(html, 'invalid-url');
+
+        // Restore original URL constructor
+        globalThis.URL = originalURL;
+
+        expect(result).toHaveLength(1);
+        expect(result[0]?.apply_url).toBe(
+          'https://drivehris.app/apply/generated-test-job-1704067200000'
+        );
+      });
     });
   });
 
