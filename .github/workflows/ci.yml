@@ -64,6 +64,7 @@ jobs:
     strategy:
       matrix:
         test-suite:
+          # Library Tests
           - name: 'Config'
             pattern: 'test/lib/config.test.ts'
           - name: 'HTTP Client'
@@ -76,14 +77,32 @@ jobs:
             pattern: 'test/lib/utils.test.ts'
           - name: 'Job Fetch Utils'
             pattern: 'test/lib/job-fetch-utils.test.ts'
+
+          # Service Tests
           - name: 'Job Fetcher Service'
             pattern: 'test/services/job-fetcher.test.ts'
           - name: 'HTML Parser Service'
             pattern: 'test/services/html-parser.test.ts'
           - name: 'WordPress Client Service'
             pattern: 'test/services/wordpress-client.test.ts'
-          - name: 'Netlify Function Handler'
+          - name: 'Playwright Scraper Service'
+            pattern: 'test/services/playwright-scraper.test.ts'
+
+          # Function Tests
+          - name: 'Sync Jobs Function'
             pattern: 'test/functions/sync-jobs.test.ts'
+          - name: 'Health Check Function'
+            pattern: 'test/functions/health-check.test.ts'
+          - name: 'Manual Trigger Function'
+            pattern: 'test/functions/manual-trigger.test.ts'
+          - name: 'Manual Trigger Integration'
+            pattern: 'test/functions/manual-trigger-integration.test.ts'
+          - name: 'Webhook Receiver Function'
+            pattern: 'test/functions/webhook-receiver.test.ts'
+
+          # Script Tests
+          - name: 'Scrape and Sync Script'
+            pattern: 'test/scripts/scrape-and-sync.test.ts'
 
     steps:
       - name: Checkout code
