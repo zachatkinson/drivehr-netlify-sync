@@ -6,10 +6,7 @@
  * of all strategies, error handling, normalization, and integration patterns.
  *
  * Key test areas:
- * - ApiJobFetchStrategy: API endpoint fetching with fallback URLs
- * - JsonJobFetchStrategy: JSON endpoint fetching and validation
  * - HtmlJobFetchStrategy: HTML scraping with parser integration
- * - EmbeddedJobFetchStrategy: Embedded JavaScript data extraction
  * - JobFetchService: Strategy orchestration and job normalization
  * - Error handling and edge cases across all components
  * - Integration tests showing complete workflows
@@ -20,10 +17,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  ApiJobFetchStrategy,
-  JsonJobFetchStrategy,
   HtmlJobFetchStrategy,
-  EmbeddedJobFetchStrategy,
   JobFetchService,
   type IJobFetchStrategy,
   type IHtmlParser,
@@ -303,27 +297,6 @@ class JobFetcherTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create API response with jobs data
-   *
-   * Generates API response data with jobs in the specified format
-   * for testing different API endpoint response structures.
-   *
-   * @param {'jobs' | 'positions' | 'data'} format - The API response format key
-   * @returns {{ [key: string]: RawJobData[] }} Object with jobs data under the specified key
-   * @example
-   * ```typescript
-   * const response = JobFetcherTestUtils.createApiResponse('jobs');
-   * mockHttpClient.get.mockResolvedValue(
-   *   JobFetcherTestUtils.createSuccessResponse(response)
-   * );
-   * ```
-   * @since 1.0.0
-   */
-  static createApiResponse(format: 'jobs' | 'positions' | 'data'): { [key: string]: RawJobData[] } {
-    return { [format]: this.SAMPLE_RAW_JOBS };
-  }
-
-  /**
    * Verify strategy interface compliance
    *
    * Validates that a job fetch strategy properly implements the
@@ -429,250 +402,6 @@ describe('Job Fetcher Service', () => {
     JobFetcherTestUtils.restoreMocks();
   });
 
-  describe('ApiJobFetchStrategy', () => {
-    let strategy: ApiJobFetchStrategy;
-
-    beforeEach(() => {
-      strategy = new ApiJobFetchStrategy();
-    });
-
-    it('should implement IJobFetchStrategy interface correctly', () => {
-      JobFetcherTestUtils.verifyStrategyInterface(strategy, 'api');
-    });
-
-    describe('canHandle', () => {
-      it('should return true when both companyId and apiBaseUrl are provided', () => {
-        expect(strategy.canHandle(JobFetcherTestUtils.STANDARD_CONFIG)).toBe(true);
-      });
-
-      it('should return false when companyId is missing', () => {
-        const config = { apiBaseUrl: 'https://api.example.com' } as DriveHrApiConfig;
-        expect(strategy.canHandle(config)).toBe(false);
-      });
-
-      it('should return false when apiBaseUrl is missing', () => {
-        const config = { companyId: 'test-company' } as DriveHrApiConfig;
-        expect(strategy.canHandle(config)).toBe(false);
-      });
-
-      it('should return false when both are missing', () => {
-        const config = {} as DriveHrApiConfig;
-        expect(strategy.canHandle(config)).toBe(false);
-      });
-    });
-
-    describe('fetchJobs', () => {
-      beforeEach(() => {
-        vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildApiUrls').mockReturnValue([
-          'https://drivehr.app/api/careers/test-company/jobs',
-          'https://drivehr.app/api/v1/careers/test-company/positions',
-          'https://api.test-company.com/api/jobs',
-        ]);
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
-          JobFetcherTestUtils.SAMPLE_RAW_JOBS
-        );
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'isValidJobArray').mockReturnValue(true);
-        vi.spyOn(jobFetchUtils.JobFetchErrorHandler, 'logAndContinue').mockImplementation(() => {});
-      });
-
-      it('should fetch jobs from first successful API endpoint', async () => {
-        const apiResponse = JobFetcherTestUtils.createApiResponse('jobs');
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(apiResponse)
-        );
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-        expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledWith(
-          'https://drivehr.app/api/careers/test-company/jobs'
-        );
-        expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledTimes(1);
-      });
-
-      it('should try multiple endpoints when first ones fail', async () => {
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get)
-          .mockRejectedValueOnce(new Error('First endpoint failed'))
-          .mockRejectedValueOnce(new Error('Second endpoint failed'))
-          .mockResolvedValue(
-            JobFetcherTestUtils.createSuccessResponse(JobFetcherTestUtils.createApiResponse('data'))
-          );
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-        expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledTimes(3);
-        expect(jobFetchUtils.JobFetchErrorHandler.logAndContinue).toHaveBeenCalledTimes(2);
-      });
-
-      it('should skip endpoints that return unsuccessful responses', async () => {
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get)
-          .mockResolvedValueOnce(JobFetcherTestUtils.createFailureResponse(404, 'Not Found'))
-          .mockResolvedValue(
-            JobFetcherTestUtils.createSuccessResponse(
-              JobFetcherTestUtils.createApiResponse('positions')
-            )
-          );
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-        expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledTimes(2);
-      });
-
-      it('should skip endpoints that return invalid job arrays', async () => {
-        vi.mocked(jobFetchUtils.JobDataExtractor.isValidJobArray)
-          .mockReturnValueOnce(false)
-          .mockReturnValue(true);
-
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get)
-          .mockResolvedValueOnce(JobFetcherTestUtils.createSuccessResponse({ jobs: [] }))
-          .mockResolvedValue(
-            JobFetcherTestUtils.createSuccessResponse(JobFetcherTestUtils.createApiResponse('jobs'))
-          );
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-        expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledTimes(2);
-      });
-
-      it('should throw error when all endpoints fail', async () => {
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockRejectedValue(
-          new Error('All endpoints failed')
-        );
-
-        await expect(
-          strategy.fetchJobs(
-            JobFetcherTestUtils.STANDARD_CONFIG,
-            JobFetcherTestUtils.mockHttpClient
-          )
-        ).rejects.toThrow('All API endpoints failed');
-
-        expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledTimes(3);
-        expect(jobFetchUtils.JobFetchErrorHandler.logAndContinue).toHaveBeenCalledTimes(3);
-      });
-    });
-  });
-
-  describe('JsonJobFetchStrategy', () => {
-    let strategy: JsonJobFetchStrategy;
-
-    beforeEach(() => {
-      strategy = new JsonJobFetchStrategy();
-    });
-
-    it('should implement IJobFetchStrategy interface correctly', () => {
-      JobFetcherTestUtils.verifyStrategyInterface(strategy, 'json');
-    });
-
-    describe('canHandle', () => {
-      it('should return true when careersUrl is provided', () => {
-        expect(strategy.canHandle(JobFetcherTestUtils.STANDARD_CONFIG)).toBe(true);
-      });
-
-      it('should return false when careersUrl is missing', () => {
-        const config = {
-          companyId: 'test-company',
-          apiBaseUrl: 'https://api.example.com',
-        } as DriveHrApiConfig;
-        expect(strategy.canHandle(config)).toBe(false);
-      });
-    });
-
-    describe('fetchJobs', () => {
-      beforeEach(() => {
-        vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildCareersJsonUrl').mockReturnValue(
-          'https://drivehr.app/careers/test-company.json'
-        );
-      });
-
-      it('should fetch jobs from JSON endpoint with jobs property', async () => {
-        const jsonResponse = { jobs: JobFetcherTestUtils.SAMPLE_RAW_JOBS };
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(jsonResponse)
-        );
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-        expect(JobFetcherTestUtils.mockHttpClient.get).toHaveBeenCalledWith(
-          'https://drivehr.app/careers/test-company.json'
-        );
-      });
-
-      it('should return empty array when response data is not jobs array', async () => {
-        const jsonResponse = JobFetcherTestUtils.SAMPLE_RAW_JOBS;
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(jsonResponse)
-        );
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-      });
-
-      it('should throw error when response format is invalid (non-array)', async () => {
-        const jsonResponse = { message: 'No jobs available' };
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(jsonResponse)
-        );
-
-        await expect(
-          strategy.fetchJobs(
-            JobFetcherTestUtils.STANDARD_CONFIG,
-            JobFetcherTestUtils.mockHttpClient
-          )
-        ).rejects.toThrow('Invalid JSON response format');
-      });
-
-      it('should throw error when endpoint is not accessible', async () => {
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createFailureResponse(404, 'Not Found')
-        );
-
-        await expect(
-          strategy.fetchJobs(
-            JobFetcherTestUtils.STANDARD_CONFIG,
-            JobFetcherTestUtils.mockHttpClient
-          )
-        ).rejects.toThrow('JSON endpoint not accessible');
-      });
-
-      it('should throw error when response format is invalid', async () => {
-        const invalidResponse = { jobs: 'not an array' };
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(invalidResponse)
-        );
-
-        await expect(
-          strategy.fetchJobs(
-            JobFetcherTestUtils.STANDARD_CONFIG,
-            JobFetcherTestUtils.mockHttpClient
-          )
-        ).rejects.toThrow('Invalid JSON response format');
-      });
-    });
-  });
-
   describe('HtmlJobFetchStrategy', () => {
     let strategy: HtmlJobFetchStrategy;
 
@@ -755,129 +484,6 @@ describe('Job Fetcher Service', () => {
     });
   });
 
-  describe('EmbeddedJobFetchStrategy', () => {
-    let strategy: EmbeddedJobFetchStrategy;
-
-    beforeEach(() => {
-      strategy = new EmbeddedJobFetchStrategy();
-    });
-
-    it('should implement IJobFetchStrategy interface correctly', () => {
-      JobFetcherTestUtils.verifyStrategyInterface(strategy, 'json-ld');
-    });
-
-    describe('canHandle', () => {
-      it('should return true when careersUrl is provided', () => {
-        expect(strategy.canHandle(JobFetcherTestUtils.STANDARD_CONFIG)).toBe(true);
-      });
-
-      it('should return false when careersUrl is missing', () => {
-        const config = {
-          companyId: 'test-company',
-          apiBaseUrl: 'https://api.example.com',
-        } as DriveHrApiConfig;
-        expect(strategy.canHandle(config)).toBe(false);
-      });
-    });
-
-    describe('fetchJobs', () => {
-      beforeEach(() => {
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromJsonLd').mockReturnValue([]);
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromEmbeddedJs').mockReturnValue([]);
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'isValidJobArray').mockReturnValue(false);
-      });
-
-      it('should extract jobs from JSON-LD structured data', async () => {
-        const htmlWithJsonLd = `
-          <script type="application/ld+json">
-            [{"@type": "JobPosting", "title": "Test Job"}]
-          </script>
-        `;
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(htmlWithJsonLd)
-        );
-
-        // The strategy should call the private extractJsonLdJobs method
-        // which returns jobs directly, so we mock the actual behavior
-        const extractJsonLdJobsSpy = vi
-          .spyOn(
-            strategy as unknown as { extractJsonLdJobs: (html: string) => RawJobData[] },
-            'extractJsonLdJobs'
-          )
-          .mockReturnValue(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-        expect(extractJsonLdJobsSpy).toHaveBeenCalledWith(htmlWithJsonLd);
-      });
-
-      it('should extract jobs from embedded JavaScript when JSON-LD fails', async () => {
-        const htmlWithEmbeddedJs = `
-          <script>
-            window.jobData = {"positions": [{"title": "Test Job"}]};
-          </script>
-        `;
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(htmlWithEmbeddedJs)
-        );
-
-        // Mock both private methods of the strategy
-        const extractJsonLdJobsSpy = vi
-          .spyOn(
-            strategy as unknown as { extractJsonLdJobs: (html: string) => RawJobData[] },
-            'extractJsonLdJobs'
-          )
-          .mockReturnValue([]);
-        const extractEmbeddedJobsSpy = vi
-          .spyOn(
-            strategy as unknown as { extractEmbeddedJobs: (html: string) => RawJobData[] },
-            'extractEmbeddedJobs'
-          )
-          .mockReturnValue(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-
-        const result = await strategy.fetchJobs(
-          JobFetcherTestUtils.STANDARD_CONFIG,
-          JobFetcherTestUtils.mockHttpClient
-        );
-
-        expect(result).toEqual(JobFetcherTestUtils.SAMPLE_RAW_JOBS);
-        expect(extractJsonLdJobsSpy).toHaveBeenCalledWith(htmlWithEmbeddedJs);
-        expect(extractEmbeddedJobsSpy).toHaveBeenCalledWith(htmlWithEmbeddedJs);
-      });
-
-      it('should throw error when page is not accessible', async () => {
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createFailureResponse(404, 'Not Found')
-        );
-
-        await expect(
-          strategy.fetchJobs(
-            JobFetcherTestUtils.STANDARD_CONFIG,
-            JobFetcherTestUtils.mockHttpClient
-          )
-        ).rejects.toThrow('HTML page not accessible');
-      });
-
-      it('should throw error when no embedded data is found', async () => {
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse('<html></html>')
-        );
-        vi.mocked(jobFetchUtils.JobDataExtractor.isValidJobArray).mockReturnValue(false);
-
-        await expect(
-          strategy.fetchJobs(
-            JobFetcherTestUtils.STANDARD_CONFIG,
-            JobFetcherTestUtils.mockHttpClient
-          )
-        ).rejects.toThrow('No embedded data found');
-      });
-    });
-  });
-
   describe('JobFetchService', () => {
     let service: JobFetchService;
 
@@ -889,7 +495,7 @@ describe('Job Fetcher Service', () => {
     });
 
     describe('constructor', () => {
-      it('should initialize with all strategies in correct order', () => {
+      it('should initialize with HTML strategy only', () => {
         expect(service).toBeInstanceOf(JobFetchService);
         // We can't directly access strategies, but can test through behavior
       });
@@ -897,62 +503,33 @@ describe('Job Fetcher Service', () => {
 
     describe('fetchJobs', () => {
       beforeEach(() => {
-        // Mock all utility functions
-        vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildApiUrls').mockReturnValue([
-          'https://api.example.com/jobs',
-        ]);
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
+        // Mock HTML parser for the only remaining strategy
+        vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
           JobFetcherTestUtils.SAMPLE_RAW_JOBS
         );
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'isValidJobArray').mockReturnValue(true);
         vi.spyOn(jobFetchUtils.JobFetchErrorHandler, 'logStrategyFailure').mockImplementation(
           () => {}
         );
       });
 
-      it('should fetch jobs using first successful strategy (API)', async () => {
+      it('should fetch jobs using HTML strategy', async () => {
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(JobFetcherTestUtils.createApiResponse('jobs'))
+          JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML content</html>')
         );
 
         const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'webhook');
 
-        JobFetcherTestUtils.verifyJobFetchResult(result, true, 3, 'api');
+        JobFetcherTestUtils.verifyJobFetchResult(result, true, 3, 'html');
         expect(JobFetcherTestUtils.mockLogger.info).toHaveBeenCalledWith(
-          'Attempting to fetch jobs using strategy: api'
+          'Attempting to fetch jobs using strategy: html'
         );
         expect(JobFetcherTestUtils.mockLogger.info).toHaveBeenCalledWith(
-          'Successfully fetched 3 jobs using api'
+          'Successfully fetched 3 jobs using html'
         );
       });
 
-      it('should try multiple strategies when first ones fail', async () => {
-        // Make API strategy fail, JSON strategy succeed
-        vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildCareersJsonUrl').mockReturnValue(
-          'https://example.com/jobs.json'
-        );
-
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get)
-          .mockRejectedValueOnce(new Error('API failed'))
-          .mockResolvedValue(
-            JobFetcherTestUtils.createSuccessResponse({ jobs: JobFetcherTestUtils.SAMPLE_RAW_JOBS })
-          );
-
-        const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'manual');
-
-        JobFetcherTestUtils.verifyJobFetchResult(result, true, 3, 'json');
-        expect(jobFetchUtils.JobFetchErrorHandler.logStrategyFailure).toHaveBeenCalledWith(
-          'api',
-          expect.any(Error)
-        );
-      });
-
-      it('should skip strategies that cannot handle configuration', async () => {
+      it('should fail when HTML strategy cannot handle configuration', async () => {
         const minimalConfig = { companyId: 'test' } as DriveHrApiConfig;
-
-        vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockRejectedValue(
-          new Error('No strategies available')
-        );
 
         const result = await service.fetchJobs(minimalConfig, 'drivehr');
 
@@ -960,13 +537,10 @@ describe('Job Fetcher Service', () => {
         expect(result.error).toBe('All fetch strategies failed');
       });
 
-      it('should return failure result when all strategies fail', async () => {
+      it('should return failure result when HTML strategy fails', async () => {
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockRejectedValue(
-          new Error('All strategies failed')
+          new Error('HTML strategy failed')
         );
-        vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockImplementation(() => {
-          throw new Error('HTML parsing failed');
-        });
 
         const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
 
@@ -977,7 +551,7 @@ describe('Job Fetcher Service', () => {
 
       it('should properly normalize jobs from raw data', async () => {
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse(JobFetcherTestUtils.createApiResponse('jobs'))
+          JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML content</html>')
         );
 
         const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'webhook');
@@ -1005,11 +579,11 @@ describe('Job Fetcher Service', () => {
           { id: 'job-4', title: 'Another Valid Job', description: 'Has title' },
         ];
 
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
+        vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
           rawJobsWithMissingTitles
         );
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobsWithMissingTitles })
+          JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML</html>')
         );
 
         const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
@@ -1036,11 +610,11 @@ describe('Job Fetcher Service', () => {
           },
         ];
 
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
+        vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
           rawJobWithVariations
         );
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobWithVariations })
+          JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML</html>')
         );
 
         const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
@@ -1063,11 +637,11 @@ describe('Job Fetcher Service', () => {
           },
         ];
 
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
+        vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
           rawJobWithoutId
         );
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobWithoutId })
+          JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML</html>')
         );
 
         const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
@@ -1085,11 +659,11 @@ describe('Job Fetcher Service', () => {
           },
         ];
 
-        vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
+        vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
           rawJobWithoutDate
         );
         vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse({ jobs: rawJobWithoutDate })
+          JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML</html>')
         );
 
         const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'drivehr');
@@ -1111,25 +685,21 @@ describe('Job Fetcher Service', () => {
       );
 
       // Setup comprehensive mocks for integration testing
-      vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildApiUrls').mockReturnValue([
-        'https://drivehr.app/api/careers/test-company/jobs',
-      ]);
-      vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
+      vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
         JobFetcherTestUtils.SAMPLE_RAW_JOBS
       );
-      vi.spyOn(jobFetchUtils.JobDataExtractor, 'isValidJobArray').mockReturnValue(true);
     });
 
     it('should demonstrate complete job fetching workflow', async () => {
       vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-        JobFetcherTestUtils.createSuccessResponse(JobFetcherTestUtils.createApiResponse('jobs'))
+        JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML content</html>')
       );
 
       const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'webhook');
 
       // Verify complete workflow
       expect(result.success).toBe(true);
-      expect(result.method).toBe('api');
+      expect(result.method).toBe('html');
       expect(result.jobs).toHaveLength(3);
       expect(result.totalCount).toBe(3);
       expect(result.fetchedAt).toBeTruthy();
@@ -1144,44 +714,32 @@ describe('Job Fetcher Service', () => {
 
       // Verify logging occurred
       expect(JobFetcherTestUtils.mockLogger.info).toHaveBeenCalledWith(
-        'Attempting to fetch jobs using strategy: api'
+        'Attempting to fetch jobs using strategy: html'
       );
       expect(JobFetcherTestUtils.mockLogger.info).toHaveBeenCalledWith(
-        'Successfully fetched 3 jobs using api'
+        'Successfully fetched 3 jobs using html'
       );
     });
 
-    it('should handle strategy failover with comprehensive logging', async () => {
-      // Make API fail, others succeed
-      vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildCareersJsonUrl').mockReturnValue(
-        'https://example.com/jobs.json'
-      );
+    it('should handle HTML strategy failure with comprehensive logging', async () => {
       vi.spyOn(jobFetchUtils.JobFetchErrorHandler, 'logStrategyFailure').mockImplementation(
         () => {}
       );
 
-      vi.mocked(JobFetcherTestUtils.mockHttpClient.get)
-        .mockRejectedValueOnce(new Error('API strategy failed'))
-        .mockResolvedValue(
-          JobFetcherTestUtils.createSuccessResponse({ jobs: JobFetcherTestUtils.SAMPLE_RAW_JOBS })
-        );
+      vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockRejectedValue(
+        new Error('HTML strategy failed')
+      );
 
       const result = await service.fetchJobs(JobFetcherTestUtils.STANDARD_CONFIG, 'manual');
 
-      expect(result.success).toBe(true);
-      expect(result.method).toBe('json');
+      expect(result.success).toBe(false);
+      expect(result.method).toBe('none');
       expect(jobFetchUtils.JobFetchErrorHandler.logStrategyFailure).toHaveBeenCalledWith(
-        'api',
+        'html',
         expect.any(Error)
       );
       expect(JobFetcherTestUtils.mockLogger.info).toHaveBeenCalledWith(
-        'Attempting to fetch jobs using strategy: api'
-      );
-      expect(JobFetcherTestUtils.mockLogger.info).toHaveBeenCalledWith(
-        'Attempting to fetch jobs using strategy: json'
-      );
-      expect(JobFetcherTestUtils.mockLogger.info).toHaveBeenCalledWith(
-        'Successfully fetched 3 jobs using json'
+        'Attempting to fetch jobs using strategy: html'
       );
     });
 
@@ -1196,22 +754,18 @@ describe('Job Fetcher Service', () => {
           JobFetcherTestUtils.mockHtmlParser
         );
 
-        if (name === 'API only config') {
-          vi.spyOn(jobFetchUtils.DriveHrUrlBuilder, 'buildApiUrls').mockReturnValue([
-            'https://api.example.com/jobs',
-          ]);
-          vi.spyOn(jobFetchUtils.JobDataExtractor, 'extractFromApiResponse').mockReturnValue(
+        if (name === 'Complete config') {
+          vi.mocked(JobFetcherTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
             JobFetcherTestUtils.SAMPLE_RAW_JOBS
           );
-          vi.spyOn(jobFetchUtils.JobDataExtractor, 'isValidJobArray').mockReturnValue(true);
 
           vi.mocked(JobFetcherTestUtils.mockHttpClient.get).mockResolvedValue(
-            JobFetcherTestUtils.createSuccessResponse({ jobs: JobFetcherTestUtils.SAMPLE_RAW_JOBS })
+            JobFetcherTestUtils.createSuccessResponse('<html>Mock HTML</html>')
           );
 
           const result = await service.fetchJobs(config as DriveHrApiConfig, 'drivehr');
           expect(result.success).toBe(true);
-          expect(result.method).toBe('api');
+          expect(result.method).toBe('html');
         }
       }
     });

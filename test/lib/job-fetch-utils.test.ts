@@ -2,14 +2,14 @@
  * @fileoverview Comprehensive test suite for job fetching utilities
  *
  * Tests all job fetching utility classes including URL building, error handling,
- * and data extraction. Uses DRY principles with shared utilities for consistent
+ * and data validation. Uses DRY principles with shared utilities for consistent
  * test patterns and maintainable code.
  *
  * Key test areas:
- * - DRIVEHR_API_CONSTANTS: API constants and configuration values
- * - DriveHrUrlBuilder: URL construction with fallbacks and format variations
+ * - DRIVEHR_CONSTANTS: Base URL constants
+ * - DriveHrUrlBuilder: Careers page URL construction
  * - JobFetchErrorHandler: Error logging and strategy failure handling
- * - JobDataExtractor: Data extraction from API responses, JSON-LD, and embedded JS
+ * - JobDataExtractor: Data validation utilities
  * - Edge cases and error conditions for all utility functions
  * - Integration patterns between utilities
  *
@@ -19,7 +19,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  DRIVEHR_API_CONSTANTS,
+  DRIVEHR_CONSTANTS,
   DriveHrUrlBuilder,
   JobFetchErrorHandler,
   JobDataExtractor,
@@ -98,8 +98,8 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
   ] as const;
 
   /**
-   * Sample raw job data for testing data extraction
-   * Provides realistic job data structures for extraction testing
+   * Sample raw job data for testing data validation
+   * Provides realistic job data structures for validation testing
    * @since 1.0.0
    */
   static readonly SAMPLE_JOB_DATA: RawJobData[] = [
@@ -170,87 +170,6 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create API response test data with various formats
-   *
-   * @param format - Format of the response ('jobs', 'positions', 'data', 'empty')
-   * @returns Mock API response object
-   * @since 1.0.0
-   */
-  static createApiResponseData(
-    format: 'jobs' | 'positions' | 'data' | 'empty'
-  ): Record<string, unknown> {
-    switch (format) {
-      case 'jobs':
-        return { jobs: this.SAMPLE_JOB_DATA };
-      case 'positions':
-        return { positions: this.SAMPLE_JOB_DATA };
-      case 'data':
-        return { data: this.SAMPLE_JOB_DATA };
-      case 'empty':
-        return { message: 'No jobs found' };
-      default:
-        return {};
-    }
-  }
-
-  /**
-   * Create JSON-LD test data with JobPosting objects
-   *
-   * @param includeNonJobPostings - Whether to include non-JobPosting objects
-   * @returns Array of JSON-LD objects
-   * @since 1.0.0
-   */
-  static createJsonLdData(includeNonJobPostings = true): Record<string, unknown>[] {
-    const jobPostings = this.SAMPLE_JOB_DATA.map(job => ({
-      '@type': 'JobPosting',
-      '@context': 'https://schema.org',
-      ...job,
-    }));
-
-    if (!includeNonJobPostings) {
-      return jobPostings;
-    }
-
-    return [
-      ...jobPostings,
-      {
-        '@type': 'Organization',
-        '@context': 'https://schema.org',
-        name: 'Test Company',
-        url: 'https://test-company.com',
-      },
-      {
-        '@type': 'WebSite',
-        '@context': 'https://schema.org',
-        name: 'Careers Page',
-        url: 'https://test-company.com/careers',
-      },
-    ];
-  }
-
-  /**
-   * Create embedded JavaScript test data
-   *
-   * @param hasPositions - Whether to include positions data
-   * @returns Embedded JS data object
-   * @since 1.0.0
-   */
-  static createEmbeddedJsData(hasPositions = true): Record<string, unknown> {
-    if (!hasPositions) {
-      return {
-        metadata: { company: 'Test Company', timestamp: '2024-01-01' },
-        config: { theme: 'dark' },
-      };
-    }
-
-    return {
-      positions: this.SAMPLE_JOB_DATA,
-      metadata: { company: 'Test Company', timestamp: '2024-01-01' },
-      config: { theme: 'light', version: '1.0' },
-    };
-  }
-
-  /**
    * Create test error objects for error handling tests
    *
    * @param type - Type of error to create
@@ -280,98 +199,21 @@ describe('Job Fetch Utils', () => {
     JobFetchUtilsTestUtils.restoreLoggerMocks();
   });
 
-  describe('DRIVEHR_API_CONSTANTS', () => {
+  describe('DRIVEHR_CONSTANTS', () => {
     it('should have correct base URL constant', () => {
-      expect(DRIVEHR_API_CONSTANTS.BASE_URL).toBe('https://drivehris.app');
-      expect(DRIVEHR_API_CONSTANTS.BASE_URL).toBeTypeOf('string');
+      expect(DRIVEHR_CONSTANTS.BASE_URL).toBe('https://drivehris.app');
+      expect(DRIVEHR_CONSTANTS.BASE_URL).toBeTypeOf('string');
     });
 
-    it('should have all required API path constants', () => {
-      expect(DRIVEHR_API_CONSTANTS.API_PATHS).toBeDefined();
-      expect(DRIVEHR_API_CONSTANTS.API_PATHS.CAREERS).toBe('/api/careers');
-      expect(DRIVEHR_API_CONSTANTS.API_PATHS.CAREERS_V1).toBe('/api/v1/careers');
-      expect(DRIVEHR_API_CONSTANTS.API_PATHS.JOBS).toBe('/api/jobs');
-    });
-
-    it('should be immutable (readonly) constants', () => {
+    it('should be immutable (readonly) constant', () => {
       // The constants use 'as const' which provides compile-time immutability
-      // They are not frozen at runtime, but TypeScript ensures they cannot be modified
-      expect(DRIVEHR_API_CONSTANTS).toBeDefined();
-      expect(DRIVEHR_API_CONSTANTS.API_PATHS).toBeDefined();
-
-      // Verify structure is correct and values are not modifiable via TypeScript
-      expect(typeof DRIVEHR_API_CONSTANTS).toBe('object');
-      expect(typeof DRIVEHR_API_CONSTANTS.API_PATHS).toBe('object');
-    });
-
-    it('should have valid API path formats', () => {
-      Object.values(DRIVEHR_API_CONSTANTS.API_PATHS).forEach(path => {
-        expect(path).toMatch(/^\/api/);
-        expect(path).not.toContain('//');
-        expect(path).not.toMatch(/\/$/); // Should not end with slash
-      });
+      expect(DRIVEHR_CONSTANTS).toBeDefined();
+      expect(typeof DRIVEHR_CONSTANTS).toBe('object');
+      expect(DRIVEHR_CONSTANTS.BASE_URL).toBeTruthy();
     });
   });
 
   describe('DriveHrUrlBuilder', () => {
-    describe('buildApiUrls', () => {
-      it('should build multiple API URLs for standard configuration', () => {
-        const urls = DriveHrUrlBuilder.buildApiUrls(JobFetchUtilsTestUtils.STANDARD_CONFIG);
-
-        expect(urls).toHaveLength(3);
-        urls.forEach(url => JobFetchUtilsTestUtils.validateUrl(url));
-
-        expect(urls[0]).toBe('https://drivehris.app/api/careers/test-company/jobs');
-        expect(urls[1]).toBe('https://drivehris.app/api/v1/careers/test-company/positions');
-        expect(urls[2]).toBe('https://api.test-company.com/api/jobs');
-      });
-
-      it('should handle different company IDs correctly', () => {
-        JobFetchUtilsTestUtils.CONFIG_VARIATIONS.forEach(({ name: _name, config }) => {
-          const urls = DriveHrUrlBuilder.buildApiUrls(config as DriveHrApiConfig);
-
-          expect(urls).toHaveLength(3);
-          urls.forEach((url, index) => {
-            JobFetchUtilsTestUtils.validateUrl(url);
-            // Only the first two URLs (DriveHR APIs) contain companyId
-            // The third URL uses the provided apiBaseUrl directly
-            if (index < 2) {
-              expect(url).toContain(config.companyId);
-            }
-          });
-        });
-      });
-
-      it('should return URLs in correct priority order', () => {
-        const urls = DriveHrUrlBuilder.buildApiUrls(JobFetchUtilsTestUtils.STANDARD_CONFIG);
-
-        // First URL should be main careers API
-        expect(urls[0]).toContain('/api/careers/');
-        // Second URL should be v1 careers API
-        expect(urls[1]).toContain('/api/v1/careers/');
-        // Third URL should be custom API base URL
-        expect(urls[2]).toContain('api.test-company.com');
-      });
-
-      it('should handle special characters in company ID', () => {
-        const config = {
-          companyId: 'company-with-dashes_and_underscores',
-          apiBaseUrl: 'https://api.example.com',
-          careersUrl: 'https://drivehris.app/careers/company-with-dashes_and_underscores/list',
-        };
-
-        const urls = DriveHrUrlBuilder.buildApiUrls(config);
-        urls.forEach((url, index) => {
-          // Only the first two URLs (DriveHR APIs) contain companyId
-          // The third URL uses the provided apiBaseUrl directly
-          if (index < 2) {
-            expect(url).toContain('company-with-dashes_and_underscores');
-          }
-          JobFetchUtilsTestUtils.validateUrl(url);
-        });
-      });
-    });
-
     describe('buildCareersPageUrl', () => {
       it('should use explicit careers URL when provided', () => {
         const config = {
@@ -389,8 +231,7 @@ describe('Job Fetch Utils', () => {
         const config = {
           companyId: 'default-company',
           apiBaseUrl: 'https://api.default-company.com',
-          careersUrl: 'https://drivehris.app/careers/default-company/list',
-        };
+        } as DriveHrApiConfig;
 
         const url = DriveHrUrlBuilder.buildCareersPageUrl(config);
         expect(url).toBe('https://drivehris.app/careers/default-company/list');
@@ -411,8 +252,7 @@ describe('Job Fetch Utils', () => {
           const config = {
             companyId,
             apiBaseUrl: `https://api.${companyId}.com`,
-            careersUrl: `https://drivehris.app/careers/${companyId}/list`,
-          };
+          } as DriveHrApiConfig;
           const url = DriveHrUrlBuilder.buildCareersPageUrl(config);
 
           expect(url).toBe(`https://drivehris.app/careers/${companyId}/list`);
@@ -433,68 +273,14 @@ describe('Job Fetch Utils', () => {
         expect(url).not.toContain('test-company');
       });
     });
-
-    describe('buildCareersJsonUrl', () => {
-      it('should convert careers page URL to JSON URL by replacing /list with .json', () => {
-        const config = {
-          companyId: 'json-test-co',
-          apiBaseUrl: 'https://api.json-test-co.com',
-          careersUrl: 'https://drivehris.app/careers/json-test-co/list',
-        };
-
-        const jsonUrl = DriveHrUrlBuilder.buildCareersJsonUrl(config);
-        expect(jsonUrl).toBe('https://drivehris.app/careers/json-test-co.json');
-        JobFetchUtilsTestUtils.validateUrl(jsonUrl);
-      });
-
-      it('should handle custom careers URLs with /list suffix', () => {
-        const config = {
-          companyId: 'custom-co',
-          apiBaseUrl: 'https://api.custom-co.com',
-          careersUrl: 'https://custom.example.com/careers/custom-co/list',
-        };
-
-        const jsonUrl = DriveHrUrlBuilder.buildCareersJsonUrl(config);
-        expect(jsonUrl).toBe('https://custom.example.com/careers/custom-co.json');
-        JobFetchUtilsTestUtils.validateUrl(jsonUrl);
-      });
-
-      it('should handle careers URLs without /list suffix', () => {
-        const config = {
-          companyId: 'no-list-co',
-          apiBaseUrl: 'https://api.no-list-co.com',
-          careersUrl: 'https://example.com/jobs',
-        };
-
-        const jsonUrl = DriveHrUrlBuilder.buildCareersJsonUrl(config);
-        // When there's no '/list' to replace, the URL remains unchanged
-        // This matches the actual implementation behavior
-        expect(jsonUrl).toBe('https://example.com/jobs');
-        JobFetchUtilsTestUtils.validateUrl(jsonUrl);
-      });
-
-      it('should handle multiple /list occurrences correctly', () => {
-        const config = {
-          companyId: 'multi-list-co',
-          apiBaseUrl: 'https://api.multi-list-co.com',
-          careersUrl: 'https://example.com/list/careers/multi-list-co/list',
-        };
-
-        const jsonUrl = DriveHrUrlBuilder.buildCareersJsonUrl(config);
-        // String.replace() replaces the first occurrence of '/list' with '.json'
-        // This matches the actual implementation behavior
-        expect(jsonUrl).toBe('https://example.com.json/careers/multi-list-co/list');
-        JobFetchUtilsTestUtils.validateUrl(jsonUrl);
-      });
-    });
   });
 
   describe('JobFetchErrorHandler', () => {
     describe('logAndContinue', () => {
       it('should log non-critical errors at debug level', () => {
         const error = JobFetchUtilsTestUtils.createTestErrorForHandling('standard');
-        const context = 'API endpoint';
-        const url = 'https://api.example.com/jobs';
+        const context = 'HTML parsing';
+        const url = 'https://example.com/careers';
 
         JobFetchErrorHandler.logAndContinue(context, url, error);
 
@@ -544,13 +330,13 @@ describe('Job Fetch Utils', () => {
     describe('logStrategyFailure', () => {
       it('should log strategy failures at warning level with error messages', () => {
         const error = new Error('Strategy implementation failed');
-        const strategyName = 'APIStrategy';
+        const strategyName = 'HTMLStrategy';
 
         JobFetchErrorHandler.logStrategyFailure(strategyName, error);
 
         expect(JobFetchUtilsTestUtils.mockLogger.warn).toHaveBeenCalledTimes(1);
         expect(JobFetchUtilsTestUtils.mockLogger.warn).toHaveBeenCalledWith(
-          'Strategy APIStrategy failed: Strategy implementation failed'
+          'Strategy HTMLStrategy failed: Strategy implementation failed'
         );
       });
 
@@ -566,13 +352,7 @@ describe('Job Fetch Utils', () => {
       });
 
       it('should handle different strategy names', () => {
-        const strategies = [
-          'APIStrategy',
-          'HTMLParsingStrategy',
-          'JSONLDStrategy',
-          'EmbeddedJSStrategy',
-          'FallbackStrategy',
-        ];
+        const strategies = ['HTMLStrategy', 'PlaywrightStrategy', 'FallbackStrategy'];
 
         strategies.forEach((strategyName, index) => {
           const error = new Error(`${strategyName} specific error`);
@@ -584,7 +364,7 @@ describe('Job Fetch Utils', () => {
           );
         });
 
-        expect(JobFetchUtilsTestUtils.mockLogger.warn).toHaveBeenCalledTimes(5);
+        expect(JobFetchUtilsTestUtils.mockLogger.warn).toHaveBeenCalledTimes(3);
       });
 
       it('should handle null and undefined errors', () => {
@@ -602,157 +382,6 @@ describe('Job Fetch Utils', () => {
   });
 
   describe('JobDataExtractor', () => {
-    describe('extractFromApiResponse', () => {
-      it('should extract jobs from response with "jobs" property', () => {
-        const response = JobFetchUtilsTestUtils.createApiResponseData('jobs');
-        const extracted = JobDataExtractor.extractFromApiResponse(response);
-
-        expect(extracted).toEqual(JobFetchUtilsTestUtils.SAMPLE_JOB_DATA);
-        expect(extracted).toHaveLength(3);
-      });
-
-      it('should extract jobs from response with "positions" property', () => {
-        const response = JobFetchUtilsTestUtils.createApiResponseData('positions');
-        const extracted = JobDataExtractor.extractFromApiResponse(response);
-
-        expect(extracted).toEqual(JobFetchUtilsTestUtils.SAMPLE_JOB_DATA);
-        expect(extracted).toHaveLength(3);
-      });
-
-      it('should extract jobs from response with "data" property', () => {
-        const response = JobFetchUtilsTestUtils.createApiResponseData('data');
-        const extracted = JobDataExtractor.extractFromApiResponse(response);
-
-        expect(extracted).toEqual(JobFetchUtilsTestUtils.SAMPLE_JOB_DATA);
-        expect(extracted).toHaveLength(3);
-      });
-
-      it('should return empty array for responses without job data', () => {
-        const emptyResponse = JobFetchUtilsTestUtils.createApiResponseData('empty');
-        const extracted = JobDataExtractor.extractFromApiResponse(emptyResponse);
-
-        expect(extracted).toEqual([]);
-        expect(extracted).toHaveLength(0);
-      });
-
-      it('should prioritize "jobs" over "positions" over "data"', () => {
-        const response = {
-          data: [{ id: 'data-job' }] as RawJobData[],
-          positions: [{ id: 'positions-job' }] as RawJobData[],
-          jobs: [{ id: 'jobs-job' }] as RawJobData[],
-        };
-
-        const extracted = JobDataExtractor.extractFromApiResponse(response);
-        expect(extracted).toEqual([{ id: 'jobs-job' }]);
-      });
-
-      it('should fall back through property hierarchy', () => {
-        // Test positions fallback when no jobs
-        const positionsOnly = {
-          positions: [{ id: 'positions-fallback' }] as RawJobData[],
-          data: [{ id: 'data-fallback' }] as RawJobData[],
-        };
-        expect(JobDataExtractor.extractFromApiResponse(positionsOnly)).toEqual([
-          { id: 'positions-fallback' },
-        ]);
-
-        // Test data fallback when no jobs or positions
-        const dataOnly = {
-          data: [{ id: 'data-only' }] as RawJobData[],
-        };
-        expect(JobDataExtractor.extractFromApiResponse(dataOnly)).toEqual([{ id: 'data-only' }]);
-      });
-    });
-
-    describe('extractFromJsonLd', () => {
-      it('should extract JobPosting objects from JSON-LD data', () => {
-        const jsonLdData = JobFetchUtilsTestUtils.createJsonLdData(false);
-        const extracted = JobDataExtractor.extractFromJsonLd(jsonLdData);
-
-        expect(extracted).toHaveLength(3);
-        extracted.forEach((job, index) => {
-          expect(job['@type']).toBe('JobPosting');
-          expect(job.id).toBe(JobFetchUtilsTestUtils.SAMPLE_JOB_DATA[index]?.id);
-          expect(job.title).toBe(JobFetchUtilsTestUtils.SAMPLE_JOB_DATA[index]?.title);
-        });
-      });
-
-      it('should filter out non-JobPosting objects', () => {
-        const jsonLdData = JobFetchUtilsTestUtils.createJsonLdData(true);
-        const extracted = JobDataExtractor.extractFromJsonLd(jsonLdData);
-
-        // Should only return JobPosting objects, not Organization or WebSite
-        expect(extracted).toHaveLength(3);
-        extracted.forEach(job => {
-          expect(job['@type']).toBe('JobPosting');
-        });
-      });
-
-      it('should handle empty JSON-LD data arrays', () => {
-        const extracted = JobDataExtractor.extractFromJsonLd([]);
-        expect(extracted).toEqual([]);
-      });
-
-      it('should handle arrays with no JobPosting objects', () => {
-        const nonJobPostingData = [
-          { '@type': 'Organization', name: 'Test Company' },
-          { '@type': 'WebSite', name: 'Company Website' },
-          { '@type': 'Person', name: 'John Doe' },
-        ];
-
-        const extracted = JobDataExtractor.extractFromJsonLd(nonJobPostingData);
-        expect(extracted).toEqual([]);
-      });
-
-      it('should handle malformed JSON-LD objects', () => {
-        const malformedData = [
-          null,
-          undefined,
-          'string-value',
-          123,
-          { noTypeProperty: 'value' },
-          { '@type': 'JobPosting', title: 'Valid Job' },
-          { '@type': null },
-        ];
-
-        const extracted = JobDataExtractor.extractFromJsonLd(malformedData);
-        expect(extracted).toHaveLength(1);
-        expect(extracted[0]?.['@type']).toBe('JobPosting');
-        expect(extracted[0]?.title).toBe('Valid Job');
-      });
-    });
-
-    describe('extractFromEmbeddedJs', () => {
-      it('should extract positions from embedded JS data', () => {
-        const embeddedData = JobFetchUtilsTestUtils.createEmbeddedJsData(true);
-        const extracted = JobDataExtractor.extractFromEmbeddedJs(embeddedData);
-
-        expect(extracted).toEqual(JobFetchUtilsTestUtils.SAMPLE_JOB_DATA);
-        expect(extracted).toHaveLength(3);
-      });
-
-      it('should return empty array when no positions property', () => {
-        const embeddedData = JobFetchUtilsTestUtils.createEmbeddedJsData(false);
-        const extracted = JobDataExtractor.extractFromEmbeddedJs(embeddedData);
-
-        expect(extracted).toEqual([]);
-        expect(extracted).toHaveLength(0);
-      });
-
-      it('should handle empty embedded JS data', () => {
-        const extracted = JobDataExtractor.extractFromEmbeddedJs({});
-        expect(extracted).toEqual([]);
-      });
-
-      it('should handle embedded data with empty positions array', () => {
-        const embeddedData = { positions: [] };
-        const extracted = JobDataExtractor.extractFromEmbeddedJs(embeddedData);
-
-        expect(extracted).toEqual([]);
-        expect(extracted).toHaveLength(0);
-      });
-    });
-
     describe('isValidJobArray', () => {
       it('should return true for non-empty job arrays', () => {
         const validArrays = [
@@ -800,50 +429,50 @@ describe('Job Fetch Utils', () => {
   });
 
   describe('Integration Tests', () => {
-    it('should work together for complete job fetching workflow', () => {
-      // 1. Build URLs using DriveHrUrlBuilder
-      const urls = DriveHrUrlBuilder.buildApiUrls(JobFetchUtilsTestUtils.STANDARD_CONFIG);
-      expect(urls).toHaveLength(3);
+    it('should work together for HTML job fetching workflow', () => {
+      // 1. Build careers URL using DriveHrUrlBuilder
+      const careersUrl = DriveHrUrlBuilder.buildCareersPageUrl(
+        JobFetchUtilsTestUtils.STANDARD_CONFIG
+      );
+      expect(careersUrl).toBe('https://drivehris.app/careers/test-company/list');
+      JobFetchUtilsTestUtils.validateUrl(careersUrl);
 
-      // 2. Simulate API response processing
-      const apiResponse = JobFetchUtilsTestUtils.createApiResponseData('jobs');
-      const extractedJobs = JobDataExtractor.extractFromApiResponse(apiResponse);
+      // 2. Validate job data
+      const jobData = JobFetchUtilsTestUtils.SAMPLE_JOB_DATA;
+      expect(JobDataExtractor.isValidJobArray(jobData)).toBe(true);
+      expect(jobData).toHaveLength(3);
 
-      // 3. Validate extracted data
-      expect(JobDataExtractor.isValidJobArray(extractedJobs)).toBe(true);
-      expect(extractedJobs).toHaveLength(3);
-
-      // 4. Simulate error handling if needed
+      // 3. Simulate error handling if needed
       const testError = new Error('Integration test error');
-      JobFetchErrorHandler.logAndContinue('Integration test', urls[0] ?? '', testError);
+      JobFetchErrorHandler.logAndContinue('Integration test', careersUrl, testError);
 
       expect(JobFetchUtilsTestUtils.mockLogger.debug).toHaveBeenCalledWith(
-        `Integration test failed: ${urls[0]}`,
+        `Integration test failed: ${careersUrl}`,
         { error: testError }
       );
     });
 
-    it('should handle multiple data extraction methods consistently', () => {
+    it('should handle URL building and error logging consistently', () => {
       const sampleData = JobFetchUtilsTestUtils.SAMPLE_JOB_DATA;
 
-      // Test API response extraction
-      const apiData = JobDataExtractor.extractFromApiResponse({ jobs: sampleData });
-      expect(apiData).toEqual(sampleData);
+      // Test careers URL building
+      const careersUrl = DriveHrUrlBuilder.buildCareersPageUrl(
+        JobFetchUtilsTestUtils.STANDARD_CONFIG
+      );
+      expect(careersUrl).toBeTruthy();
+      JobFetchUtilsTestUtils.validateUrl(careersUrl);
 
-      // Test JSON-LD extraction
-      const jsonLdData = sampleData.map(job => ({ '@type': 'JobPosting', ...job }));
-      const jsonLdExtracted = JobDataExtractor.extractFromJsonLd(jsonLdData);
-      expect(jsonLdExtracted).toHaveLength(sampleData.length);
+      // Test data validation
+      expect(JobDataExtractor.isValidJobArray(sampleData)).toBe(true);
+      expect(JobDataExtractor.isValidJobArray([])).toBe(false);
+      expect(JobDataExtractor.isValidJobArray(null)).toBe(false);
 
-      // Test embedded JS extraction
-      const embeddedData = { positions: sampleData };
-      const embeddedExtracted = JobDataExtractor.extractFromEmbeddedJs(embeddedData);
-      expect(embeddedExtracted).toEqual(sampleData);
-
-      // All extraction methods should produce valid results
-      [apiData, jsonLdExtracted, embeddedExtracted].forEach(extracted => {
-        expect(JobDataExtractor.isValidJobArray(extracted)).toBe(true);
-      });
+      // Test error handling
+      const testError = new Error('Test error');
+      JobFetchErrorHandler.logStrategyFailure('TestStrategy', testError);
+      expect(JobFetchUtilsTestUtils.mockLogger.warn).toHaveBeenCalledWith(
+        'Strategy TestStrategy failed: Test error'
+      );
     });
   });
 });

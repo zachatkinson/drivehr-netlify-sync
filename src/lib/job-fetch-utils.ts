@@ -21,35 +21,22 @@ import type { DriveHrApiConfig } from '../types/api.js';
 import type { RawJobData } from '../types/job.js';
 
 /**
- * Constants for DriveHR API endpoints and configuration
+ * Constants for DriveHR base URL
  *
- * Centralized constants for all DriveHR API endpoints, base URLs, and
- * path configurations. Using `as const` to ensure type safety and
- * prevent accidental mutations in production code.
+ * Centralized constants for DriveHR base URL used for careers page construction.
+ * Using `as const` to ensure type safety and prevent accidental mutations in production code.
  *
  * @example
  * ```typescript
- * // Building API URLs
- * const apiUrl = `${DRIVEHR_API_CONSTANTS.BASE_URL}${DRIVEHR_API_CONSTANTS.API_PATHS.CAREERS}/123/jobs`;
- *
- * // Type-safe access to constants
- * const basePath = DRIVEHR_API_CONSTANTS.API_PATHS.CAREERS; // '/api/careers'
+ * // Building careers page URL
+ * const careersUrl = `${DRIVEHR_CONSTANTS.BASE_URL}/careers/company-id/list`;
  * ```
  * @since 1.0.0
  * @see {@link DriveHrUrlBuilder} for URL construction using these constants
  */
-export const DRIVEHR_API_CONSTANTS = {
-  /** Base URL for all DriveHR API requests */
+export const DRIVEHR_CONSTANTS = {
+  /** Base URL for all DriveHR requests */
   BASE_URL: 'https://drivehris.app',
-  /** API path configurations for different endpoints */
-  API_PATHS: {
-    /** Legacy careers API endpoint */
-    CAREERS: '/api/careers',
-    /** Version 1 careers API endpoint */
-    CAREERS_V1: '/api/v1/careers',
-    /** Direct jobs API endpoint */
-    JOBS: '/api/jobs',
-  },
 } as const;
 
 /**
@@ -81,47 +68,10 @@ export const DRIVEHR_API_CONSTANTS = {
  * // Returns: 'https://drivehris.app/careers/acme-corp/list'
  * ```
  * @since 1.0.0
- * @see {@link DRIVEHR_API_CONSTANTS} for endpoint constants
+ * @see {@link DRIVEHR_CONSTANTS} for base URL constant
  * @see {@link DriveHrApiConfig} for configuration interface
  */
 export class DriveHrUrlBuilder {
-  /**
-   * Build multiple API URLs for job fetching with fallback strategies
-   *
-   * Constructs an array of potential API endpoints that job fetching strategies
-   * can attempt in order. Each URL represents a different API version or
-   * endpoint format that DriveHR may expose job data through.
-   *
-   * @param config - DriveHR API configuration containing company ID and base URLs
-   * @returns Array of API URLs ordered by preference (most reliable first)
-   * @example
-   * ```typescript
-   * const config = {
-   *   companyId: 'tech-startup',
-   *   apiBaseUrl: 'https://api.drivehris.app/tech-startup'
-   * };
-   *
-   * const urls = DriveHrUrlBuilder.buildApiUrls(config);
-   * // Returns:
-   * // [
-   * //   'https://drivehris.app/api/careers/tech-startup/jobs',
-   * //   'https://drivehris.app/api/v1/careers/tech-startup/positions',
-   * //   'https://api.drivehris.app/tech-startup/api/jobs'
-   * // ]
-   * ```
-   * @since 1.0.0
-   * @see {@link DRIVEHR_API_CONSTANTS.API_PATHS} for endpoint path definitions
-   */
-  public static buildApiUrls(config: DriveHrApiConfig): string[] {
-    const { companyId, apiBaseUrl } = config;
-
-    return [
-      `${DRIVEHR_API_CONSTANTS.BASE_URL}${DRIVEHR_API_CONSTANTS.API_PATHS.CAREERS}/${companyId}/jobs`,
-      `${DRIVEHR_API_CONSTANTS.BASE_URL}${DRIVEHR_API_CONSTANTS.API_PATHS.CAREERS_V1}/${companyId}/positions`,
-      `${apiBaseUrl}${DRIVEHR_API_CONSTANTS.API_PATHS.JOBS}`,
-    ];
-  }
-
   /**
    * Build careers page URL with fallback to default format
    *
@@ -147,44 +97,9 @@ export class DriveHrUrlBuilder {
    * // Returns: 'https://drivehris.app/careers/my-company/list'
    * ```
    * @since 1.0.0
-   * @see {@link buildCareersJsonUrl} for JSON endpoint variant
    */
   public static buildCareersPageUrl(config: DriveHrApiConfig): string {
-    return (
-      config.careersUrl || `${DRIVEHR_API_CONSTANTS.BASE_URL}/careers/${config.companyId}/list`
-    );
-  }
-
-  /**
-   * Build careers JSON endpoint URL from careers page URL
-   *
-   * Converts the careers page URL to its corresponding JSON API endpoint
-   * by replacing the '/list' suffix with '.json'. This follows DriveHR's
-   * convention where JSON data is available at the same path with a
-   * different extension.
-   *
-   * @param config - DriveHR API configuration
-   * @returns The JSON API endpoint URL
-   * @example
-   * ```typescript
-   * const config = { companyId: 'startup-co' };
-   * const jsonUrl = DriveHrUrlBuilder.buildCareersJsonUrl(config);
-   * // Returns: 'https://drivehris.app/careers/startup-co.json'
-   *
-   * // Works with custom careers URLs too
-   * const customConfig = {
-   *   companyId: 'startup-co',
-   *   careersUrl: 'https://custom.example.com/careers/startup-co/list'
-   * };
-   * const customJsonUrl = DriveHrUrlBuilder.buildCareersJsonUrl(customConfig);
-   * // Returns: 'https://custom.example.com/careers/startup-co.json'
-   * ```
-   * @since 1.0.0
-   * @see {@link buildCareersPageUrl} for the base careers page URL
-   */
-  public static buildCareersJsonUrl(config: DriveHrApiConfig): string {
-    const careersUrl = this.buildCareersPageUrl(config);
-    return careersUrl.replace('/list', '.json');
+    return config.careersUrl || `${DRIVEHR_CONSTANTS.BASE_URL}/careers/${config.companyId}/list`;
   }
 }
 
@@ -294,12 +209,6 @@ export class JobFetchErrorHandler {
  *
  * @example
  * ```typescript
- * // Extract from API response
- * const apiJobs = JobDataExtractor.extractFromApiResponse(apiResponse);
- *
- * // Extract from JSON-LD structured data
- * const structuredJobs = JobDataExtractor.extractFromJsonLd(jsonLdData);
- *
  * // Validate extracted data
  * if (JobDataExtractor.isValidJobArray(extractedJobs)) {
  *   // Process the jobs
@@ -309,118 +218,6 @@ export class JobFetchErrorHandler {
  * @see {@link RawJobData} for the job data structure
  */
 export class JobDataExtractor {
-  /**
-   * Extract jobs from API response with multiple possible data structures
-   *
-   * Handles the various ways DriveHR APIs may structure job data in their
-   * responses. Uses nullish coalescing to try different property names
-   * in order of preference, falling back to an empty array if no jobs
-   * are found.
-   *
-   * @param data - API response object that may contain job data under various property names
-   * @returns Array of raw job data, empty array if no jobs found
-   * @example
-   * ```typescript
-   * // API response format 1
-   * const response1 = { jobs: [job1, job2, job3] };
-   * const jobs1 = JobDataExtractor.extractFromApiResponse(response1);
-   * // Returns: [job1, job2, job3]
-   *
-   * // API response format 2
-   * const response2 = { positions: [position1, position2] };
-   * const jobs2 = JobDataExtractor.extractFromApiResponse(response2);
-   * // Returns: [position1, position2]
-   *
-   * // Empty/invalid response
-   * const response3 = { message: 'No data' };
-   * const jobs3 = JobDataExtractor.extractFromApiResponse(response3);
-   * // Returns: []
-   * ```
-   * @since 1.0.0
-   * @see {@link RawJobData} for the structure of individual job objects
-   */
-  public static extractFromApiResponse(data: {
-    jobs?: RawJobData[];
-    positions?: RawJobData[];
-    data?: RawJobData[];
-  }): RawJobData[] {
-    return data.jobs ?? data.positions ?? data.data ?? [];
-  }
-
-  /**
-   * Extract jobs from JSON-LD structured data
-   *
-   * Processes JSON-LD structured data to find JobPosting objects according
-   * to schema.org standards. Performs type checking to ensure objects
-   * are valid JobPosting entities before including them in the result.
-   *
-   * @param data - Array of JSON-LD objects that may contain JobPosting entries
-   * @returns Array of job data extracted from valid JobPosting objects
-   * @example
-   * ```typescript
-   * const jsonLdData = [
-   *   {
-   *     '@type': 'JobPosting',
-   *     'title': 'Software Engineer',
-   *     'description': 'Build amazing software'
-   *   },
-   *   {
-   *     '@type': 'Organization',
-   *     'name': 'Acme Corp'
-   *   },
-   *   {
-   *     '@type': 'JobPosting',
-   *     'title': 'Product Manager',
-   *     'description': 'Lead product development'
-   *   }
-   * ];
-   *
-   * const jobs = JobDataExtractor.extractFromJsonLd(jsonLdData);
-   * // Returns: [{ title: 'Software Engineer', ... }, { title: 'Product Manager', ... }]
-   * ```
-   * @since 1.0.0
-   * @see {@link https://schema.org/JobPosting} for JobPosting schema definition
-   */
-  public static extractFromJsonLd(data: unknown[]): RawJobData[] {
-    return data.filter(
-      item =>
-        typeof item === 'object' &&
-        item !== null &&
-        '@type' in item &&
-        item['@type'] === 'JobPosting'
-    ) as RawJobData[];
-  }
-
-  /**
-   * Extract jobs from embedded JavaScript data
-   *
-   * Processes job data that has been embedded in JavaScript variables
-   * within HTML pages. This is common when DriveHR embeds job data
-   * directly in the page for client-side rendering.
-   *
-   * @param data - JavaScript object containing embedded job data
-   * @returns Array of job data, empty array if no positions found
-   * @example
-   * ```typescript
-   * // Embedded JS data format
-   * const embeddedData = {
-   *   positions: [
-   *     { id: '1', title: 'Developer', location: 'Remote' },
-   *     { id: '2', title: 'Designer', location: 'NYC' }
-   *   ],
-   *   metadata: { company: 'Tech Corp', timestamp: '2025-01-01' }
-   * };
-   *
-   * const jobs = JobDataExtractor.extractFromEmbeddedJs(embeddedData);
-   * // Returns: [{ id: '1', title: 'Developer', ... }, { id: '2', title: 'Designer', ... }]
-   * ```
-   * @since 1.0.0
-   * @see {@link RawJobData} for the job data structure
-   */
-  public static extractFromEmbeddedJs(data: { positions?: RawJobData[] }): RawJobData[] {
-    return data.positions ?? [];
-  }
-
   /**
    * Validate that extracted data is a non-empty array of jobs
    *
