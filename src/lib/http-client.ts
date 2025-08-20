@@ -8,7 +8,26 @@
 import fetch, { type Response } from 'node-fetch';
 import type { HttpClientConfig, HttpResponse, HttpError, RetryConfig } from '../types/api.js';
 
-// Re-export types for test usage
+/**
+ * Re-export HttpResponse type for external use
+ *
+ * Provides convenient access to the HttpResponse type interface
+ * for consumers of this module without requiring them to import
+ * from the types/api module directly.
+ *
+ * @example
+ * ```typescript
+ * import { type HttpResponse } from './http-client.js';
+ *
+ * function handleResponse(response: HttpResponse<UserData>) {
+ *   if (response.ok) {
+ *     console.log('User data:', response.data);
+ *   }
+ * }
+ * ```
+ * @since 1.0.0
+ * @see {@link ../types/api.HttpResponse} for the complete type definition
+ */
 export type { HttpResponse } from '../types/api.js';
 
 /**

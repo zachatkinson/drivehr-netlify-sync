@@ -480,4 +480,23 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
+/**
+ * Public API exports for DriveHR scrape and sync functionality
+ *
+ * Exports the main execution function and result type for programmatic
+ * access to the scraping and synchronization capabilities.
+ *
+ * @example
+ * ```typescript
+ * import { executeScrapeAndSync, type ScrapeAndSyncResult } from './scrape-and-sync.js';
+ *
+ * const result: ScrapeAndSyncResult = await executeScrapeAndSync();
+ * if (result.success) {
+ *   console.log(`Successfully synced ${result.jobsSynced} jobs`);
+ * }
+ * ```
+ * @since 2.0.0
+ * @see {@link executeScrapeAndSync} for the main execution function
+ * @see {@link ScrapeAndSyncResult} for the result type definition
+ */
 export { executeScrapeAndSync, type ScrapeAndSyncResult };

@@ -215,8 +215,39 @@ export interface PerformanceConfig {
   readonly maxConcurrentRequests: number;
 }
 
+/**
+ * Application environment type
+ *
+ * Defines the allowed environment values for application deployment.
+ * Each environment has specific configuration defaults and behaviors.
+ *
+ * @example
+ * ```typescript
+ * const env: Environment = 'production';
+ * if (env === 'production') {
+ *   enableStructuredLogging();
+ * }
+ * ```
+ * @since 1.0.0
+ * @see {@link EnvironmentSchema} for runtime validation
+ */
 export type Environment = 'development' | 'staging' | 'production' | 'test';
 
+/**
+ * Logging level type
+ *
+ * Defines the allowed log levels in order of severity from error (highest)
+ * to trace (lowest). Controls which log messages are output based on
+ * the configured minimum level.
+ *
+ * @example
+ * ```typescript
+ * const level: LogLevel = 'debug';
+ * logger.setLevel(level); // Shows debug, info, warn, error logs
+ * ```
+ * @since 1.0.0
+ * @see {@link LogLevelSchema} for runtime validation
+ */
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace';
 
 /**

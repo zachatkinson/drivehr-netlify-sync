@@ -240,6 +240,26 @@ class ConfigTestUtils extends BaseTestUtils {
       };
     }
   }
+
+  /**
+   * Get ConfigService instance for direct testing
+   *
+   * Provides access to the ConfigService singleton instance for testing
+   * scenarios that require direct interaction with the service class.
+   * Used primarily for testing private methods and singleton behavior.
+   *
+   * @returns ConfigService singleton instance
+   * @example
+   * ```typescript
+   * const configService = ConfigTestUtils.getConfigService();
+   * const result = configService.loadConfig();
+   * ```
+   * @since 1.0.0
+   */
+  static async getConfigService() {
+    const { ConfigService } = await import('../../src/lib/config.js');
+    return ConfigService.getInstance();
+  }
 }
 
 describe('Config Service', () => {
@@ -603,6 +623,287 @@ describe('Config Service', () => {
       );
       ConfigTestUtils.assertValidationFailure(invalidValidation);
       expect(invalidValidation.errors.every((error: string) => error.length > 10)).toBe(true); // Meaningful messages
+    });
+  });
+
+  describe('private utility methods coverage', () => {
+    it('should handle invalid environment variables in parseEnvironment', () => {
+      // Arrange - Set invalid NODE_ENV that should cause validation error
+      ConfigTestUtils.setupMockEnvironment({
+        environment: 'invalid-environment' as never,
+        driveHrCompanyId: TEST_FIXTURES.validEnvironment.driveHrCompanyId,
+        wpApiUrl: TEST_FIXTURES.validEnvironment.wpApiUrl,
+        webhookSecret: TEST_FIXTURES.validEnvironment.webhookSecret,
+      });
+
+      // Act - Load config which validates environment internally
+      const result = loadAppConfig();
+
+      // Assert - Should fail validation with invalid environment
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(err =>
+          err.includes('ENVIRONMENT must be one of: development, staging, production, test')
+        )
+      ).toBe(true);
+    });
+
+    it('should handle invalid log levels in parseLogLevel', () => {
+      // Arrange - Set invalid LOG_LEVEL that should cause validation error
+      ConfigTestUtils.setupMockEnvironment({
+        ...TEST_FIXTURES.validEnvironment,
+        environment: 'development',
+        logLevel: 'invalid-log-level' as never,
+      });
+
+      // Act - Load config which validates log level internally
+      const result = loadAppConfig();
+
+      // Assert - Should succeed with valid environment but invalid log level
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(err =>
+          err.includes('LOG_LEVEL must be one of: error, warn, info, debug, trace')
+        )
+      ).toBe(true);
+    });
+
+    it('should handle NaN in parseNumber method', () => {
+      // Arrange - Set non-numeric values for numeric config
+      // Arrange - Set non-numeric values for numeric config via direct env vars
+      ConfigTestUtils.setupMockEnvironment(TEST_FIXTURES.validEnvironment);
+      vi.stubEnv('HTTP_TIMEOUT', 'not-a-number');
+      vi.stubEnv('MAX_RETRIES', 'also-not-a-number');
+      vi.stubEnv('RATE_LIMIT_MAX', 'definitely-not-a-number');
+
+      // Act - Load config which calls parseNumber internally
+      const result = loadAppConfig();
+
+      // Assert - Should succeed with default values when NaN
+      expect(result.isValid).toBe(true);
+      expect(result.config?.performance.httpTimeout).toBe(30000); // Default for HTTP_TIMEOUT
+      expect(result.config?.performance.maxRetries).toBe(3); // Default for MAX_RETRIES
+      expect(result.config?.security.maxRequestsPerMinute).toBe(60); // Default for RATE_LIMIT_MAX
+    });
+
+    it('should parse CORS origins with various formats', () => {
+      // Test empty CORS_ORIGINS
+      ConfigTestUtils.setupMockEnvironment(TEST_FIXTURES.validEnvironment);
+      vi.stubEnv('CORS_ORIGINS', '');
+
+      let result = loadAppConfig();
+      expect(result.isValid).toBe(true);
+      expect(result.config?.security.corsOrigins).toEqual([]);
+      expect(result.config?.security.enableCors).toBe(false);
+
+      // Test single origin with valid environment
+      ConfigTestUtils.setupMockEnvironment({
+        ...TEST_FIXTURES.validEnvironment,
+        environment: 'development',
+      });
+      vi.stubEnv('CORS_ORIGINS', 'https://example.com');
+
+      result = loadAppConfig();
+      expect(result.isValid).toBe(true);
+      expect(result.config?.security.corsOrigins).toEqual(['https://example.com']);
+      expect(result.config?.security.enableCors).toBe(true);
+
+      // Test multiple origins with spaces
+      ConfigTestUtils.setupMockEnvironment({
+        ...TEST_FIXTURES.validEnvironment,
+        environment: 'development',
+      });
+      vi.stubEnv('CORS_ORIGINS', 'https://app.com, https://api.com , https://admin.com');
+
+      result = loadAppConfig();
+      expect(result.isValid).toBe(true);
+      expect(result.config?.security.corsOrigins).toEqual([
+        'https://app.com',
+        'https://api.com',
+        'https://admin.com',
+      ]);
+      expect(result.config?.security.enableCors).toBe(true);
+
+      // Test with empty values mixed in (should be filtered out)
+      ConfigTestUtils.setupMockEnvironment({
+        ...TEST_FIXTURES.validEnvironment,
+        environment: 'development',
+      });
+      vi.stubEnv('CORS_ORIGINS', 'https://valid.com, , https://another.com');
+
+      result = loadAppConfig();
+      expect(result.isValid).toBe(true);
+      expect(result.config?.security.corsOrigins).toEqual([
+        'https://valid.com',
+        'https://another.com',
+      ]);
+    });
+  });
+
+  describe('error formatting edge cases', () => {
+    it('should format different invalid format error types', () => {
+      // Test UUID format error
+      ConfigTestUtils.setupMockEnvironment({
+        environment: 'development',
+        driveHrCompanyId: 'invalid-uuid',
+        wpApiUrl: TEST_FIXTURES.validEnvironment.wpApiUrl,
+        webhookSecret: TEST_FIXTURES.validEnvironment.webhookSecret,
+      });
+
+      let result = loadAppConfig();
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(err => err.includes('DRIVEHR_COMPANY_ID must be a valid UUID'))
+      ).toBe(true);
+
+      // Test URL format error
+      ConfigTestUtils.setupMockEnvironment({
+        environment: 'development',
+        driveHrCompanyId: TEST_FIXTURES.validEnvironment.driveHrCompanyId,
+        wpApiUrl: 'not-a-valid-url',
+        webhookSecret: TEST_FIXTURES.validEnvironment.webhookSecret,
+      });
+
+      result = loadAppConfig();
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(err => err.includes('WP_API_URL must be a valid URL'))).toBe(true);
+    });
+
+    it('should format different too small error types', () => {
+      // Test webhook secret too short (should trigger >=16 characters message)
+      ConfigTestUtils.setupMockEnvironment({
+        environment: 'development',
+        driveHrCompanyId: TEST_FIXTURES.validEnvironment.driveHrCompanyId,
+        wpApiUrl: TEST_FIXTURES.validEnvironment.wpApiUrl,
+        webhookSecret: 'short', // Less than 32 characters
+      });
+
+      const result = loadAppConfig();
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(err => err.includes('WEBHOOK_SECRET must be at least 32 characters'))
+      ).toBe(true);
+    });
+
+    it('should format invalid value errors for specific field paths', () => {
+      // Test invalid environment value
+      ConfigTestUtils.setupMockEnvironment({
+        environment: 'invalid-env' as never,
+        driveHrCompanyId: TEST_FIXTURES.validEnvironment.driveHrCompanyId,
+        wpApiUrl: TEST_FIXTURES.validEnvironment.wpApiUrl,
+        webhookSecret: TEST_FIXTURES.validEnvironment.webhookSecret,
+      });
+
+      let result = loadAppConfig();
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(err =>
+          err.includes('ENVIRONMENT must be one of: development, staging, production, test')
+        )
+      ).toBe(true);
+
+      // Test invalid log level value
+      ConfigTestUtils.setupMockEnvironment({
+        ...TEST_FIXTURES.validEnvironment,
+        logLevel: 'invalid-level' as never,
+      });
+
+      result = loadAppConfig();
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some(err => err.includes('must be one of: error, warn, info, debug, trace'))
+      ).toBe(true);
+    });
+  });
+
+  describe('exception handling paths', () => {
+    it('should handle unexpected errors in loadConfig', async () => {
+      // Arrange - Create a spy that throws an error to trigger catch block
+      const configService = await ConfigTestUtils.getConfigService();
+
+      // Spy on validateEnvironmentVariables to throw an error
+      const validateSpy = vi
+        .spyOn(configService as never, 'validateEnvironmentVariables')
+        .mockImplementation(() => {
+          throw new Error('Unexpected validation error');
+        });
+
+      // Act - Try to load config
+      const result = configService.loadConfig();
+
+      // Assert - Should handle error gracefully
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Unexpected validation error');
+
+      // Cleanup
+      validateSpy.mockRestore();
+    });
+
+    it('should handle non-Error objects in catch block', async () => {
+      // Arrange - Create a spy that throws a non-Error object
+      const configService = await ConfigTestUtils.getConfigService();
+
+      const validateSpy = vi
+        .spyOn(configService as never, 'validateEnvironmentVariables')
+        .mockImplementation(() => {
+          throw 'String error'; // Non-Error object
+        });
+
+      // Act - Try to load config
+      const result = configService.loadConfig();
+
+      // Assert - Should handle non-Error gracefully
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Unknown configuration error');
+
+      // Cleanup
+      validateSpy.mockRestore();
+    });
+  });
+
+  describe('ConfigService singleton behavior', () => {
+    it('should test getInstance and resetInstance methods directly', async () => {
+      // Import ConfigService directly to test singleton behavior
+      const { ConfigService } = await import('../../src/lib/config.js');
+
+      // Test getInstance creates instance
+      const instance1 = ConfigService.getInstance();
+      const instance2 = ConfigService.getInstance();
+      expect(instance1).toBe(instance2); // Same instance
+
+      // Test resetInstance clears instance
+      ConfigService.resetInstance();
+      const instance3 = ConfigService.getInstance();
+      expect(instance3).not.toBe(instance1); // New instance after reset
+    });
+
+    it('should test getConfig throws when not loaded', async () => {
+      // Import ConfigService directly
+      const { ConfigService } = await import('../../src/lib/config.js');
+
+      // Reset and get fresh instance
+      ConfigService.resetInstance();
+      const configService = ConfigService.getInstance();
+
+      // Should throw when config not loaded
+      expect(() => configService.getConfig()).toThrow('Configuration not loaded or invalid');
+    });
+
+    it('should test validateEnvironment public method', async () => {
+      // Setup environment missing required vars
+      ConfigTestUtils.setupMockEnvironment({
+        // Missing required DRIVEHR_COMPANY_ID, WP_API_URL, WEBHOOK_SECRET
+      });
+
+      const { ConfigService } = await import('../../src/lib/config.js');
+      const configService = ConfigService.getInstance();
+
+      // Test validateEnvironment returns errors
+      const errors = configService.validateEnvironment();
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors).toContain('DRIVEHR_COMPANY_ID is required');
+      expect(errors).toContain('WP_API_URL is required');
+      expect(errors).toContain('WEBHOOK_SECRET is required');
     });
   });
 });
