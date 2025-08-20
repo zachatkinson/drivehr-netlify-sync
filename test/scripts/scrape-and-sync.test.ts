@@ -10,8 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { readFile, access, mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { access, mkdir, writeFile } from 'fs/promises';
 
 // Mock the entire scrape-and-sync module dependencies
 vi.mock('../../src/services/playwright-scraper.js');
@@ -21,18 +20,26 @@ vi.mock('fs/promises');
 vi.mock('crypto');
 
 // Import the mocked dependencies
-import { PlaywrightScraper } from '../../src/services/playwright-scraper.js';
+import {
+  PlaywrightScraper,
+  type PlaywrightScraperConfig,
+  type PlaywrightScrapeResult,
+} from '../../src/services/playwright-scraper.js';
 import { getEnvironmentConfig } from '../../src/lib/env.js';
 import { getLogger } from '../../src/lib/logger.js';
 import { createHmac } from 'crypto';
-
-// Import types
-import type { 
-  PlaywrightScraperConfig, 
-  PlaywrightScrapeResult 
-} from '../../src/services/playwright-scraper.js';
 import type { NormalizedJob } from '../../src/types/job.js';
-import type { EnvironmentConfig } from '../../src/lib/env.js';
+
+/**
+ * Mock environment configuration type
+ */
+interface MockEnvironmentConfig {
+  driveHrCompanyId: string;
+  webhookSecret: string;
+  wpApiUrl: string;
+  logLevel: string;
+  environment: 'development' | 'staging' | 'production';
+}
 
 /**
  * Test utilities for scrape-and-sync script testing
@@ -52,12 +59,12 @@ class ScrapeAndSyncTestUtils {
   /**
    * Mock environment configuration
    */
-  static mockEnvConfig: EnvironmentConfig = {
+  static mockEnvConfig: MockEnvironmentConfig = {
     driveHrCompanyId: 'test-company-uuid',
     webhookSecret: 'test-secret-key-at-least-32-characters-long',
     wpApiUrl: 'https://test-wordpress.com/webhook/drivehr-sync',
     logLevel: 'info',
-    environment: 'test',
+    environment: 'development',
   };
 
   /**
@@ -104,9 +111,10 @@ class ScrapeAndSyncTestUtils {
       },
     ] as NormalizedJob[],
     totalCount: 2,
-    scrapingTime: 5000,
     screenshotPath: '/tmp/screenshot.png',
     error: undefined,
+    url: 'https://drivehris.app/careers/test-company-uuid/list',
+    scrapedAt: '2024-01-15T12:00:00.000Z',
   };
 
   /**
@@ -116,9 +124,10 @@ class ScrapeAndSyncTestUtils {
     success: true,
     jobs: [],
     totalCount: 0,
-    scrapingTime: 2000,
     screenshotPath: '/tmp/screenshot.png',
     error: undefined,
+    url: 'https://drivehris.app/careers/test-company-uuid/list',
+    scrapedAt: '2024-01-15T12:00:00.000Z',
   };
 
   /**
@@ -128,9 +137,10 @@ class ScrapeAndSyncTestUtils {
     success: false,
     jobs: [],
     totalCount: 0,
-    scrapingTime: 1000,
     screenshotPath: '/tmp/screenshot.png',
     error: 'Failed to load careers page',
+    url: 'https://drivehris.app/careers/test-company-uuid/list',
+    scrapedAt: '2024-01-15T12:00:00.000Z',
   };
 
   /**
@@ -138,8 +148,10 @@ class ScrapeAndSyncTestUtils {
    */
   static setupSuccessfulMocks(): void {
     // Mock environment configuration
-    vi.mocked(getEnvironmentConfig).mockReturnValue(this.mockEnvConfig);
-    
+    vi.mocked(getEnvironmentConfig).mockReturnValue(
+      this.mockEnvConfig as ReturnType<typeof getEnvironmentConfig>
+    );
+
     // Mock logger
     vi.mocked(getLogger).mockReturnValue(this.mockLogger);
 
@@ -148,7 +160,9 @@ class ScrapeAndSyncTestUtils {
       scrapeJobs: vi.fn().mockResolvedValue(this.mockScrapeResult),
       dispose: vi.fn().mockResolvedValue(undefined),
     };
-    vi.mocked(PlaywrightScraper).mockImplementation(() => mockPlaywrightScraper as any);
+    vi.mocked(PlaywrightScraper).mockImplementation(
+      () => mockPlaywrightScraper as unknown as PlaywrightScraper
+    );
 
     // Mock file system operations
     vi.mocked(mkdir).mockResolvedValue(undefined);
@@ -160,33 +174,33 @@ class ScrapeAndSyncTestUtils {
       update: vi.fn().mockReturnThis(),
       digest: vi.fn().mockReturnValue('mock-signature'),
     };
-    vi.mocked(createHmac).mockReturnValue(mockHash as any);
+    vi.mocked(createHmac).mockReturnValue(mockHash as ReturnType<typeof createHmac>);
 
     // Mock successful fetch for WordPress webhook
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       statusText: 'OK',
-      text: () => Promise.resolve(JSON.stringify({
-        success: true,
-        message: 'Jobs synchronized successfully',
-        jobsProcessed: 2,
-      })),
-      json: () => Promise.resolve({
-        success: true,
-        message: 'Jobs synchronized successfully',
-        jobsProcessed: 2,
-      }),
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            success: true,
+            message: 'Jobs synchronized successfully',
+            jobsProcessed: 2,
+          })
+        ),
+      json: () =>
+        Promise.resolve({
+          success: true,
+          message: 'Jobs synchronized successfully',
+          jobsProcessed: 2,
+        }),
     });
     globalThis.fetch = mockFetch;
 
     // Mock GitHub environment variables (only if not already set)
-    if (!process.env['GITHUB_RUN_ID']) {
-      process.env['GITHUB_RUN_ID'] = 'test-run-123';
-    }
-    if (!process.env['GITHUB_ACTIONS']) {
-      process.env['GITHUB_ACTIONS'] = 'true';
-    }
+    process.env['GITHUB_RUN_ID'] ??= 'test-run-123';
+    process.env['GITHUB_ACTIONS'] ??= 'true';
   }
 
   /**
@@ -194,12 +208,14 @@ class ScrapeAndSyncTestUtils {
    */
   static setupEmptyScrapeMocks(): void {
     this.setupSuccessfulMocks();
-    
+
     const mockPlaywrightScraper = {
       scrapeJobs: vi.fn().mockResolvedValue(this.mockEmptyScrapeResult),
       dispose: vi.fn().mockResolvedValue(undefined),
     };
-    vi.mocked(PlaywrightScraper).mockImplementation(() => mockPlaywrightScraper as any);
+    vi.mocked(PlaywrightScraper).mockImplementation(
+      () => mockPlaywrightScraper as unknown as PlaywrightScraper
+    );
   }
 
   /**
@@ -207,12 +223,14 @@ class ScrapeAndSyncTestUtils {
    */
   static setupFailedScrapeMocks(): void {
     this.setupSuccessfulMocks();
-    
+
     const mockPlaywrightScraper = {
       scrapeJobs: vi.fn().mockResolvedValue(this.mockFailedScrapeResult),
       dispose: vi.fn().mockResolvedValue(undefined),
     };
-    vi.mocked(PlaywrightScraper).mockImplementation(() => mockPlaywrightScraper as any);
+    vi.mocked(PlaywrightScraper).mockImplementation(
+      () => mockPlaywrightScraper as unknown as PlaywrightScraper
+    );
   }
 
   /**
@@ -220,20 +238,24 @@ class ScrapeAndSyncTestUtils {
    */
   static setupFailedSyncMocks(): void {
     this.setupSuccessfulMocks();
-    
+
     // Mock failed fetch for WordPress webhook
     const mockFetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
-      text: () => Promise.resolve(JSON.stringify({
-        success: false,
-        error: 'Database connection failed',
-      })),
-      json: () => Promise.resolve({
-        success: false,
-        error: 'Database connection failed',
-      }),
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            success: false,
+            error: 'Database connection failed',
+          })
+        ),
+      json: () =>
+        Promise.resolve({
+          success: false,
+          error: 'Database connection failed',
+        }),
     });
     globalThis.fetch = mockFetch;
   }
@@ -275,7 +297,7 @@ describe('Scrape and Sync Script', () => {
       // Test the core setup and verify mocks are properly configured
       const envConfig = getEnvironmentConfig();
       const logger = getLogger();
-      
+
       expect(envConfig).toEqual(ScrapeAndSyncTestUtils.mockEnvConfig);
       expect(logger).toEqual(ScrapeAndSyncTestUtils.mockLogger);
     });
@@ -314,7 +336,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as any, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
 
       expect(result.success).toBe(true);
       expect(result.totalCount).toBe(0);
@@ -323,7 +345,7 @@ describe('Scrape and Sync Script', () => {
 
     it('should not sync to WordPress when no jobs found and force sync disabled', async () => {
       ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
-      
+
       // Ensure force sync is not enabled
       delete process.env['INPUT_FORCE_SYNC'];
 
@@ -333,7 +355,7 @@ describe('Scrape and Sync Script', () => {
 
     it('should sync to WordPress when no jobs found but force sync enabled', async () => {
       ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
-      
+
       // Enable force sync
       process.env['INPUT_FORCE_SYNC'] = 'true';
 
@@ -347,7 +369,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupFailedScrapeMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as any, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Failed to load careers page');
@@ -364,7 +386,9 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupMissingConfigMocks();
 
       // Test that configuration errors are handled properly
-      expect(() => getEnvironmentConfig()).toThrow('DRIVEHR_COMPANY_ID environment variable is required');
+      expect(() => getEnvironmentConfig()).toThrow(
+        'DRIVEHR_COMPANY_ID environment variable is required'
+      );
     });
 
     it('should properly dispose of PlaywrightScraper on errors', async () => {
@@ -396,7 +420,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as any, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
 
       expect(result.screenshotPath).toBe('/tmp/screenshot.png');
     });
@@ -416,7 +440,9 @@ describe('Scrape and Sync Script', () => {
         ...ScrapeAndSyncTestUtils.mockEnvConfig,
         logLevel: 'info', // Should use default
       };
-      vi.mocked(getEnvironmentConfig).mockReturnValue(partialConfig);
+      vi.mocked(getEnvironmentConfig).mockReturnValue(
+        partialConfig as ReturnType<typeof getEnvironmentConfig>
+      );
 
       const config = getEnvironmentConfig();
       expect(config.logLevel).toBe('info');
@@ -487,9 +513,10 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as any, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
 
-      expect(result.scrapingTime).toBe(5000);
+      expect(result.scrapedAt).toBe('2024-01-15T12:00:00.000Z');
+      expect(result.success).toBe(true);
     });
 
     it('should track total execution time', async () => {
@@ -505,7 +532,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       const logger = getLogger();
-      
+
       // Test that important execution steps are logged
       expect(logger.info).toBeDefined();
       expect(logger.error).toBeDefined();
@@ -515,7 +542,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as any, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
 
       // Test that scraping statistics are properly logged
       expect(result.totalCount).toBe(2);
