@@ -27,7 +27,8 @@
     "netlify:watch": "netlify watch",
     "netlify:logs": "netlify logs:function sync-jobs",
     "netlify:status": "netlify status",
-    "netlify:open": "netlify open:site"
+    "netlify:open": "netlify open:site",
+    "verify-config": "node scripts/verify-config.js"
   },
   "keywords": [],
   "author": "",
