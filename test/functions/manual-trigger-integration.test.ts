@@ -14,6 +14,20 @@ import { createHmac } from 'crypto';
 import manualTriggerFunction from '../../src/functions/manual-trigger.mts';
 import fetch from 'node-fetch';
 
+// Import the proper type for manual trigger result
+interface ManualTriggerResult {
+  success: boolean;
+  message: string;
+  workflow_run_id?: string;
+  github_response?: {
+    status: number;
+    statusText: string;
+  };
+  error?: string;
+  timestamp: string;
+  requestId: string;
+}
+
 // Mock node-fetch since that's what the http-client uses
 vi.mock('node-fetch', () => ({
   default: vi.fn(),
@@ -47,8 +61,8 @@ class ManualTriggerIntegrationUtils {
     } as Context;
   }
 
-  static async parseResponse(response: Response): Promise<Record<string, unknown>> {
-    return JSON.parse(await response.text()) as Record<string, unknown>;
+  static async parseResponse(response: Response): Promise<ManualTriggerResult> {
+    return JSON.parse(await response.text()) as ManualTriggerResult;
   }
 
   static generateValidSignature(payload: string, secret: string): string {
