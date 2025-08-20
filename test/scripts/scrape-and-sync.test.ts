@@ -30,6 +30,8 @@ import { getLogger } from '../../src/lib/logger.js';
 import { createHmac } from 'crypto';
 import type { NormalizedJob } from '../../src/types/job.js';
 import type { DriveHrApiConfig } from '../../src/types/api.js';
+// Import the actual function to test
+import { executeScrapeAndSync } from '../../src/scripts/scrape-and-sync.js';
 
 /**
  * Mock environment configuration type
@@ -295,19 +297,36 @@ describe('Scrape and Sync Script', () => {
     it('should successfully complete the full scrape and sync workflow', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test the core setup and verify mocks are properly configured
-      const envConfig = getEnvironmentConfig();
-      const logger = getLogger();
+      // Call the actual function to test
+      const result = await executeScrapeAndSync();
 
-      expect(envConfig).toEqual(ScrapeAndSyncTestUtils.mockEnvConfig);
-      expect(logger).toEqual(ScrapeAndSyncTestUtils.mockLogger);
+      // Verify function executed (this gives us coverage)
+      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
+      expect(typeof result.totalTime).toBe('number');
+
+      // Verify mocks were called
+      expect(PlaywrightScraper).toHaveBeenCalled();
+      expect(getEnvironmentConfig).toHaveBeenCalled();
+      expect(getLogger).toHaveBeenCalled();
     });
 
     it('should properly initialize PlaywrightScraper with configuration', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test that PlaywrightScraper is initialized with the correct configuration
-      expect(PlaywrightScraper).toBeDefined();
+      await executeScrapeAndSync();
+
+      // Verify PlaywrightScraper was initialized with correct configuration
+      expect(PlaywrightScraper).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headless: true,
+          timeout: 30000,
+          debug: true,
+          retries: 3,
+          browserArgs: expect.any(Array),
+          userAgent: expect.stringContaining('DriveHR-GitHub-Actions'),
+        })
+      );
     });
 
     it('should save jobs artifact file when jobs are found', async () => {
@@ -369,11 +388,13 @@ describe('Scrape and Sync Script', () => {
     it('should handle scraping failures gracefully', async () => {
       ScrapeAndSyncTestUtils.setupFailedScrapeMocks();
 
-      const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as DriveHrApiConfig, 'github-actions');
+      const result = await executeScrapeAndSync();
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Failed to load careers page');
+      expect(result.jobsScraped).toBe(0);
+      expect(result.jobsSynced).toBe(0);
+      expect(result.error).toContain('scraping failed');
+      expect(PlaywrightScraper).toHaveBeenCalled();
     });
 
     it('should handle WordPress sync failures gracefully', async () => {
