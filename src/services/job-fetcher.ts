@@ -372,10 +372,12 @@ export class HtmlJobFetchStrategy implements IJobFetchStrategy {
       throw new Error('HTML page not accessible');
     }
 
-    const jobs = this.htmlParser.parseJobsFromHtml(response.data, careersUrl);
+    // Store response data to avoid "body used already" error
+    const htmlContent = response.data;
+    const jobs = this.htmlParser.parseJobsFromHtml(htmlContent, careersUrl);
 
     // Check for "no jobs" indicators
-    const htmlLower = response.data.toLowerCase();
+    const htmlLower = htmlContent.toLowerCase();
     const noJobsIndicators = [
       'no positions available',
       'no current openings',
