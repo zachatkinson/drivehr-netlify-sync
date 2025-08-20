@@ -18,14 +18,23 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
+      include: [
+        'src/**/*.{ts,tsx,js,jsx}',
+        'scripts/**/*.{ts,tsx,js,jsx,mts}',
+      ],
       exclude: [
         'node_modules/',
         'dist/',
         'coverage/',
         'test/',
+        '.netlify/',
+        'coverage-cli/',
+        'lcov-viewer/',
         '**/*.d.ts',
         '**/*.config.{ts,js}',
         '**/index.ts',
+        '**/*.test.*',
+        '**/*.spec.*',
       ],
       thresholds: {
         global: {
