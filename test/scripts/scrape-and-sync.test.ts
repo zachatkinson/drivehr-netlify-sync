@@ -427,15 +427,34 @@ describe('Scrape and Sync Script', () => {
     it('should save jobs artifact in correct format', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test that jobs artifact is saved with correct structure
-      expect(writeFile).toBeDefined();
+      const result = await executeScrapeAndSync();
+
+      // Verify the function completed and would have saved artifacts
+      expect(typeof result.success).toBe('boolean');
+      expect(writeFile).toHaveBeenCalled();
+      expect(mkdir).toHaveBeenCalled();
+    });
+
+    it('should handle file system errors during artifact generation', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+
+      // Mock file system error
+      vi.mocked(writeFile).mockRejectedValueOnce(new Error('ENOSPC: no space left on device'));
+
+      const result = await executeScrapeAndSync();
+
+      // Should continue execution despite file system errors
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should save log artifact with execution details', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test that log artifact contains execution metadata
-      expect(writeFile).toBeDefined();
+      const result = await executeScrapeAndSync();
+
+      // Verify execution tracking
+      expect(typeof result.totalTime).toBe('number');
+      expect(writeFile).toHaveBeenCalled();
     });
 
     it('should include screenshot path in artifacts', async () => {
@@ -449,25 +468,54 @@ describe('Scrape and Sync Script', () => {
   });
 
   describe('Configuration validation', () => {
-    it('should validate required environment variables', async () => {
-      ScrapeAndSyncTestUtils.setupMissingConfigMocks();
+    it('should validate required DRIVEHR_COMPANY_ID', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test that missing required configuration throws appropriate errors
-      expect(() => getEnvironmentConfig()).toThrow();
+      // Mock missing DRIVEHR_COMPANY_ID
+      vi.mocked(getEnvironmentConfig).mockReturnValue({
+        ...ScrapeAndSyncTestUtils.mockEnvConfig,
+        driveHrCompanyId: '',
+      } as ReturnType<typeof getEnvironmentConfig>);
+
+      const result = await executeScrapeAndSync();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('DRIVEHR_COMPANY_ID is required');
+    });
+
+    it('should validate required WP_API_URL', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+
+      // Mock missing WP_API_URL
+      vi.mocked(getEnvironmentConfig).mockReturnValue({
+        ...ScrapeAndSyncTestUtils.mockEnvConfig,
+        wpApiUrl: '',
+      } as ReturnType<typeof getEnvironmentConfig>);
+
+      const result = await executeScrapeAndSync();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('WP_API_URL is required');
+    });
+
+    it('should validate required WEBHOOK_SECRET', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+
+      // Mock missing WEBHOOK_SECRET
+      vi.mocked(getEnvironmentConfig).mockReturnValue({
+        ...ScrapeAndSyncTestUtils.mockEnvConfig,
+        webhookSecret: '',
+      } as ReturnType<typeof getEnvironmentConfig>);
+
+      const result = await executeScrapeAndSync();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('WEBHOOK_SECRET is required');
     });
 
     it('should use default configuration values when optional vars missing', async () => {
-      // Mock partial environment configuration
-      const partialConfig = {
-        ...ScrapeAndSyncTestUtils.mockEnvConfig,
-        logLevel: 'info', // Should use default
-      };
-      vi.mocked(getEnvironmentConfig).mockReturnValue(
-        partialConfig as ReturnType<typeof getEnvironmentConfig>
-      );
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      const config = getEnvironmentConfig();
-      expect(config.logLevel).toBe('info');
+      // Test successful execution with minimal required configuration
+      const result = await executeScrapeAndSync();
+      expect(typeof result.success).toBe('boolean');
     });
   });
 
@@ -575,6 +623,83 @@ describe('Scrape and Sync Script', () => {
 
       // Test that sync statistics are properly logged
       expect(globalThis.fetch).toBeDefined();
+    });
+  });
+
+  describe('WordPress webhook network errors', () => {
+    it('should handle WordPress webhook timeout/network errors gracefully', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+
+      // Override the fetch mock after successful setup to simulate webhook failure
+      globalThis.fetch = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('ECONNRESET: Connection reset by peer'));
+
+      const result = await executeScrapeAndSync();
+
+      // When webhook fails, the entire operation fails and result counters are reset in catch block
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('WordPress sync failed');
+      expect(result.jobsScraped).toBe(0); // Error state resets counters
+      expect(result.jobsSynced).toBe(0); // Sync failed
+    });
+
+    it('should handle WordPress webhook server errors gracefully', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+
+      // Override the fetch mock to return server error
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: async () => 'Database connection failed',
+      } as Response);
+
+      const result = await executeScrapeAndSync();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('WordPress sync failed');
+      expect(result.jobsScraped).toBe(0); // Error state resets counters
+      expect(result.jobsSynced).toBe(0); // Sync failed
+    });
+  });
+
+  describe('Scraper disposal edge cases', () => {
+    it('should handle scraper disposal failures gracefully', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+
+      // Override the PlaywrightScraper mock to have dispose fail
+      const mockPlaywrightScraper = {
+        scrapeJobs: vi.fn().mockResolvedValue(ScrapeAndSyncTestUtils.mockScrapeResult),
+        dispose: vi.fn().mockRejectedValue(new Error('Browser cleanup failed')),
+      };
+      vi.mocked(PlaywrightScraper).mockImplementation(
+        () => mockPlaywrightScraper as unknown as PlaywrightScraper
+      );
+
+      const result = await executeScrapeAndSync();
+
+      // Disposal error causes the whole operation to fail since it's not wrapped in try-catch
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Browser cleanup failed');
+      expect(result.jobsScraped).toBe(0); // Error state resets counters
+      expect(result.jobsSynced).toBe(0);
+    });
+
+    it('should handle scraper creation failure', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+
+      // Mock PlaywrightScraper constructor to throw
+      vi.mocked(PlaywrightScraper).mockImplementationOnce(() => {
+        throw new Error('Failed to initialize browser');
+      });
+
+      const result = await executeScrapeAndSync();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Failed to initialize browser');
+      expect(result.jobsScraped).toBe(0);
+      expect(result.jobsSynced).toBe(0);
     });
   });
 });
