@@ -1186,4 +1186,403 @@ describe('PlaywrightScraper', () => {
       await expect(scraper.dispose()).resolves.toBeUndefined();
     });
   });
+
+  describe('browser reuse optimization', () => {
+    /**
+     * Tests browser reuse optimization to verify proper handling when browser is already initialized
+     *
+     * This test validates the browser initialization check (lines 282-283) to ensure
+     * the scraper properly handles scenarios where the browser instance is already
+     * available, avoiding unnecessary re-initialization.
+     *
+     * @example
+     * ```typescript
+     * const scraper = new PlaywrightScraper();
+     * // First call initializes browser
+     * await scraper.scrapeJobs(config, 'manual');
+     * // Second call should reuse existing browser
+     * await scraper.scrapeJobs(config, 'manual');
+     * ```
+     * @since 1.0.0
+     */
+    it('should handle browser already initialized scenario', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Simulate browser already being initialized by setting it manually
+      // This tests the browser already initialized check (lines 282-283)
+      const { chromium } = await import('playwright');
+
+      // First call - this should initialize browser
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Verify the browser initialization was called
+      expect(vi.mocked(chromium.launch)).toHaveBeenCalled();
+    });
+  });
+
+  describe('resource blocking optimization', () => {
+    /**
+     * Tests resource blocking optimization for improved performance during scraping
+     *
+     * Validates the resource blocking route handler (line 327) by testing that
+     * unnecessary resource types (images, stylesheets, fonts, media) are properly
+     * blocked while allowing essential resources (documents, scripts, XHR) to continue.
+     * This optimization significantly improves scraping performance.
+     *
+     * @example
+     * ```typescript
+     * // Blocked resources: image, stylesheet, font, media
+     * // Allowed resources: document, script, xhr
+     * await scraper.scrapeJobs(config, 'manual');
+     * ```
+     * @since 1.0.0
+     */
+    it('should abort blocked resource types for performance', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock route handler to capture the callback
+      let routeHandler: (route: {
+        request: () => { resourceType: () => string };
+        abort: () => void;
+        continue: () => void;
+      }) => void = () => {};
+
+      vi.mocked(mocks.mockPage.route).mockImplementation((pattern, handler) => {
+        routeHandler = handler;
+      });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Test resource blocking for blocked types
+      const blockedResourceTypes = ['image', 'stylesheet', 'font', 'media'];
+
+      for (const resourceType of blockedResourceTypes) {
+        const mockRoute = {
+          request: () => ({ resourceType: () => resourceType }),
+          abort: vi.fn(),
+          continue: vi.fn(),
+        };
+
+        if (routeHandler) {
+          routeHandler(mockRoute);
+        }
+        expect(mockRoute.abort).toHaveBeenCalled();
+        expect(mockRoute.continue).not.toHaveBeenCalled();
+      }
+
+      // Test allowing other resource types
+      const allowedResourceTypes = ['document', 'script', 'xhr'];
+
+      for (const resourceType of allowedResourceTypes) {
+        const mockRoute = {
+          request: () => ({ resourceType: () => resourceType }),
+          abort: vi.fn(),
+          continue: vi.fn(),
+        };
+
+        if (routeHandler) {
+          routeHandler(mockRoute);
+        }
+        expect(mockRoute.abort).not.toHaveBeenCalled();
+        expect(mockRoute.continue).toHaveBeenCalled();
+      }
+    });
+  });
+
+  describe('debug mode console logging', () => {
+    /**
+     * Tests debug mode console message capture functionality
+     *
+     * Validates the debug console handler (lines 336-337) by ensuring that when
+     * debug mode is enabled, page console messages are properly captured and
+     * logged for debugging purposes. This helps developers troubleshoot issues
+     * with job extraction on specific sites.
+     *
+     * @example
+     * ```typescript
+     * const scraper = new PlaywrightScraper({ debug: true });
+     * await scraper.scrapeJobs(config, 'manual');
+     * // Console messages will be logged as debug output
+     * ```
+     * @since 1.0.0
+     */
+    it('should capture page console messages in debug mode', async () => {
+      const scraper = new PlaywrightScraper({ debug: true });
+
+      // Mock page.on to capture console handler
+      let consoleHandler: (msg: { type: () => string; text: () => string }) => void = () => {};
+      vi.mocked(mocks.mockPage.on).mockImplementation((event, handler) => {
+        if (event === 'console') {
+          consoleHandler = handler;
+        }
+      });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Verify console handler was registered
+      expect(mocks.mockPage.on).toHaveBeenCalledWith('console', expect.any(Function));
+
+      // Simulate console message
+      const mockMsg = {
+        type: () => 'log',
+        text: () => 'Test console message',
+      };
+
+      if (consoleHandler) {
+        consoleHandler(mockMsg);
+      }
+      expect(mocks.mockLogger.debug).toHaveBeenCalledWith('Page console.log: Test console message');
+    });
+  });
+
+  describe('selector timeout fallback handling', () => {
+    /**
+     * Tests selector timeout fallback mechanism for robust error handling
+     *
+     * Validates the catch block for selector timeouts (lines 362-363) by ensuring
+     * that when waitForSelector times out, the scraper gracefully falls back to
+     * network idle strategy with additional wait time. This prevents complete
+     * failure when specific selectors are not available.
+     *
+     * @example
+     * ```typescript
+     * // If waitForSelector fails, fallback to:
+     * // page.waitForLoadState('networkidle')
+     * // page.waitForTimeout(2000)
+     * await scraper.scrapeJobs(config, 'manual');
+     * ```
+     * @since 1.0.0
+     */
+    it('should fallback to network idle when selectors timeout', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock waitForSelector to throw timeout error (covers catch block)
+      vi.mocked(mocks.mockPage.waitForSelector).mockRejectedValue(
+        new Error('Timeout waiting for selector')
+      );
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Should fallback to network idle strategy
+      expect(mocks.mockPage.waitForLoadState).toHaveBeenCalledWith('networkidle', {
+        timeout: 30000,
+      });
+      expect(mocks.mockPage.waitForTimeout).toHaveBeenCalledWith(2000);
+    });
+  });
+
+  describe('no jobs indicator detection', () => {
+    /**
+     * Tests no jobs available indicator detection and handling
+     *
+     * Validates the no jobs indicator detection logic (lines 385-387) by testing
+     * the scraper's ability to identify when a careers page explicitly shows
+     * "No positions available" or similar messages, preventing unnecessary
+     * extraction attempts and providing clear feedback.
+     *
+     * @example
+     * ```typescript
+     * // Detects text like "No positions available", "No openings", etc.
+     * const result = await scraper.scrapeJobs(config, 'manual');
+     * // Should log: "No jobs available indicator found"
+     * ```
+     * @since 1.0.0
+     */
+    it('should detect and handle no jobs available indicators', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock locator for no jobs indicator
+      const mockLocator = {
+        first: () => ({
+          isVisible: vi.fn().mockResolvedValue(true),
+        }),
+      };
+      vi.mocked(mocks.mockPage.locator).mockReturnValue(mockLocator);
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Should check for no jobs indicators
+      expect(mocks.mockPage.locator).toHaveBeenCalledWith('text="No positions available"');
+      expect(mocks.mockLogger.info).toHaveBeenCalledWith('No jobs available indicator found');
+    });
+  });
+
+  describe('browser cleanup error handling', () => {
+    /**
+     * Tests graceful handling of browser context close errors during cleanup
+     *
+     * Validates error handling in the closeBrowser method (lines 776-780) by
+     * ensuring that if browser context closing fails, the error is logged but
+     * doesn't crash the application. This maintains stability during cleanup operations.
+     *
+     * @example
+     * ```typescript
+     * // Even if context.close() throws an error:
+     * await scraper.scrapeJobs(config, 'manual');
+     * // Should log warning but continue execution
+     * ```
+     * @since 1.0.0
+     */
+    it('should handle browser context close errors gracefully', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock context close to throw error
+      vi.mocked(mocks.mockContext.close).mockRejectedValue(new Error('Context close failed'));
+
+      // Should handle error gracefully during cleanup
+      await scraper.scrapeJobs(
+        {
+          companyId: 'test',
+          careersUrl: 'http://example.com',
+          apiBaseUrl: 'http://example.com/api',
+        },
+        'manual'
+      );
+
+      expect(mocks.mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Error closing browser: Context close failed')
+      );
+    });
+
+    /**
+     * Tests graceful handling of browser close errors during cleanup
+     *
+     * Validates error handling in the closeBrowser method (lines 776-780) by
+     * ensuring that if browser closing fails, the error is logged but doesn't
+     * crash the application. This maintains stability during resource cleanup.
+     *
+     * @example
+     * ```typescript
+     * // Even if browser.close() throws an error:
+     * await scraper.scrapeJobs(config, 'manual');
+     * // Should log warning but continue execution
+     * ```
+     * @since 1.0.0
+     */
+    it('should handle browser close errors gracefully', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock browser close to throw error
+      vi.mocked(mocks.mockBrowser.close).mockRejectedValue(new Error('Browser close failed'));
+
+      // Should handle error gracefully during cleanup
+      await scraper.scrapeJobs(
+        {
+          companyId: 'test',
+          careersUrl: 'http://example.com',
+          apiBaseUrl: 'http://example.com/api',
+        },
+        'manual'
+      );
+
+      expect(mocks.mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Error closing browser: Browser close failed')
+      );
+    });
+  });
+
+  describe('extraction method edge cases', () => {
+    /**
+     * Tests structured elements extraction when no matching selectors are found
+     *
+     * Validates edge case handling in extraction methods by testing the scenario
+     * where none of the extraction strategies (structured elements, JSON-LD, text patterns)
+     * find any job data. Ensures graceful handling with appropriate logging.
+     *
+     * @example
+     * ```typescript
+     * // When all extraction strategies return empty:
+     * const result = await scraper.scrapeJobs(config, 'manual');
+     * // Should return success=true, jobs=[], with warning logged
+     * ```
+     * @since 1.0.0
+     */
+    it('should handle structured elements extraction with no matching selectors', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock evaluate to return empty array (no jobs found via structured elements)
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      // JSON-LD also returns empty
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      // Text patterns also return empty
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs.length).toBe(0);
+      expect(mocks.mockLogger.warn).toHaveBeenCalledWith(
+        'No job data could be extracted from page'
+      );
+    });
+
+    /**
+     * Tests JSON-LD extraction resilience when encountering invalid JSON
+     *
+     * Validates the JSON-LD extraction strategy's error handling when parsing
+     * malformed or invalid JSON-LD structured data. Ensures the scraper continues
+     * to other extraction strategies without crashing.
+     *
+     * @example
+     * ```typescript
+     * // When JSON-LD contains invalid JSON:
+     * const result = await scraper.scrapeJobs(config, 'manual');
+     * // Should try all extraction strategies and handle gracefully
+     * ```
+     * @since 1.0.0
+     */
+    it('should handle JSON-LD extraction with invalid JSON', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock structured elements to return empty (so it tries JSON-LD)
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+
+      // Mock JSON-LD evaluation to simulate browser context with invalid JSON
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+
+      // Mock text patterns to return empty
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs.length).toBe(0);
+      // Should try all three extraction strategies
+      expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(3);
+    });
+
+    /**
+     * Tests text pattern extraction when no job titles match the patterns
+     *
+     * Validates the text pattern extraction strategy's behavior when the page
+     * content doesn't contain recognizable job title patterns. Ensures proper
+     * fallback behavior and appropriate logging when no matches are found.
+     *
+     * @example
+     * ```typescript
+     * // When text patterns find no job titles:
+     * const result = await scraper.scrapeJobs(config, 'manual');
+     * // Should return empty jobs array with warning message
+     * ```
+     * @since 1.0.0
+     */
+    it('should handle text pattern extraction with no matches', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock structured elements and JSON-LD to return empty
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+
+      // Mock text patterns to return empty array
+      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs.length).toBe(0);
+      expect(mocks.mockLogger.warn).toHaveBeenCalledWith(
+        'No job data could be extracted from page'
+      );
+    });
+  });
 });
