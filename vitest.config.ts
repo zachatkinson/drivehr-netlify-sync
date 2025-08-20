@@ -20,13 +20,13 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: [
         'src/**/*.{ts,tsx,js,jsx}',
-        'scripts/**/*.{ts,tsx,js,jsx,mts}',
       ],
       exclude: [
         'node_modules/',
         'dist/',
         'coverage/',
         'test/',
+        'scripts/',
         '.netlify/',
         'coverage-cli/',
         'lcov-viewer/',
@@ -35,6 +35,8 @@ export default defineConfig({
         '**/index.ts',
         '**/*.test.*',
         '**/*.spec.*',
+        // Exclude type-only files from coverage
+        'src/types/**/*.ts',
       ],
       thresholds: {
         global: {

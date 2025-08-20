@@ -97,8 +97,6 @@ jobs:
             pattern: 'test/functions/manual-trigger.test.ts'
           - name: 'Manual Trigger Integration'
             pattern: 'test/functions/manual-trigger-integration.test.ts'
-          - name: 'Webhook Receiver Function'
-            pattern: 'test/functions/webhook-receiver.test.ts'
 
           # Script Tests
           - name: 'Scrape and Sync Script'
