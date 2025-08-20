@@ -47,10 +47,14 @@ export interface EnvironmentConfig {
   readonly wpApiUrl: string;
   /** Secret key for webhook signature verification (minimum 32 characters) */
   readonly webhookSecret: string;
+  /** WordPress username for REST API authentication (optional) */
+  readonly wpUsername?: string;
+  /** WordPress application password (optional) */
+  readonly wpApplicationPassword?: string;
   /** Current application environment */
   readonly environment: 'development' | 'staging' | 'production';
   /** Minimum log level for application logging */
-  readonly logLevel: 'error' | 'warn' | 'info' | 'debug';
+  readonly logLevel: 'error' | 'warn' | 'info' | 'debug' | 'trace';
 }
 
 /**
@@ -236,4 +240,6 @@ export interface Logger {
   info: (message: string, ...args: unknown[]) => void;
   /** Log debug messages for detailed troubleshooting (development only) */
   debug: (message: string, ...args: unknown[]) => void;
+  /** Log trace messages for extremely detailed debugging (development only) */
+  trace: (message: string, ...args: unknown[]) => void;
 }

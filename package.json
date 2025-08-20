@@ -5,7 +5,7 @@
   "main": "dist/functions/sync-jobs.mjs",
   "type": "module",
   "scripts": {
-    "build": "tsc && mkdir -p dist/functions dist/lib dist/services dist/types && cp dist/src/functions/*.mjs dist/src/functions/*.mjs.map dist/functions/ 2>/dev/null || true && cp dist/src/lib/* dist/lib/ && cp dist/src/services/* dist/services/ && cp dist/src/types/* dist/types/ && rm -f dist/functions/*.d.mts dist/functions/*.d.mts.map dist/*.config.* dist/*.d.ts dist/*.map",
+    "build": "tsc && mkdir -p dist/functions dist/lib dist/services dist/scripts dist/types && cp dist/src/functions/*.mjs dist/src/functions/*.mjs.map dist/functions/ 2>/dev/null || true && cp dist/src/lib/* dist/lib/ && cp dist/src/services/* dist/services/ && cp dist/src/scripts/* dist/scripts/ && cp dist/src/types/* dist/types/ && rm -f dist/functions/*.d.mts dist/functions/*.d.mts.map dist/*.config.* dist/*.d.ts dist/*.map",
     "dev": "tsc --watch",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -23,6 +23,7 @@
     "docs:serve": "typedoc --watch",
     "prepare": "husky install",
     "precommit": "lint-staged",
+    "scrape-and-sync": "node dist/scripts/scrape-and-sync.mjs",
     "netlify:watch": "netlify watch",
     "netlify:logs": "netlify logs:function sync-jobs",
     "netlify:status": "netlify status",
@@ -32,8 +33,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@playwright/test": "^1.54.2",
     "cheerio": "^1.0.0-rc.12",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "playwright": "^1.54.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

@@ -1,0 +1,66 @@
+name: DriveHR Job Scraper
+
+on:
+  schedule:
+    # Run every 6 hours at minutes 0 (same as Netlify cron)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+    inputs:
+      force_sync:
+        description: 'Force sync even if no changes detected'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  scrape-and-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Scrape jobs with Playwright
+        env:
+          DRIVEHR_COMPANY_ID: ${{ secrets.DRIVEHR_COMPANY_ID }}
+          WP_API_URL: ${{ secrets.WP_API_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          ENVIRONMENT: production
+          LOG_LEVEL: info
+          FORCE_SYNC: ${{ github.event.inputs.force_sync || 'false' }}
+        run: npm run scrape-and-sync
+
+      - name: Upload job data artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraped-jobs-${{ github.run_number }}
+          path: |
+            logs/
+            temp/
+          retention-days: 7
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          WP_API_URL: ${{ secrets.WP_API_URL }}
+        run: |
+          curl -X POST "$WP_API_URL/wp-json/drivehr-sync/v1/webhook" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Signature: sha256=$(echo -n '{"error":"GitHub Actions scraper failed","run_id":"${{ github.run_id }}","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}' | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -binary | base64)" \
+            -d '{"error":"GitHub Actions scraper failed","run_id":"${{ github.run_id }}","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'

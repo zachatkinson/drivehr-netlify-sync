@@ -5,8 +5,15 @@
   ignore = "false"
 
 # Function-specific configurations
+# Note: Scheduled functions removed - GitHub Actions now handles scheduling
 [functions."sync-jobs"]
-  schedule = "0 */6 * * *"  # Run every 6 hours
+  # Webhook receiver function - no schedule needed
+
+[functions."health-check"]
+  # Health monitoring function
+
+[functions."manual-trigger"]
+  # Manual GitHub Actions trigger function
 
 # Redirects and routing
 [[redirects]]
@@ -15,8 +22,19 @@
   status = 200
 
 [[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health-check"
+  status = 200
+
+[[redirects]]
+  from = "/api/trigger"
+  to = "/.netlify/functions/manual-trigger"
+  status = 200
+
+# Legacy redirect for backward compatibility
+[[redirects]]
   from = "/api/jobs/manual"
-  to = "/.netlify/functions/sync-jobs?manual=true"
+  to = "/.netlify/functions/manual-trigger"
   status = 200
 
 # Security headers for all functions
@@ -39,8 +57,8 @@
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     
     # Custom headers for API identification
-    X-API-Version = "1.0.0"
-    X-Service = "DriveHR-Sync"
+    X-API-Version = "2.0.0"
+    X-Service = "DriveHR-Sync-GitHub-Actions"
 
 # Edge function settings for better performance (none currently used)
 # Example edge function configuration:

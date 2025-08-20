@@ -1,134 +1,80 @@
 /**
- * DriveHR to WordPress Job Sync - Netlify Function
+ * DriveHR to WordPress Job Sync - Lightweight Webhook Receiver
  *
- * Enterprise-grade serverless function that:
- * 1. Scrapes job postings from DriveHR using multiple strategies
- * 2. Validates and normalizes the data
- * 3. Syncs to WordPress via secure webhook
+ * Lightweight Netlify function that receives job data from GitHub Actions
+ * and forwards it to WordPress. This function replaces the heavy scraping
+ * logic with a simple webhook receiver that handles data from the new
+ * GitHub Actions-based scraping architecture.
  *
- * Implements SOLID principles, comprehensive error handling, and security best practices.
+ * **Architecture Changes:**
+ * - GitHub Actions handles job scraping with Playwright
+ * - This function receives scraped data via webhook
+ * - Simple validation and forwarding to WordPress
+ * - Maintains backward compatibility for manual triggers
+ *
+ * **Supported endpoints:**
+ * - `GET /` - Health check and system status
+ * - `POST /` - Receive job data from GitHub Actions or manual trigger
+ * - `OPTIONS /` - CORS preflight requests
  */
 
 import type { Context } from '@netlify/functions';
-import { getEnvVar } from '../lib/env.js';
-import { loadAppConfig, getAppConfig } from '../lib/config.js';
-import { createHttpClient } from '../lib/http-client.js';
+import { getEnvironmentConfig } from '../lib/env.js';
 import { createLogger, setLogger, getLogger } from '../lib/logger.js';
 import { StringUtils, SecurityUtils } from '../lib/utils.js';
-import { JobFetchService } from '../services/job-fetcher.js';
-import { createHtmlParser } from '../services/html-parser.js';
 import { createWordPressClient } from '../services/wordpress-client.js';
+import { createHttpClient } from '../lib/http-client.js';
 import type { SecurityHeaders, CorsConfig } from '../types/api.js';
-import type { JobSource } from '../types/job.js';
+import type { NormalizedJob, JobSource } from '../types/job.js';
 
 /**
- * Application dependencies container
- *
- * Defines the structure for dependency injection container that holds
- * all the service instances required by the Netlify function.
- * Enables clean separation of concerns and testability.
- *
- * @since 1.0.0
- * @see {@link initializeDependencies} for container initialization
+ * Lightweight application dependencies for webhook handling
  */
-interface AppDependencies {
-  readonly jobFetchService: JobFetchService;
+interface WebhookDependencies {
   readonly wordPressClient: ReturnType<typeof createWordPressClient>;
   readonly securityHeaders: SecurityHeaders;
   readonly corsConfig: CorsConfig;
 }
 
 /**
- * Initialize application dependencies
- *
- * Creates and configures all service instances required by the function.
- * Loads configuration, validates environment variables, and sets up
- * dependency injection container. This function ensures proper
- * initialization order and handles configuration errors gracefully.
- *
- * @returns Fully configured dependency container
- * @throws {Error} When configuration validation fails or services cannot be initialized
- * @example
- * ```typescript
- * try {
- *   const deps = initializeDependencies();
- *   // All services are now ready to use
- *   const result = await deps.jobFetchService.fetchJobs(config);
- * } catch (error) {
- *   console.error('Failed to initialize dependencies:', error);
- * }
- * ```
- * @since 1.0.0
- * @see {@link AppDependencies} for container structure
- * @see {@link loadAppConfig} for configuration loading
+ * Webhook payload structure from GitHub Actions
  */
-function initializeDependencies(): AppDependencies {
-  // Debug logging - start of initialization
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Starting');
-  
-  // Load and validate configuration
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Loading config');
-  const configResult = loadAppConfig();
-  
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Config loaded', { isValid: configResult.isValid });
-  if (!configResult.isValid) {
-    // eslint-disable-next-line no-console
-    console.log('DEBUG: initializeDependencies - Config validation failed', { errors: configResult.errors });
-    throw new Error(`Configuration validation failed: ${configResult.errors.join(', ')}`);
-  }
+interface GitHubActionsWebhookPayload {
+  source: JobSource;
+  jobs: NormalizedJob[];
+  timestamp: string;
+  total_count: number;
+  run_id?: string;
+  repository?: string;
+}
 
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Getting app config');
-  const config = getAppConfig();
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - App config retrieved');
-
+/**
+ * Initialize lightweight dependencies for webhook handling
+ */
+function initializeWebhookDependencies(): WebhookDependencies {
+  const env = getEnvironmentConfig();
+  
   // Initialize logger
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Creating logger');
-  const logger = createLogger(config.logging.level, config.logging.enableStructured);
+  const logger = createLogger(env.logLevel || 'info', env.environment === 'development');
   setLogger(logger);
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Logger created and set');
 
-  // Create HTTP client
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Creating HTTP client');
+  // Create HTTP client for WordPress communication
   const httpClient = createHttpClient({
-    timeout: config.performance.httpTimeout,
-    retries: config.performance.maxRetries,
-    userAgent: 'DriveHR-Sync/1.0 (Netlify Function)',
+    timeout: 30000,
+    retries: 3,
+    userAgent: 'DriveHR-Sync/2.0 (Netlify Webhook Receiver)',
   });
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - HTTP client created');
-
-  // Create HTML parser
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Creating HTML parser');
-  const htmlParser = createHtmlParser();
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - HTML parser created');
-
-  // Create job fetch service
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Creating job fetch service');
-  const jobFetchService = new JobFetchService(httpClient, htmlParser);
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Job fetch service created');
 
   // Create WordPress client
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Creating WordPress client');
   const wordPressClient = createWordPressClient(
-    config.wordPress,
+    {
+      baseUrl: env.wpApiUrl,
+      username: env.wpUsername || '',
+      password: env.wpApplicationPassword || '',
+    },
     httpClient,
-    config.webhook.secret
+    env.webhookSecret
   );
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - WordPress client created');
 
   // Configure security headers
   const securityHeaders: SecurityHeaders = {
@@ -140,18 +86,15 @@ function initializeDependencies(): AppDependencies {
     'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=()',
   };
 
-  // Configure CORS
+  // Configure CORS for GitHub Actions
   const corsConfig: CorsConfig = {
-    origin: config.security.corsOrigins.length > 0 ? config.security.corsOrigins : ['*'],
+    origin: ['https://github.com', 'https://api.github.com'],
     methods: ['GET', 'POST', 'OPTIONS'],
-    headers: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Webhook-Signature'],
     maxAge: 86400,
   };
 
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: initializeDependencies - Returning dependencies');
   return {
-    jobFetchService,
     wordPressClient,
     securityHeaders,
     corsConfig,
@@ -159,83 +102,26 @@ function initializeDependencies(): AppDependencies {
 }
 
 /**
- * Modern Netlify function handler
+ * Modern Netlify webhook receiver function
  *
- * Enterprise-grade serverless function that synchronizes job postings from
- * DriveHR to WordPress using modern Netlify Functions API with web standard
- * Request/Response objects. Supports multiple HTTP methods and implements
- * comprehensive security, logging, and error handling.
+ * Lightweight serverless function that receives job data from GitHub Actions
+ * and forwards it to WordPress. Implements HMAC signature validation for
+ * security and provides health check endpoints for monitoring.
  *
- * **Supported endpoints:**
- * - `GET /` - Health check and system status
- * - `POST /` - Manual job synchronization trigger
- * - `OPTIONS /` - CORS preflight requests
- *
- * **Security features:**
- * - HMAC webhook signature validation
- * - CORS protection with configurable origins
- * - Request rate limiting and validation
- * - Comprehensive security headers
- *
- * **Modern API Features:**
- * - Web standard Request/Response objects
- * - ES6 modules with TypeScript .mts extension
- * - Async/await request body parsing
- * - Headers API for header manipulation
- *
- * @param req - Web standard Request object containing HTTP request data
- * @param context - Modern Netlify function context with requestId
- * @returns Promise<Response> - Web standard Response object with job sync results
- * @throws {Error} Never - all errors are caught and returned as HTTP responses
- * @example
- * ```typescript
- * // Manual trigger via POST
- * const response = await fetch('/.netlify/functions/sync-jobs', {
- *   method: 'POST',
- *   headers: {
- *     'Content-Type': 'application/json',
- *     'X-Webhook-Signature': 'sha256=...'
- *   },
- *   body: JSON.stringify({ source: 'manual' })
- * });
- *
- * // Health check via GET
- * const health = await fetch('/.netlify/functions/sync-jobs');
- * const status = await health.json();
- *
- * // Response handling with modern API
- * if (response.ok) {
- *   const data = await response.json();
- *   console.log('Sync result:', data);
- * }
- * ```
- * @since 1.0.0
- * @see {@link initializeDependencies} for service initialization
- * @see {@link handlePostRequest} for job sync logic
- * @see {@link handleGetRequest} for health check logic
+ * @param req - Web standard Request object
+ * @param context - Netlify function context
+ * @returns Promise<Response> - Web standard Response object
  */
 export default async (req: Request, context: Context) => {
   const requestId = generateRequestId();
   const timestamp = new Date().toISOString();
 
-  // Debug logging - function entry
-  // eslint-disable-next-line no-console
-  console.log('DEBUG: Function started', { requestId, timestamp, method: req.method });
-
   try {
-    // Debug logging - before dependency initialization
-    // eslint-disable-next-line no-console
-    console.log('DEBUG: Starting dependency initialization', { requestId });
-    
-    // Initialize dependencies first to set up logger
-    const deps = initializeDependencies();
-    
-    // Debug logging - after dependency initialization
-    // eslint-disable-next-line no-console
-    console.log('DEBUG: Dependencies initialized successfully', { requestId });
-
+    // Initialize lightweight dependencies
+    const deps = initializeWebhookDependencies();
     const logger = getLogger();
-    logger.info('DriveHR sync function invoked', {
+
+    logger.info('Webhook receiver invoked', {
       requestId,
       method: req.method,
       path: new URL(req.url).pathname,
@@ -246,14 +132,14 @@ export default async (req: Request, context: Context) => {
       return handleOptionsRequest(deps.securityHeaders, deps.corsConfig);
     }
 
-    // Handle GET request (fetch jobs only)
+    // Handle GET request (health check)
     if (req.method === 'GET') {
-      return await handleGetRequest(deps, requestId, timestamp);
+      return await handleHealthCheck(deps, requestId, timestamp);
     }
 
-    // Handle POST request (fetch and sync jobs)
+    // Handle POST request (webhook data)
     if (req.method === 'POST') {
-      return await handlePostRequest(deps, req, requestId, timestamp);
+      return await handleWebhookData(deps, req, requestId, timestamp);
     }
 
     // Method not allowed
@@ -266,34 +152,14 @@ export default async (req: Request, context: Context) => {
       status: 405,
       headers: deps.securityHeaders,
     });
+
   } catch (error) {
-    // Debug logging - error occurred
-    // eslint-disable-next-line no-console
-    console.log('DEBUG: Error caught in main handler', { 
-      requestId, 
-      errorMessage: error instanceof Error ? error.message : String(error),
-      errorName: error instanceof Error ? error.name : 'Unknown',
-      stack: error instanceof Error ? error.stack : undefined
+    // Fallback error handling
+    console.error('Webhook receiver error:', {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
-    
-    // Try to get logger, but fallback to console if not initialized
-    try {
-      const logger = getLogger();
-      logger.error('DriveHR sync function error', {
-        requestId,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-    } catch {
-      // Fallback logging if logger itself fails
-      // Using console as absolute last resort for error visibility
-      // eslint-disable-next-line no-console
-      console.error('DriveHR sync function error:', {
-        requestId,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-    }
 
     return new Response(JSON.stringify({
       success: false,
@@ -311,20 +177,6 @@ export default async (req: Request, context: Context) => {
 
 /**
  * Handle OPTIONS preflight request for CORS
- *
- * Processes CORS preflight requests by returning appropriate headers
- * for cross-origin resource sharing. Uses modern Response object
- * with proper header configuration.
- *
- * @param securityHeaders - Standard security headers to include
- * @param corsConfig - CORS configuration with allowed origins and methods
- * @returns Response object with CORS headers and 200 status
- * @example
- * ```typescript
- * const response = handleOptionsRequest(securityHeaders, corsConfig);
- * console.log(response.headers.get('Access-Control-Allow-Origin'));
- * ```
- * @since 1.0.0
  */
 function handleOptionsRequest(
   securityHeaders: SecurityHeaders,
@@ -347,56 +199,47 @@ function handleOptionsRequest(
 }
 
 /**
- * Handle GET request - fetch jobs without syncing
- *
- * Processes health check and job listing requests. Fetches jobs from
- * DriveHR but does not sync them to WordPress. Returns job data using
- * modern Response object with JSON payload.
- *
- * @param deps - Application dependencies container
- * @param requestId - Unique request identifier for tracking
- * @param timestamp - Request timestamp in ISO format
- * @returns Promise<Response> - Response with job data or error information
- * @throws Never - All errors are caught and returned as HTTP responses
- * @example
- * ```typescript
- * const response = await handleGetRequest(deps, 'req-123', '2024-01-01T12:00:00Z');
- * const data = await response.json();
- * console.log(`Found ${data.data.jobCount} jobs`);
- * ```
- * @since 1.0.0
+ * Handle GET request - health check and system status
  */
-async function handleGetRequest(
-  deps: AppDependencies,
+async function handleHealthCheck(
+  deps: WebhookDependencies,
   requestId: string,
   timestamp: string
 ): Promise<Response> {
+  const logger = getLogger();
+  
   try {
-    const config = getAppConfig();
-    const result = await deps.jobFetchService.fetchJobs(config.driveHr, 'manual');
+    const env = getEnvironmentConfig();
+    
+    // Simple health check - verify environment variables
+    const healthStatus = {
+      status: 'healthy',
+      timestamp,
+      environment: env.environment,
+      wordpress_configured: Boolean(env.wpApiUrl),
+      webhook_configured: Boolean(env.webhookSecret),
+      architecture: 'github-actions-scraper',
+      version: '2.0.0',
+    };
+
+    logger.info('Health check completed', { requestId, status: healthStatus.status });
 
     return new Response(JSON.stringify({
-      success: result.success,
-      data: {
-        source: config.driveHr.careersUrl,
-        method: result.method,
-        jobCount: result.totalCount,
-        jobs: result.jobs,
-        message: result.message ?? result.error,
-      },
+      success: true,
+      data: healthStatus,
       requestId,
       timestamp,
     }), {
       status: 200,
       headers: deps.securityHeaders,
     });
+
   } catch (error) {
-    const logger = getLogger();
-    logger.error('Failed to fetch jobs', { requestId, error });
+    logger.error('Health check failed', { requestId, error });
 
     return new Response(JSON.stringify({
       success: false,
-      error: 'Failed to fetch jobs',
+      error: 'Health check failed',
       requestId,
       timestamp,
     }), {
@@ -407,43 +250,30 @@ async function handleGetRequest(
 }
 
 /**
- * Handle POST request - fetch jobs and sync to WordPress
- *
- * Processes job synchronization requests with optional webhook signature
- * validation. Fetches jobs from DriveHR and syncs them to WordPress.
- * Uses modern Request object for header access and body parsing.
- *
- * @param deps - Application dependencies container
- * @param req - Modern Request object with headers and body access
- * @param requestId - Unique request identifier for tracking
- * @param timestamp - Request timestamp in ISO format
- * @returns Promise<Response> - Response with sync results or error information
- * @throws Never - All errors are caught and returned as HTTP responses
- * @example
- * ```typescript
- * const response = await handlePostRequest(deps, request, 'req-123', '2024-01-01T12:00:00Z');
- * const result = await response.json();
- * console.log(`Synced ${result.data.syncedCount} jobs`);
- * ```
- * @since 1.0.0
+ * Handle POST request - receive webhook data from GitHub Actions
  */
-async function handlePostRequest(
-  deps: AppDependencies,
+async function handleWebhookData(
+  deps: WebhookDependencies,
   req: Request,
   requestId: string,
   timestamp: string
 ): Promise<Response> {
+  const logger = getLogger();
+  
   try {
-    // Validate webhook signature if present
+    // Get request body
+    const payload = await req.text();
     const signature = req.headers.get('x-webhook-signature');
+
+    // Validate webhook signature if present
     if (signature) {
-      const webhookSecret = getEnvVar('WEBHOOK_SECRET');
-      if (!webhookSecret) {
+      const env = getEnvironmentConfig();
+      if (!env.webhookSecret) {
         throw new Error('WEBHOOK_SECRET environment variable is required');
       }
-      const payload = await req.text();
 
-      if (!validateWebhookSignature(payload, signature, webhookSecret)) {
+      if (!validateWebhookSignature(payload, signature, env.webhookSecret)) {
+        logger.warn('Invalid webhook signature', { requestId });
         return new Response(JSON.stringify({
           success: false,
           error: 'Invalid webhook signature',
@@ -456,18 +286,53 @@ async function handlePostRequest(
       }
     }
 
-    // Determine job source
-    const source: JobSource = signature ? 'webhook' : 'manual';
+    // Parse webhook payload
+    let webhookData: GitHubActionsWebhookPayload;
+    try {
+      webhookData = JSON.parse(payload);
+    } catch (parseError) {
+      logger.error('Invalid JSON payload', { requestId, parseError });
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid JSON payload',
+        requestId,
+        timestamp,
+      }), {
+        status: 400,
+        headers: deps.securityHeaders,
+      });
+    }
 
-    // Fetch jobs
-    const config = getAppConfig();
-    const fetchResult = await deps.jobFetchService.fetchJobs(config.driveHr, source);
+    // Validate required fields
+    if (!webhookData.jobs || !Array.isArray(webhookData.jobs)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid webhook payload: jobs array required',
+        requestId,
+        timestamp,
+      }), {
+        status: 400,
+        headers: deps.securityHeaders,
+      });
+    }
 
-    if (!fetchResult.success || fetchResult.jobs.length === 0) {
+    const source = webhookData.source || 'github-actions';
+    const jobs = webhookData.jobs;
+
+    logger.info('Webhook data received', {
+      requestId,
+      source,
+      jobCount: jobs.length,
+      runId: webhookData.run_id,
+    });
+
+    // Handle empty job list
+    if (jobs.length === 0) {
+      logger.info('No jobs to sync', { requestId, source });
       return new Response(JSON.stringify({
         success: true,
         data: {
-          message: fetchResult.error ?? 'No jobs found to sync',
+          message: 'No jobs found to sync',
           jobCount: 0,
           syncedCount: 0,
         },
@@ -479,14 +344,21 @@ async function handlePostRequest(
       });
     }
 
-    // Sync to WordPress
-    const syncResult = await deps.wordPressClient.syncJobs(fetchResult.jobs, source);
+    // Sync jobs to WordPress
+    const syncResult = await deps.wordPressClient.syncJobs(jobs, source);
+
+    logger.info('Job sync completed', {
+      requestId,
+      success: syncResult.success,
+      syncedCount: syncResult.syncedCount,
+      errorCount: syncResult.errorCount,
+    });
 
     return new Response(JSON.stringify({
       success: syncResult.success,
       data: {
         message: syncResult.message,
-        jobCount: fetchResult.totalCount,
+        jobCount: jobs.length,
         syncedCount: syncResult.syncedCount,
         skippedCount: syncResult.skippedCount,
         errorCount: syncResult.errorCount,
@@ -498,13 +370,13 @@ async function handlePostRequest(
       status: 200,
       headers: deps.securityHeaders,
     });
+
   } catch (error) {
-    const logger = getLogger();
-    logger.error('Failed to sync jobs', { requestId, error });
+    logger.error('Failed to process webhook data', { requestId, error });
 
     return new Response(JSON.stringify({
       success: false,
-      error: 'Failed to sync jobs',
+      error: 'Failed to process webhook data',
       requestId,
       timestamp,
     }), {
@@ -516,52 +388,14 @@ async function handlePostRequest(
 
 /**
  * Validate webhook HMAC signature for request authentication
- *
- * Validates incoming webhook requests by verifying the HMAC-SHA256
- * signature against the request payload and configured webhook secret.
- * This ensures requests are authentic and haven't been tampered with.
- *
- * @param payload - Raw request body as string for signature calculation
- * @param signature - HMAC signature from request headers (format: sha256=<hex>)
- * @param secret - Webhook secret for signature validation
- * @returns True if signature is valid, false otherwise
- * @throws Never - Delegates to SecurityUtils for signature validation
- * @example
- * ```typescript
- * const isValid = validateWebhookSignature(
- *   JSON.stringify({ source: 'webhook' }),
- *   'sha256=abc123...',
- *   'webhook-secret-key'
- * );
- * if (!isValid) {
- *   throw new Error('Invalid webhook signature');
- * }
- * ```
- * @since 1.0.0
- * @see {@link SecurityUtils.validateHmacSignature} for underlying validation logic
  */
 function validateWebhookSignature(payload: string, signature: string, secret: string): boolean {
   return SecurityUtils.validateHmacSignature(payload, signature, secret);
 }
 
 /**
- * Generate unique request ID for request tracing and logging
- *
- * Creates a unique identifier for each function invocation to enable
- * request tracking across logs and error reports. Uses Netlify-specific
- * prefix to distinguish from other request ID formats.
- *
- * @returns Unique request ID with netlify_ prefix for identification
- * @throws Never - Delegates to StringUtils for ID generation
- * @example
- * ```typescript
- * const requestId = generateRequestId();
- * logger.info('Request started', { requestId });
- * // Output: "netlify_abc123def456..."
- * ```
- * @since 1.0.0
- * @see {@link StringUtils.generateRequestId} for ID generation logic
+ * Generate unique request ID for request tracing
  */
 function generateRequestId(): string {
-  return `netlify_${StringUtils.generateRequestId()}`;
+  return `webhook_${StringUtils.generateRequestId()}`;
 }

@@ -51,61 +51,61 @@
  */
 export interface RawJobData {
   /** Job identifier (various naming conventions) */
-  readonly id?: string;
+  id?: string;
   /** Alternative job identifier field name */
-  readonly job_id?: string;
+  job_id?: string;
 
   /** Job title (various naming conventions) */
-  readonly title?: string;
+  title?: string;
   /** Alternative job title field name */
-  readonly position_title?: string;
+  position_title?: string;
   /** Generic name field that may contain job title */
-  readonly name?: string;
+  name?: string;
 
   /** Department/category information (various naming conventions) */
-  readonly department?: string;
+  department?: string;
   /** Alternative department field name */
-  readonly category?: string;
+  category?: string;
   /** Alternative department field name */
-  readonly division?: string;
+  division?: string;
 
   /** Location information (various naming conventions) */
-  readonly location?: string;
+  location?: string;
   /** Alternative location field name */
-  readonly city?: string;
+  city?: string;
   /** Alternative location field name */
-  readonly office?: string;
+  office?: string;
 
   /** Employment type information (various naming conventions) */
-  readonly type?: string;
+  type?: string;
   /** Alternative employment type field name */
-  readonly employment_type?: string;
+  employment_type?: string;
   /** Alternative employment type field name */
-  readonly schedule?: string;
+  schedule?: string;
 
   /** Job description (various naming conventions) */
-  readonly description?: string;
+  description?: string;
   /** Alternative description field name */
-  readonly summary?: string;
+  summary?: string;
   /** Alternative description field name */
-  readonly overview?: string;
+  overview?: string;
 
   /** Posted date information (various naming conventions) */
-  readonly posted_date?: string;
+  posted_date?: string;
   /** Alternative posted date field name */
-  readonly created_at?: string;
+  created_at?: string;
   /** Alternative posted date field name */
-  readonly date_posted?: string;
+  date_posted?: string;
 
   /** Application URL (various naming conventions) */
-  readonly apply_url?: string;
+  apply_url?: string;
   /** Alternative application URL field name */
-  readonly application_url?: string;
+  application_url?: string;
   /** Generic URL field that may contain application link */
-  readonly url?: string;
+  url?: string;
 
   /** Allow additional properties for extensibility */
-  readonly [key: string]: unknown;
+  [key: string]: unknown;
 }
 
 /**
@@ -316,7 +316,9 @@ export type JobSource =
   /** Job data fetched via manual user-initiated sync */
   | 'manual'
   /** Job data fetched via automated webhook trigger */
-  | 'webhook';
+  | 'webhook'
+  /** Job data fetched via GitHub Actions scraping */
+  | 'github-actions';
 
 /**
  * Job fetching method enumeration

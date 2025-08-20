@@ -31,7 +31,8 @@
     "noImplicitThis": true,
     "useUnknownInCatchVariables": true,
     "alwaysStrict": true,
-    "noImplicitUseStrict": false
+    "noImplicitUseStrict": false,
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*", "test/**/*", "*.ts"],
   "exclude": ["node_modules", "dist", "coverage"],
