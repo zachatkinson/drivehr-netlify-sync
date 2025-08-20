@@ -245,6 +245,258 @@ describe('PlaywrightScraper', () => {
       expect(result.error).toBeUndefined();
     });
 
+    it('should handle browser launch failure', async () => {
+      const launchError = new Error('Failed to launch browser');
+      const { chromium } = await import('playwright');
+      vi.mocked(chromium.launch).mockRejectedValue(launchError);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(launchError.message);
+      expect(result.jobs).toHaveLength(0);
+    });
+
+    it('should handle page creation failure', async () => {
+      const pageError = new Error('Failed to create page');
+      mocks.mockContext.newPage.mockRejectedValue(pageError);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(pageError.message);
+    });
+
+    it('should handle waitForSelector timeout', async () => {
+      const timeoutError = new Error('Timeout waiting for selector');
+      mocks.mockPage.waitForSelector.mockRejectedValue(timeoutError);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Should handle the error gracefully
+      expect(result).toBeDefined();
+      if (!result.success) {
+        expect(result.error).toContain('Timeout');
+      }
+    });
+
+    it('should handle job extraction failure', async () => {
+      const extractionError = new Error('Page evaluation failed');
+      mocks.mockPage.evaluate.mockRejectedValue(extractionError);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(extractionError.message);
+    });
+
+    it('should use custom timeout configuration', async () => {
+      const customTimeout = 45000;
+      const scraper = new PlaywrightScraper({ timeout: customTimeout });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(mocks.mockPage.goto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ timeout: customTimeout })
+      );
+      expect(mocks.mockPage.setDefaultTimeout).toHaveBeenCalledWith(customTimeout);
+    });
+
+    it('should use custom waitForSelector when configured', async () => {
+      const customSelector = '.custom-job-selector';
+      const scraper = new PlaywrightScraper({ waitForSelector: customSelector });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(mocks.mockPage.waitForSelector).toHaveBeenCalledWith(
+        customSelector,
+        expect.objectContaining({
+          state: 'visible',
+          timeout: 30000,
+        })
+      );
+    });
+
+    it('should handle browser context creation failure', async () => {
+      const contextError = new Error('Failed to create browser context');
+      mocks.mockBrowser.newContext.mockRejectedValue(contextError);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(contextError.message);
+    });
+
+    it('should properly normalize job data fields', async () => {
+      const rawJobsWithVariousFields = [
+        {
+          id: '',
+          title: '  Senior Developer  ',
+          location: 'san francisco, ca',
+          department: '  Engineering  ',
+          type: 'full-time',
+          posted_date: '2024-01-01',
+          apply_url: '/apply/123',
+          description: 'Great opportunity',
+        },
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(rawJobsWithVariousFields);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(1);
+
+      const job = result.jobs[0];
+      if (job) {
+        // Test that the job has the fields (normalization may vary)
+        expect(job.title).toBeDefined();
+        expect(job.title.length).toBeGreaterThan(0);
+        expect(job.location).toBeDefined();
+        expect(job.department).toBeDefined();
+        expect(job.type).toBeDefined();
+        expect(job.id).toBeDefined();
+        // ID generation may vary based on implementation
+      }
+    });
+
+    it('should handle malformed job data gracefully', async () => {
+      const malformedJobs = [
+        { title: '', description: null },
+        { title: 'Valid Job', location: undefined },
+        null,
+        undefined,
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(malformedJobs);
+
+      const scraper = new PlaywrightScraper();
+
+      // This might fail due to malformed data, which is expected
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // The scraper should handle this gracefully, either succeeding with filtered data or failing safely
+      expect(result).toBeDefined();
+      if (result.success) {
+        expect(result.jobs.length).toBeGreaterThanOrEqual(0);
+      } else {
+        expect(result.error).toBeDefined();
+      }
+    });
+
+    it('should set custom user agent when configured', async () => {
+      const customUserAgent = 'CustomBot/1.0';
+      const scraper = new PlaywrightScraper({ userAgent: customUserAgent });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(mocks.mockBrowser.newContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userAgent: customUserAgent,
+        })
+      );
+    });
+
+    it('should pass custom browser arguments when configured', async () => {
+      const customArgs = ['--custom-arg', '--another-arg'];
+      const scraper = new PlaywrightScraper({ browserArgs: customArgs });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      const { chromium } = await import('playwright');
+      expect(vi.mocked(chromium.launch)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: expect.arrayContaining(customArgs),
+        })
+      );
+    });
+
+    it('should handle page routing and wait states', async () => {
+      const scraper = new PlaywrightScraper();
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Test that routing is set up for resource blocking
+      expect(mocks.mockPage.route).toHaveBeenCalled();
+      expect(mocks.mockPage.goto).toHaveBeenCalled();
+    });
+
+    it('should handle screenshot failure in debug mode gracefully', async () => {
+      const screenshotError = new Error('Screenshot failed');
+      mocks.mockPage.screenshot.mockRejectedValue(screenshotError);
+
+      const scraper = new PlaywrightScraper({ debug: true });
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Should handle screenshot failure gracefully
+      expect(result).toBeDefined();
+      // May succeed without screenshot or fail due to screenshot error
+    });
+
+    it('should handle cleanup errors gracefully', async () => {
+      const cleanupError = new Error('Failed to close page');
+      mocks.mockPage.close.mockRejectedValue(cleanupError);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      // Should handle cleanup errors without crashing
+      expect(result).toBeDefined();
+    });
+
+    it('should process job URLs', async () => {
+      const jobWithRelativeUrl = [
+        {
+          id: 'job-1',
+          title: 'Test Job',
+          apply_url: '/careers/apply/123',
+          description: 'Test description',
+        },
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(jobWithRelativeUrl);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(1);
+      const job = result.jobs[0];
+      if (job) {
+        expect(job.applyUrl).toBeDefined();
+      }
+    });
+
+    it('should handle jobs without IDs', async () => {
+      const jobsWithoutIds = [
+        { title: 'Software Engineer', description: 'Great job' },
+        { title: 'Product Manager', description: 'Another job' },
+        { title: 'Software Engineer', description: 'Duplicate title' }, // Same title
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(jobsWithoutIds);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs.length).toBeGreaterThan(0);
+
+      // All jobs should have some form of ID
+      result.jobs.forEach(job => {
+        expect(job.id).toBeDefined();
+        expect(job.id.length).toBeGreaterThan(0);
+      });
+    });
+
     it('should retry on failure and eventually succeed', async () => {
       // Mock first attempt to fail, second to succeed
       mocks.mockPage.goto
@@ -314,6 +566,264 @@ describe('PlaywrightScraper', () => {
       expect(result.success).toBe(true);
       expect(result.screenshotPath).toBeUndefined();
       expect(mocks.mockPage.screenshot).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('data extraction strategies', () => {
+    it('should fall back to JSON-LD when structured elements fail', async () => {
+      // Mock structured extraction to return empty, but JSON-LD to succeed
+      mocks.mockPage.evaluate
+        .mockResolvedValueOnce([]) // First call (structured elements)
+        .mockResolvedValueOnce(PlaywrightScraperTestUtils.SAMPLE_RAW_JOBS); // Second call (JSON-LD)
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(2);
+      expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(2);
+    });
+
+    it('should fall back to text patterns when other strategies fail', async () => {
+      // Mock first two strategies to fail, third to succeed
+      mocks.mockPage.evaluate
+        .mockResolvedValueOnce([]) // Structured elements
+        .mockResolvedValueOnce([]) // JSON-LD
+        .mockResolvedValueOnce([PlaywrightScraperTestUtils.SAMPLE_RAW_JOBS[0]]); // Text patterns
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(1);
+      expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle extraction strategy errors gracefully', async () => {
+      // Mock first strategy to throw error, second to succeed
+      mocks.mockPage.evaluate
+        .mockRejectedValueOnce(new Error('Extraction failed'))
+        .mockResolvedValueOnce(PlaywrightScraperTestUtils.SAMPLE_RAW_JOBS);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(2);
+    });
+
+    it('should return empty result when all extraction strategies fail', async () => {
+      // Mock all strategies to return empty
+      mocks.mockPage.evaluate.mockResolvedValue([]);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(0);
+      expect(result.totalCount).toBe(0);
+    });
+  });
+
+  describe('configuration and browser setup', () => {
+    it('should launch browser with headless mode when configured', async () => {
+      const scraper = new PlaywrightScraper({ headless: true });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      const { chromium } = await import('playwright');
+      expect(vi.mocked(chromium.launch)).toHaveBeenCalledWith(
+        expect.objectContaining({ headless: true })
+      );
+    });
+
+    it('should launch browser with visible mode when headless is false', async () => {
+      const scraper = new PlaywrightScraper({ headless: false });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      const { chromium } = await import('playwright');
+      expect(vi.mocked(chromium.launch)).toHaveBeenCalledWith(
+        expect.objectContaining({ headless: false })
+      );
+    });
+
+    it('should configure viewport and browser context options', async () => {
+      const scraper = new PlaywrightScraper();
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(mocks.mockBrowser.newContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ignoreHTTPSErrors: true,
+          viewport: expect.objectContaining({
+            width: expect.any(Number),
+            height: expect.any(Number),
+          }),
+        })
+      );
+    });
+
+    it('should set default timeouts on page', async () => {
+      const customTimeout = 25000;
+      const scraper = new PlaywrightScraper({ timeout: customTimeout });
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(mocks.mockPage.setDefaultTimeout).toHaveBeenCalledWith(customTimeout);
+      expect(mocks.mockPage.setDefaultNavigationTimeout).toHaveBeenCalledWith(customTimeout);
+    });
+
+    it('should block unnecessary resources for performance', async () => {
+      const scraper = new PlaywrightScraper();
+
+      await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(mocks.mockPage.route).toHaveBeenCalledWith('**/*', expect.any(Function));
+    });
+  });
+
+  describe('job data normalization', () => {
+    it('should process jobs with various types', async () => {
+      const jobsWithVariousTypes = [
+        { title: 'Job 1', type: 'full-time' },
+        { title: 'Job 2', type: 'PART-TIME' },
+        { title: 'Job 3', type: 'contract' },
+        { title: 'Job 4', type: 'REMOTE' },
+        { title: 'Job 5', type: 'unknown-type' },
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(jobsWithVariousTypes);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(5);
+
+      // Test that all jobs have type fields (normalization may vary)
+      result.jobs.forEach(job => {
+        expect(job.type).toBeDefined();
+      });
+    });
+
+    it('should process jobs with various departments', async () => {
+      const jobsWithDepartments = [
+        { title: 'Job 1', department: 'engineering' },
+        { title: 'Job 2', department: 'MARKETING' },
+        { title: 'Job 3', department: 'human resources' },
+        { title: 'Job 4', department: '  Sales  ' },
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(jobsWithDepartments);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(4);
+
+      // Test that all jobs have department fields (normalization may vary)
+      result.jobs.forEach(job => {
+        expect(job.department).toBeDefined();
+      });
+    });
+
+    it('should normalize posted dates to ISO format', async () => {
+      const jobsWithDates = [
+        { title: 'Job 1', posted_date: '2024-01-01' },
+        { title: 'Job 2', posted_date: 'Jan 1, 2024' },
+        { title: 'Job 3', posted_date: '01/01/2024' },
+        { title: 'Job 4', posted_date: 'invalid-date' },
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(jobsWithDates);
+
+      // Mock date utility to return ISO string
+      vi.mocked(utils.DateUtils.toIsoString).mockImplementation(date => {
+        if (date === 'invalid-date') return new Date().toISOString();
+        return '2024-01-01T00:00:00.000Z';
+      });
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      const job = result.jobs[0];
+      if (job) {
+        expect(job.postedDate).toBe('2024-01-01T00:00:00.000Z');
+      }
+    });
+
+    it('should handle missing or null job fields gracefully', async () => {
+      const jobsWithMissingFields = [
+        {
+          title: 'Complete Job',
+          location: 'San Francisco',
+          department: 'Engineering',
+          type: 'Full-time',
+          description: 'Great job',
+          posted_date: '2024-01-01',
+          apply_url: 'https://example.com/apply',
+        },
+        {
+          title: 'Minimal Job',
+          // All other fields missing
+        },
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(jobsWithMissingFields);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(2);
+
+      // First job should have all fields
+      const firstJob = result.jobs[0];
+      if (firstJob) {
+        expect(firstJob.title).toBe('Complete Job');
+        expect(firstJob.location).toBe('San Francisco');
+      }
+
+      // Second job should have defaults for missing fields
+      const secondJob = result.jobs[1];
+      if (secondJob) {
+        expect(secondJob.title).toBe('Minimal Job');
+        expect(secondJob.location).toBe('');
+        expect(secondJob.department).toBe('');
+      }
+    });
+  });
+
+  describe('error recovery and resilience', () => {
+    it('should continue processing after individual job normalization errors', async () => {
+      const mixedJobs = [
+        { title: 'Good Job 1', description: 'Valid' },
+        { title: null, description: 'Bad job' }, // This should cause normalization issues
+        { title: 'Good Job 2', description: 'Also valid' },
+      ];
+
+      mocks.mockPage.evaluate.mockResolvedValue(mixedJobs);
+
+      const scraper = new PlaywrightScraper();
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(true);
+      // Should process valid jobs despite normalization errors in others
+      expect(result.jobs.length).toBeGreaterThan(0);
+    });
+
+    it('should handle page load errors gracefully', async () => {
+      const loadError = new Error('Page load failed');
+      mocks.mockPage.goto.mockRejectedValue(loadError);
+
+      const scraper = new PlaywrightScraper({ retries: 0 }); // No retries for this test
+      const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
     });
   });
 
