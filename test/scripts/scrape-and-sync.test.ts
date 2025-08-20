@@ -29,6 +29,7 @@ import { getEnvironmentConfig } from '../../src/lib/env.js';
 import { getLogger } from '../../src/lib/logger.js';
 import { createHmac } from 'crypto';
 import type { NormalizedJob } from '../../src/types/job.js';
+import type { DriveHrApiConfig } from '../../src/types/api.js';
 
 /**
  * Mock environment configuration type
@@ -174,7 +175,7 @@ class ScrapeAndSyncTestUtils {
       update: vi.fn().mockReturnThis(),
       digest: vi.fn().mockReturnValue('mock-signature'),
     };
-    vi.mocked(createHmac).mockReturnValue(mockHash as ReturnType<typeof createHmac>);
+    vi.mocked(createHmac).mockReturnValue(mockHash as unknown as ReturnType<typeof createHmac>);
 
     // Mock successful fetch for WordPress webhook
     const mockFetch = vi.fn().mockResolvedValue({
@@ -336,7 +337,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as DriveHrApiConfig, 'github-actions');
 
       expect(result.success).toBe(true);
       expect(result.totalCount).toBe(0);
@@ -369,7 +370,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupFailedScrapeMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as DriveHrApiConfig, 'github-actions');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Failed to load careers page');
@@ -420,7 +421,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as DriveHrApiConfig, 'github-actions');
 
       expect(result.screenshotPath).toBe('/tmp/screenshot.png');
     });
@@ -513,7 +514,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as DriveHrApiConfig, 'github-actions');
 
       expect(result.scrapedAt).toBe('2024-01-15T12:00:00.000Z');
       expect(result.success).toBe(true);
@@ -542,7 +543,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       const mockScraper = new PlaywrightScraper({} as PlaywrightScraperConfig);
-      const result = await mockScraper.scrapeJobs({} as PlaywrightScraperConfig, 'github-actions');
+      const result = await mockScraper.scrapeJobs({} as DriveHrApiConfig, 'github-actions');
 
       // Test that scraping statistics are properly logged
       expect(result.totalCount).toBe(2);

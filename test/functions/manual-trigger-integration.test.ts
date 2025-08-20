@@ -12,11 +12,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Context } from '@netlify/functions';
 import { createHmac } from 'crypto';
 import manualTriggerFunction from '../../src/functions/manual-trigger.mts';
+import fetch from 'node-fetch';
 
 // Mock node-fetch since that's what the http-client uses
 vi.mock('node-fetch', () => ({
   default: vi.fn(),
 }));
+
+// Get reference to mocked fetch
+const mockFetch = vi.mocked(fetch);
 
 /**
  * Integration test utilities for manual trigger function
@@ -52,6 +56,48 @@ class ManualTriggerIntegrationUtils {
     return `sha256=${signature}`;
   }
 
+  static createMockResponse(options: {
+    ok: boolean;
+    status: number;
+    statusText: string;
+    body?: string;
+    headers?: Record<string, string>;
+  }): Response {
+    const defaultHeaders = {
+      'content-type': 'application/json',
+      'x-ratelimit-remaining': '5000',
+      ...options.headers,
+    };
+
+    const mockHeaders = new Map(Object.entries(defaultHeaders));
+    const bodyText = options.body ?? '';
+
+    return {
+      ok: options.ok,
+      status: options.status,
+      statusText: options.statusText,
+      bodyUsed: false,
+      headers: {
+        forEach: (callback: (value: string, key: string) => void) => {
+          for (const [key, value] of mockHeaders) {
+            callback(value, key);
+          }
+        },
+        get: (key: string) => mockHeaders.get(key.toLowerCase()),
+        has: (key: string) => mockHeaders.has(key.toLowerCase()),
+        entries: () => mockHeaders.entries(),
+        keys: () => mockHeaders.keys(),
+        values: () => mockHeaders.values(),
+      },
+      // Allow multiple calls to text() to handle HttpClient's double-call pattern
+      text: () => Promise.resolve(bodyText),
+      json: () => Promise.resolve(bodyText ? JSON.parse(bodyText) : {}),
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      blob: () => Promise.resolve(new Blob()),
+      clone: () => ManualTriggerIntegrationUtils.createMockResponse(options),
+    } as unknown as Response;
+  }
+
   static setupTestEnvironment(): void {
     // Set required environment variables
     process.env['DRIVEHR_COMPANY_ID'] = '12345678-1234-5678-9abc-123456789012';
@@ -77,6 +123,7 @@ class ManualTriggerIntegrationUtils {
 describe('Manual Trigger Function - Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetch.mockClear();
     ManualTriggerIntegrationUtils.setupTestEnvironment();
   });
 
@@ -189,15 +236,14 @@ describe('Manual Trigger Function - Integration Tests', () => {
         'test-secret-key-at-least-32-characters-long'
       );
 
-      // Mock successful GitHub API response - using globalThis.fetch which is what the function uses
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 204,
-        statusText: 'No Content',
-        text: () => Promise.resolve(''),
-        json: () => Promise.resolve({}),
-      });
-      globalThis.fetch = mockFetch;
+      // Mock successful GitHub API response
+      mockFetch.mockResolvedValue(
+        ManualTriggerIntegrationUtils.createMockResponse({
+          ok: true,
+          status: 204,
+          statusText: 'No Content',
+        }) as unknown as import('node-fetch').Response
+      );
 
       const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
         'x-webhook-signature': signature,
@@ -223,7 +269,7 @@ describe('Manual Trigger Function - Integration Tests', () => {
             'Content-Type': 'application/json',
           }),
           body: expect.stringContaining('"force_sync":"true"'),
-        })
+        }) as unknown as import('node-fetch').Response
       );
     });
 
@@ -235,14 +281,13 @@ describe('Manual Trigger Function - Integration Tests', () => {
       );
 
       // Mock successful GitHub API response
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 204,
-        statusText: 'No Content',
-        text: () => Promise.resolve(''),
-        json: () => Promise.resolve({}),
-      });
-      globalThis.fetch = mockFetch;
+      mockFetch.mockResolvedValue(
+        ManualTriggerIntegrationUtils.createMockResponse({
+          ok: true,
+          status: 204,
+          statusText: 'No Content',
+        }) as unknown as import('node-fetch').Response
+      );
 
       const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
         'x-webhook-signature': signature,
@@ -258,7 +303,7 @@ describe('Manual Trigger Function - Integration Tests', () => {
         expect.any(String),
         expect.objectContaining({
           body: expect.stringContaining('"force_sync":"false"'),
-        })
+        }) as unknown as import('node-fetch').Response
       );
     });
 
@@ -292,17 +337,14 @@ describe('Manual Trigger Function - Integration Tests', () => {
       );
 
       // Mock GitHub API 401 error
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 401,
-        statusText: 'Unauthorized',
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        text: () => Promise.resolve('{"message": "Bad credentials"}'),
-        json: () => Promise.resolve({ message: 'Bad credentials' }),
-      });
-      globalThis.fetch = mockFetch;
+      mockFetch.mockResolvedValue(
+        ManualTriggerIntegrationUtils.createMockResponse({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          body: '{"message": "Bad credentials"}',
+        }) as unknown as import('node-fetch').Response
+      );
 
       const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
         'x-webhook-signature': signature,
@@ -327,8 +369,7 @@ describe('Manual Trigger Function - Integration Tests', () => {
       );
 
       // Mock network error - the function catches this and wraps it
-      const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
-      globalThis.fetch = mockFetch;
+      mockFetch.mockRejectedValue(new Error('Network error'));
 
       const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
         'x-webhook-signature': signature,
@@ -414,8 +455,7 @@ describe('Manual Trigger Function - Integration Tests', () => {
   describe('Error handling and resilience', () => {
     it('should handle unexpected errors gracefully', async () => {
       // Mock GitHub API failure to trigger error path
-      const mockFetch = vi.fn().mockRejectedValue(new Error('Unexpected server error'));
-      globalThis.fetch = mockFetch;
+      mockFetch.mockRejectedValue(new Error('Unexpected server error'));
 
       const payload = JSON.stringify({ force_sync: true });
       const signature = ManualTriggerIntegrationUtils.generateValidSignature(
@@ -447,14 +487,13 @@ describe('Manual Trigger Function - Integration Tests', () => {
       );
 
       // Mock successful GitHub API response
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 204,
-        statusText: 'No Content',
-        text: () => Promise.resolve(''),
-        json: () => Promise.resolve({}),
-      });
-      globalThis.fetch = mockFetch;
+      mockFetch.mockResolvedValue(
+        ManualTriggerIntegrationUtils.createMockResponse({
+          ok: true,
+          status: 204,
+          statusText: 'No Content',
+        }) as unknown as import('node-fetch').Response
+      );
 
       const req1 = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
         'x-webhook-signature': signature,

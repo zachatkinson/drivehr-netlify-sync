@@ -315,13 +315,24 @@ async function triggerGitHubWorkflow(
   } catch (error) {
     logger.error('GitHub workflow trigger error', { requestId, error });
 
-    return {
+    // Extract GitHub API response info from HttpClientError if available
+    const result: ManualTriggerResult = {
       success: false,
       message: 'Failed to trigger GitHub Actions workflow',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp,
       requestId,
     };
+
+    // If this is an HttpClientError with status info, include github_response
+    if (error && typeof error === 'object' && 'status' in error && 'statusText' in error) {
+      result.github_response = {
+        status: error.status as number,
+        statusText: error.statusText as string,
+      };
+    }
+
+    return result;
   }
 }
 
