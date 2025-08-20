@@ -28,7 +28,8 @@
     "netlify:logs": "netlify logs:function sync-jobs",
     "netlify:status": "netlify status",
     "netlify:open": "netlify open:site",
-    "verify-config": "node scripts/verify-config.js"
+    "verify-config": "node scripts/verify-config.js",
+    "monitor-deployment": "node scripts/monitor-deployment.js"
   },
   "keywords": [],
   "author": "",
