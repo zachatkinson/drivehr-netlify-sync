@@ -5,7 +5,7 @@
   "main": "dist/functions/sync-jobs.mjs",
   "type": "module",
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && find dist/functions -name '*.d.*' -delete",
     "dev": "tsc --watch",
     "test": "vitest",
     "test:ui": "vitest --ui",

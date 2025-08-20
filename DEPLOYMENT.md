@@ -24,7 +24,7 @@ then add these **Repository Secrets**:
 | --------------------- | ------------------------------------------------ | ------------------------------------------------------------ |
 | `DRIVEHR_COMPANY_ID`  | Your DriveHR company UUID                        | `12345678-1234-5678-9abc-123456789012`                       |
 | `WEBHOOK_SECRET`      | Shared secret for HMAC signatures (min 32 chars) | `your-super-secure-webhook-secret-key-here`                  |
-| `WP_API_URL`          | WordPress REST API base URL                      | `https://yoursite.com/wp-json/wp/v2`                         |
+| `WP_API_URL`          | WordPress webhook endpoint URL                   | `https://yoursite.com/webhook/drivehr-sync`                  |
 | `NETLIFY_WEBHOOK_URL` | Netlify function URL for sync-jobs               | `https://your-site.netlify.app/.netlify/functions/sync-jobs` |
 
 ### Optional Secrets
@@ -41,7 +41,7 @@ then add these **Repository Secrets**:
 # Using GitHub CLI (if available)
 gh secret set DRIVEHR_COMPANY_ID --body "your-company-uuid"
 gh secret set WEBHOOK_SECRET --body "your-webhook-secret"
-gh secret set WP_API_URL --body "https://yoursite.com/wp-json/wp/v2"
+gh secret set WP_API_URL --body "https://yoursite.com/webhook/drivehr-sync"
 gh secret set NETLIFY_WEBHOOK_URL --body "https://your-site.netlify.app/.netlify/functions/sync-jobs"
 ```
 
@@ -55,7 +55,7 @@ In your Netlify site dashboard → Site settings → Environment variables, add:
 | ------------------------- | ------------------------------ | ------------------------------------------- |
 | `DRIVEHR_COMPANY_ID`      | Your DriveHR company UUID      | `12345678-1234-5678-9abc-123456789012`      |
 | `WEBHOOK_SECRET`          | Same secret as GitHub Actions  | `your-super-secure-webhook-secret-key-here` |
-| `WP_API_URL`              | WordPress REST API base URL    | `https://yoursite.com`                      |
+| `WP_API_URL`              | WordPress webhook endpoint URL | `https://yoursite.com/webhook/drivehr-sync` |
 | `WP_USERNAME`             | WordPress username             | `api-user`                                  |
 | `WP_APPLICATION_PASSWORD` | WordPress application password | `xxxx xxxx xxxx xxxx`                       |
 | `LOG_LEVEL`               | Logging verbosity              | `info`                                      |
@@ -82,14 +82,17 @@ In your Netlify site dashboard → Site settings → Environment variables, add:
 4. Copy the generated password (format: `xxxx xxxx xxxx xxxx`)
 5. Use this as `WP_APPLICATION_PASSWORD` in Netlify
 
-### REST API Verification
+### WordPress Webhook Endpoint Verification
 
-Test your WordPress REST API:
+Verify your WordPress webhook endpoint exists:
 
 ```bash
-curl -X GET "https://yoursite.com/wp-json/wp/v2/users/me" \
-  -u "username:application-password"
+curl -X GET "https://yoursite.com/webhook/drivehr-sync" \
+  -H "Accept: application/json"
 ```
+
+This should return information about the webhook endpoint (or a 404 if the
+plugin isn't installed).
 
 ## 🚀 Deployment Steps
 
