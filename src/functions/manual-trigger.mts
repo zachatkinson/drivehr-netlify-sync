@@ -2,7 +2,7 @@
  * DriveHR Manual Trigger - Netlify Function
  *
  * Netlify function that manually triggers the GitHub Actions job scraping
- * workflow via the GitHub REST API. This provides an on-demand way to
+ * workflow via the GitHub API. This provides an on-demand way to
  * initiate job scraping outside of the scheduled runs.
  *
  * **Features:**
@@ -24,7 +24,7 @@
  */
 
 import type { Context } from '@netlify/functions';
-import { getEnvironmentConfig } from '../lib/env.js';
+import { getEnvironmentConfig, getEnvVar } from '../lib/env.js';
 import { createLogger, setLogger, getLogger } from '../lib/logger.js';
 import { StringUtils, SecurityUtils } from '../lib/utils.js';
 import { createHttpClient } from '../lib/http-client.js';
@@ -225,15 +225,15 @@ async function triggerGitHubWorkflow(
     const env = getEnvironmentConfig();
     
     // Validate GitHub configuration
-    if (!process.env['GITHUB_TOKEN']) {
+    if (!getEnvVar('GITHUB_TOKEN')) {
       throw new Error('GITHUB_TOKEN environment variable is required');
     }
 
-    if (!process.env['GITHUB_REPOSITORY']) {
+    if (!getEnvVar('GITHUB_REPOSITORY')) {
       throw new Error('GITHUB_REPOSITORY environment variable is required');
     }
 
-    const [owner, repo] = process.env['GITHUB_REPOSITORY'].split('/');
+    const [owner, repo] = getEnvVar('GITHUB_REPOSITORY')!.split('/');
     if (!owner || !repo) {
       throw new Error('Invalid GITHUB_REPOSITORY format. Expected: owner/repo');
     }
@@ -259,7 +259,7 @@ async function triggerGitHubWorkflow(
 
     logger.info('Triggering GitHub Actions workflow', {
       requestId,
-      repository: process.env['GITHUB_REPOSITORY'],
+      repository: getEnvVar('GITHUB_REPOSITORY'),
       workflow: workflowFile,
       forceSync: payload.force_sync,
       reason: payload.reason,
@@ -267,7 +267,7 @@ async function triggerGitHubWorkflow(
 
     // Make GitHub API request
     const response = await httpClient.post(apiUrl, workflowDispatch, {
-      'Authorization': `Bearer ${process.env['GITHUB_TOKEN']}`,
+      'Authorization': `Bearer ${getEnvVar('GITHUB_TOKEN')}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     });

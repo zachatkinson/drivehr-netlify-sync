@@ -21,6 +21,8 @@ import type { IHttpClient } from '../lib/http-client.js';
 import { getLogger } from '../lib/logger.js';
 import { StringUtils, DateUtils } from '../lib/utils.js';
 import { DriveHrUrlBuilder, JobFetchErrorHandler } from '../lib/job-fetch-utils.js';
+import { withSpan, recordJobMetrics, isTelemetryInitialized } from '../lib/telemetry.js';
+import { SpanKind } from '@opentelemetry/api';
 import type {
   JobFetchResult,
   RawJobData,
@@ -296,7 +298,48 @@ export class JobFetchService {
     config: DriveHrApiConfig,
     source: JobSource = 'drivehr'
   ): Promise<JobFetchResult> {
+    // Use OpenTelemetry distributed tracing if available
+    if (isTelemetryInitialized()) {
+      return withSpan(
+        'job-fetcher.fetch-jobs',
+        async span => {
+          span.setAttributes({
+            'job.source': source,
+            'job.company_id': config.companyId || 'unknown',
+            'job.strategies_count': this.strategies.length,
+          });
+
+          return this.executeFetchJobs(config, source, span);
+        },
+        { 'operation.type': 'fetch', 'service.name': 'job-fetcher' },
+        SpanKind.INTERNAL
+      );
+    }
+
+    // Fallback to non-instrumented execution
+    return this.executeFetchJobs(config, source);
+  }
+
+  /**
+   * Execute job fetching with comprehensive instrumentation
+   *
+   * Internal method that performs the actual job fetching with
+   * detailed performance tracking and business metrics recording.
+   *
+   * @param config - DriveHR API configuration
+   * @param source - Job source identifier
+   * @param span - OpenTelemetry span for tracing (optional)
+   * @returns Promise resolving to job fetch result
+   * @since 1.0.0
+   */
+  private async executeFetchJobs(
+    config: DriveHrApiConfig,
+    source: JobSource,
+    span?: unknown
+  ): Promise<JobFetchResult> {
+    const startTime = Date.now();
     const fetchedAt = new Date().toISOString();
+    const jobId = `fetch-${config.companyId}-${Date.now()}`;
 
     for (const strategy of this.strategies) {
       if (!strategy.canHandle(config)) {
@@ -307,10 +350,50 @@ export class JobFetchService {
         const logger = getLogger();
         logger.info(`Attempting to fetch jobs using strategy: ${strategy.name}`);
 
+        // Add strategy-specific attributes to span
+        if (
+          span &&
+          typeof span === 'object' &&
+          span !== null &&
+          'setAttributes' in span &&
+          typeof span.setAttributes === 'function'
+        ) {
+          span.setAttributes({
+            'job.strategy': strategy.name,
+            'job.strategy_attempt': true,
+          });
+        }
+
         const rawJobs = await strategy.fetchJobs(config, this.httpClient);
         const normalizedJobs = await this.normalizeJobs(rawJobs, source);
 
         logger.info(`Successfully fetched ${normalizedJobs.length} jobs using ${strategy.name}`);
+
+        // Record successful job metrics
+        const duration = Date.now() - startTime;
+        if (isTelemetryInitialized()) {
+          recordJobMetrics(jobId, 'fetch', 'success', duration, {
+            source,
+            strategy: strategy.name,
+            jobCount: normalizedJobs.length,
+            companyId: config.companyId || 'unknown',
+          });
+        }
+
+        // Add success attributes to span
+        if (
+          span &&
+          typeof span === 'object' &&
+          span !== null &&
+          'setAttributes' in span &&
+          typeof span.setAttributes === 'function'
+        ) {
+          span.setAttributes({
+            'job.count': normalizedJobs.length,
+            'job.strategy_used': strategy.name,
+            'job.duration_ms': duration,
+          });
+        }
 
         return {
           jobs: normalizedJobs,
@@ -323,11 +406,51 @@ export class JobFetchService {
       } catch (error) {
         JobFetchErrorHandler.logStrategyFailure(strategy.name, error);
 
+        // Record failed strategy attempt
+        if (
+          span &&
+          typeof span === 'object' &&
+          span !== null &&
+          'setAttributes' in span &&
+          typeof span.setAttributes === 'function'
+        ) {
+          span.setAttributes({
+            [`job.strategy_${strategy.name}_failed`]: true,
+            [`job.strategy_${strategy.name}_error`]:
+              error instanceof Error ? error.message : String(error),
+          });
+        }
+
         // Continue to next strategy
       }
     }
 
-    // All strategies failed
+    // All strategies failed - record failure metrics
+    const duration = Date.now() - startTime;
+    if (isTelemetryInitialized()) {
+      recordJobMetrics(jobId, 'fetch', 'error', duration, {
+        source,
+        error: 'all_strategies_failed',
+        strategiesAttempted: this.strategies.length,
+        companyId: config.companyId || 'unknown',
+      });
+    }
+
+    // Add failure attributes to span
+    if (
+      span &&
+      typeof span === 'object' &&
+      span !== null &&
+      'setAttributes' in span &&
+      typeof span.setAttributes === 'function'
+    ) {
+      span.setAttributes({
+        'job.all_strategies_failed': true,
+        'job.strategies_attempted': this.strategies.length,
+        'job.duration_ms': duration,
+      });
+    }
+
     return {
       jobs: [],
       method: 'none',

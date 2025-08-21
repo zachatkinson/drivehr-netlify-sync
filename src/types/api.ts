@@ -165,14 +165,14 @@ export interface ApiCredentials {
 /**
  * WordPress API configuration interface
  *
- * Configuration for WordPress REST API communication including
- * authentication credentials, endpoint URLs, and request settings.
- * Extends ApiCredentials to support multiple authentication methods.
+ * Configuration for WordPress webhook communication including
+ * endpoint URLs and request settings. Used for secure webhook
+ * delivery with HMAC signature verification.
  *
  * @example
  * ```typescript
  * const wpConfig: WordPressApiConfig = {
- *   baseUrl: 'https://mysite.com/wp-json/drivehr/v1/sync',
+ *   baseUrl: 'https://mysite.com/webhook/drivehr/v1/sync',
  *   timeout: 30000,
  *   retries: 3
  * };
@@ -181,7 +181,7 @@ export interface ApiCredentials {
  * @see {@link ApiCredentials} for authentication options
  */
 export interface WordPressApiConfig extends ApiCredentials {
-  /** WordPress REST API base URL (typically ends with /wp-json/...) */
+  /** WordPress webhook endpoint URL */
   readonly baseUrl: string;
   /** Request timeout in milliseconds (default: 30000) */
   readonly timeout?: number;

@@ -116,7 +116,7 @@ class ManualTriggerIntegrationUtils {
     // Set required environment variables
     process.env['DRIVEHR_COMPANY_ID'] = '12345678-1234-5678-9abc-123456789012';
     process.env['WEBHOOK_SECRET'] = 'test-secret-key-at-least-32-characters-long';
-    process.env['WP_API_URL'] = 'https://test-wordpress.com/wp-json/wp/v2';
+    process.env['WP_API_URL'] = 'https://test-wordpress.com/webhook';
     process.env['LOG_LEVEL'] = 'info';
     process.env['ENVIRONMENT'] = 'test';
     process.env['GITHUB_TOKEN'] = 'ghp_test_token';

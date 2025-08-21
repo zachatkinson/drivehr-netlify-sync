@@ -2,7 +2,7 @@
  * @fileoverview Test suite for manual-trigger Netlify function
  *
  * Tests the manual trigger endpoint that initiates GitHub Actions
- * job scraping workflows via the GitHub REST API.
+ * job scraping workflows via the GitHub API.
  *
  * @since 2.0.0
  */
@@ -58,7 +58,7 @@ const mockEnvConfig = {
   logLevel: 'info' as const,
   environment: 'development' as const,
   driveHrCompanyId: 'test-company',
-  wpApiUrl: 'https://test-wordpress.com/wp-json/wp/v2',
+  wpApiUrl: 'https://test-wordpress.com/webhook',
 };
 
 /**

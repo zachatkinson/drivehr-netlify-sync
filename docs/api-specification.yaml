@@ -229,7 +229,7 @@ paths:
                     status: 'pass'
                     duration: 234
                     details:
-                      url: 'https://example.com/wp-json'
+                      url: 'https://example.com/webhook/drivehr-sync'
                       version: '6.4.2'
                   drivehr:
                     status: 'pass'
@@ -268,7 +268,7 @@ paths:
                     duration: 5000
                     error: 'Connection timeout after 5000ms'
                     details:
-                      url: 'https://example.com/wp-json'
+                      url: 'https://example.com/webhook/drivehr-sync'
                       lastSuccess: '2025-01-20T15:25:45.123Z'
                   drivehr:
                     status: 'pass'
@@ -554,7 +554,7 @@ components:
           description: Additional check-specific information
           additionalProperties: true
           example:
-            url: 'https://example.com/wp-json'
+            url: 'https://example.com/webhook/drivehr-sync'
             version: '6.4.2'
 
     ManualTriggerRequest:

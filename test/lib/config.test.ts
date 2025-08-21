@@ -554,7 +554,7 @@ describe('Config Service', () => {
           apiBaseUrl: 'https://drivehris.app/careers/company',
         },
         wordPress: {
-          baseUrl: 'https://example.com/wp-json/drivehr/v1/sync',
+          baseUrl: 'https://example.com/webhook/drivehr/v1/sync',
           token: 'valid-token',
         },
         webhook: {

@@ -340,7 +340,7 @@ export type JobSource =
  * @since 1.0.0
  */
 export type FetchMethod =
-  /** Fetched via DriveHR REST API endpoints */
+  /** Fetched via DriveHR API endpoints */
   | 'api'
   /** Fetched via dedicated JSON endpoint */
   | 'json'

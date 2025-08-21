@@ -92,7 +92,7 @@ reliability, and enables horizontal scaling.
 
 #### WordPress Client (`wordpress-client.ts`)
 
-- WordPress REST API integration
+- WordPress webhook integration
 - HMAC-authenticated webhook delivery
 - Job data synchronization
 - Health check capabilities

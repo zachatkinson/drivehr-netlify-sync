@@ -442,7 +442,7 @@ export const DriveHrConfigSchema = z.object({
  * @example
  * ```typescript
  * const wpConfig = {
- *   baseUrl: 'https://mysite.com/wp-json/drivehr/v1/sync',
+ *   baseUrl: 'https://mysite.com/webhook/drivehr-sync',
  *   token: 'wp_auth_token_here',
  *   timeout: 30000,
  *   retries: 3
@@ -577,16 +577,18 @@ export interface ConfigValidationResult {
  *
  * @example
  * ```typescript
+ * import { getEnvVar } from '../lib/env.js';
+ *
  * const envVars: EnvironmentVariable[] = [
  *   {
  *     name: 'DRIVEHR_COMPANY_ID',
- *     value: process.env.DRIVEHR_COMPANY_ID,
+ *     value: getEnvVar('DRIVEHR_COMPANY_ID'),
  *     required: true,
  *     description: 'UUID of the company in DriveHR system'
  *   },
  *   {
  *     name: 'LOG_LEVEL',
- *     value: process.env.LOG_LEVEL,
+ *     value: getEnvVar('LOG_LEVEL'),
  *     required: false,
  *     defaultValue: 'info',
  *     description: 'Minimum log level (error, warn, info, debug, trace)'

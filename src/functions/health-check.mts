@@ -20,7 +20,7 @@
  */
 
 import type { Context } from '@netlify/functions';
-import { getEnvironmentConfig } from '../lib/env.js';
+import { getEnvironmentConfig, getEnvVar } from '../lib/env.js';
 import { createLogger } from '../lib/logger.js';
 import { createHttpClient } from '../lib/http-client.js';
 import type { SecurityHeaders } from '../types/api.js';
@@ -291,8 +291,8 @@ async function checkWordPressConnectivity(): Promise<ServiceHealthCheck> {
       userAgent: 'DriveHR-HealthCheck/2.0',
     });
 
-    // Test WordPress API endpoint
-    const testUrl = `${env.wpApiUrl}/wp-json/wp/v2/`;
+    // Test WordPress webhook endpoint
+    const testUrl = `${env.wpApiUrl}/webhook/health`;
     const response = await httpClient.get(testUrl);
 
     const responseTime = Date.now() - startTime;
@@ -341,10 +341,10 @@ async function checkGitHubActionsConfiguration(): Promise<ServiceHealthCheck> {
     const issues: string[] = [];
 
     // Check if we're running in GitHub Actions
-    const isGitHubActions = Boolean(process.env['GITHUB_ACTIONS']);
+    const isGitHubActions = Boolean(getEnvVar('GITHUB_ACTIONS'));
     
     // Check required GitHub Actions environment variables
-    if (!process.env['GITHUB_REPOSITORY']) {
+    if (!getEnvVar('GITHUB_REPOSITORY')) {
       issues.push('GITHUB_REPOSITORY not set');
     }
     
@@ -362,7 +362,7 @@ async function checkGitHubActionsConfiguration(): Promise<ServiceHealthCheck> {
         error: `Configuration issues: ${issues.join(', ')}`,
         details: {
           is_github_actions: isGitHubActions,
-          repository: process.env['GITHUB_REPOSITORY'] || 'unknown',
+          repository: getEnvVar('GITHUB_REPOSITORY') || 'unknown',
           company_id: env.driveHrCompanyId || 'not configured',
         },
       };
@@ -374,7 +374,7 @@ async function checkGitHubActionsConfiguration(): Promise<ServiceHealthCheck> {
       responseTime,
       details: {
         is_github_actions: isGitHubActions,
-        repository: process.env['GITHUB_REPOSITORY'] || 'local',
+        repository: getEnvVar('GITHUB_REPOSITORY') || 'local',
         company_id: env.driveHrCompanyId,
       },
     };

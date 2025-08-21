@@ -102,10 +102,12 @@ export interface PlaywrightScrapeResult {
  *
  * @example
  * ```typescript
+ * import { getEnvVar } from '../lib/env.js';
+ *
  * const scraper = new PlaywrightScraper({
  *   headless: true,
  *   timeout: 30000,
- *   debug: process.env.NODE_ENV === 'development'
+ *   debug: getEnvVar('NODE_ENV') === 'development'
  * });
  *
  * const config = {

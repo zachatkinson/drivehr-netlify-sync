@@ -32,7 +32,9 @@
     "useUnknownInCatchVariables": true,
     "alwaysStrict": true,
     "noImplicitUseStrict": false,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "include": ["src/**/*", "test/**/*", "*.ts"],
   "exclude": ["node_modules", "dist", "coverage"],

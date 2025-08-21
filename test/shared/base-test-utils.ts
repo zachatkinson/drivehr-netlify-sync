@@ -431,7 +431,7 @@ export class TestFixtures {
    */
   static readonly VALID_ENV_CONFIG: EnvironmentConfig = {
     driveHrCompanyId: BaseTestUtils.generateTestUuid(),
-    wpApiUrl: BaseTestUtils.generateTestUrl('example.com', '/wp-json/drivehr/v1/sync'),
+    wpApiUrl: BaseTestUtils.generateTestUrl('example.com', '/webhook/drivehr/v1/sync'),
     webhookSecret: BaseTestUtils.generateTestSecret(32),
     environment: 'development',
     logLevel: 'debug',
@@ -453,7 +453,7 @@ export class TestFixtures {
    */
   static readonly TEST_URLS = {
     api: BaseTestUtils.generateTestUrl('api.example.com'),
-    wordpress: BaseTestUtils.generateTestUrl('example.com', '/wp-json/drivehr/v1/sync'),
+    wordpress: BaseTestUtils.generateTestUrl('example.com', '/webhook/drivehr/v1/sync'),
     careers: BaseTestUtils.generateTestUrl('drivehris.app', '/careers/company/list'),
     external: BaseTestUtils.generateTestUrl('external.api.com', '/data'),
   };

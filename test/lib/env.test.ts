@@ -535,7 +535,7 @@ describe('Environment Utilities', () => {
         // Arrange - Realistic environment variable values
         const realisticConfig = {
           driveHrCompanyId: BaseTestUtils.generateTestUuid(),
-          wpApiUrl: BaseTestUtils.generateTestUrl('mycompany.com', '/wp-json/drivehr/v1/sync'),
+          wpApiUrl: BaseTestUtils.generateTestUrl('mycompany.com', '/webhook/drivehr/v1/sync'),
           webhookSecret: BaseTestUtils.generateTestSecret(32),
           environment: 'production' as const,
           logLevel: 'info' as const,
@@ -552,7 +552,7 @@ describe('Environment Utilities', () => {
         expect(config.driveHrCompanyId).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         );
-        expect(config.wpApiUrl).toMatch(/^https:\/\/.*\/wp-json\/drivehr\/v1\/sync$/);
+        expect(config.wpApiUrl).toMatch(/^https:\/\/.*\/webhook\/drivehr\/v1\/sync$/);
         expect(config.webhookSecret.length).toBeGreaterThanOrEqual(32);
       });
     });

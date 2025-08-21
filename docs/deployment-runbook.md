@@ -12,7 +12,7 @@ Designed for DevOps teams, site reliability engineers, and operations personnel.
 
 - [ ] **Environment Variables Configured**
   - `DRIVEHR_COMPANY_ID` - Valid UUID
-  - `WP_API_URL` - WordPress REST API endpoint
+  - `WP_API_URL` - WordPress webhook endpoint
   - `WEBHOOK_SECRET` - Minimum 32 characters
   - `NODE_ENV` - Set to `production`
   - `LOG_LEVEL` - Set to `info` or `warn`

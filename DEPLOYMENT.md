@@ -9,8 +9,7 @@ Before deploying, ensure you have:
 
 - ✅ GitHub repository with Actions enabled
 - ✅ Netlify account with site deployed
-- ✅ WordPress site with REST API enabled
-- ✅ Application passwords configured in WordPress
+- ✅ WordPress site with webhook endpoint configured
 - ✅ DriveHR company ID (UUID format)
 
 ## 🔐 GitHub Actions Secrets Configuration

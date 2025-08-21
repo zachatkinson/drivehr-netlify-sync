@@ -30,7 +30,7 @@ import { fileURLToPath } from 'url';
 import { createHmac } from 'crypto';
 import { PlaywrightScraper, type PlaywrightScraperConfig } from '../services/playwright-scraper.js';
 import { getLogger } from '../lib/logger.js';
-import { getEnvironmentConfig } from '../lib/env.js';
+import { getEnvironmentConfig, getEnvVar } from '../lib/env.js';
 import type { DriveHrApiConfig } from '../types/api.js';
 import type { NormalizedJob } from '../types/job.js';
 
@@ -119,7 +119,7 @@ class WordPressWebhookClient {
    */
   async sendJobs(jobs: NormalizedJob[], source: string = 'github-actions'): Promise<WebhookResult> {
     const logger = getLogger();
-    const webhookUrl = `${this.apiUrl}/wp-json/drivehr-sync/v1/webhook`;
+    const webhookUrl = `${this.apiUrl}/webhook/drivehr-sync/v1/jobs`;
 
     const payload = {
       source,
@@ -235,7 +235,7 @@ async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
       ],
     },
     script: {
-      forceSync: process.env['FORCE_SYNC'] === 'true',
+      forceSync: getEnvVar('FORCE_SYNC') === 'true',
       environment: env.environment || 'production',
       logLevel: env.logLevel || 'info',
     },
@@ -320,7 +320,7 @@ async function saveLogArtifact(
 async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
   const startTime = Date.now();
   const logger = getLogger();
-  const runId = process.env['GITHUB_RUN_ID'] ?? 'local';
+  const runId = getEnvVar('GITHUB_RUN_ID') ?? 'local';
 
   logger.info('Starting DriveHR job scrape and sync process');
 

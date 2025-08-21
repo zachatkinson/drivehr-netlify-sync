@@ -1,7 +1,7 @@
 {
   "name": "drivehr-netlify-sync",
   "version": "1.0.0",
-  "description": "TypeScript-based Netlify serverless function that scrapes DriveHR job postings and syncs them to WordPress via REST API",
+  "description": "TypeScript-based Netlify serverless function that scrapes DriveHR job postings and syncs them to WordPress via webhooks",
   "main": "dist/functions/sync-jobs.mjs",
   "type": "module",
   "scripts": {
@@ -43,6 +43,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.62.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.203.0",
+    "@opentelemetry/resources": "^2.0.1",
+    "@opentelemetry/sdk-metrics": "^2.0.1",
+    "@opentelemetry/sdk-node": "^0.203.0",
+    "@opentelemetry/semantic-conventions": "^1.36.0",
     "@playwright/test": "^1.55.0",
     "cheerio": "^1.1.2",
     "node-fetch": "^3.3.2",

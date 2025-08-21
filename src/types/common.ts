@@ -24,12 +24,14 @@
  *
  * @example
  * ```typescript
+ * import { getEnvVar } from '../lib/env.js';
+ *
  * const envConfig: EnvironmentConfig = {
- *   driveHrCompanyId: process.env.DRIVEHR_COMPANY_ID!,
- *   wpApiUrl: process.env.WP_API_URL!,
- *   webhookSecret: process.env.WEBHOOK_SECRET!,
- *   environment: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
- *   logLevel: (process.env.LOG_LEVEL as 'error' | 'warn' | 'info' | 'debug' | 'trace') || 'info'
+ *   driveHrCompanyId: getEnvVar('DRIVEHR_COMPANY_ID', true),
+ *   wpApiUrl: getEnvVar('WP_API_URL', true),
+ *   webhookSecret: getEnvVar('WEBHOOK_SECRET', true),
+ *   environment: (getEnvVar('NODE_ENV') as 'development' | 'staging' | 'production') || 'development',
+ *   logLevel: (getEnvVar('LOG_LEVEL') as 'error' | 'warn' | 'info' | 'debug' | 'trace') || 'info'
  * };
  *
  * // Validate required environment variables

@@ -21,6 +21,8 @@
 
 import { getLogger } from '../lib/logger.js';
 import { StringUtils, SecurityUtils } from '../lib/utils.js';
+import { withSpan, recordWebhookMetrics, isTelemetryInitialized } from '../lib/telemetry.js';
+import { SpanKind } from '@opentelemetry/api';
 import type { IHttpClient } from '../lib/http-client.js';
 import type { NormalizedJob, JobSyncRequest, JobSyncResponse, JobSource } from '../types/job.js';
 import type { WordPressApiConfig } from '../types/api.js';
@@ -83,7 +85,7 @@ export interface IWordPressClient {
  * @example
  * ```typescript
  * const config = {
- *   baseUrl: 'https://mysite.com/wp-json/drivehr/v1/sync',
+ *   baseUrl: 'https://mysite.com/webhook/drivehr-sync',
  *   token: 'wp_auth_token',
  *   timeout: 30000,
  *   retries: 3
@@ -155,16 +157,152 @@ export class WordPressWebhookClient implements IWordPressClient {
     jobs: readonly NormalizedJob[],
     source: JobSource
   ): Promise<JobSyncResponse> {
+    // Use OpenTelemetry distributed tracing if available
+    if (isTelemetryInitialized()) {
+      return withSpan(
+        'wordpress-client.sync-jobs',
+        async span => {
+          span.setAttributes({
+            'wordpress.job_count': jobs.length,
+            'wordpress.source': source,
+            'wordpress.endpoint': this.config.baseUrl,
+            'operation.type': 'webhook_delivery',
+          });
+
+          return this.executeSyncJobs(jobs, source, span);
+        },
+        { 'service.name': 'wordpress-client' },
+        SpanKind.CLIENT
+      );
+    }
+
+    // Fallback to non-instrumented execution
+    return this.executeSyncJobs(jobs, source);
+  }
+
+  /**
+   * Execute job synchronization with comprehensive instrumentation
+   *
+   * Internal method that performs the actual WordPress sync with
+   * detailed performance tracking and webhook delivery metrics.
+   *
+   * @param jobs - Array of normalized job data to synchronize
+   * @param source - Source identifier for tracking job origin
+   * @param span - OpenTelemetry span for tracing (optional)
+   * @returns Promise resolving to sync result with statistics
+   * @since 1.0.0
+   */
+  private async executeSyncJobs(
+    jobs: readonly NormalizedJob[],
+    source: JobSource,
+    span?: unknown
+  ): Promise<JobSyncResponse> {
+    const startTime = Date.now();
     const requestId = this.generateRequestId();
     const timestamp = new Date().toISOString();
     const syncRequest = this.createSyncRequest(jobs, source, timestamp, requestId);
 
+    // Add request details to span
+    if (
+      span &&
+      typeof span === 'object' &&
+      span !== null &&
+      'setAttributes' in span &&
+      typeof span.setAttributes === 'function'
+    ) {
+      span.setAttributes({
+        'wordpress.request_id': requestId,
+        'wordpress.timestamp': timestamp,
+        'wordpress.payload_size': JSON.stringify(syncRequest).length,
+      });
+    }
+
     try {
       const response = await this.performSync(syncRequest, requestId, source);
-      return this.createSuccessResponse(response, timestamp);
+      const result = this.createSuccessResponse(response, timestamp);
+
+      // Record successful webhook delivery metrics
+      const duration = Date.now() - startTime;
+      if (isTelemetryInitialized()) {
+        recordWebhookMetrics('wordpress-sync', 'success', response.status ?? 200, duration, {
+          'webhook.event': 'job.sync',
+          'webhook.job_count': jobs.length,
+          'webhook.source': source,
+          'webhook.request_id': requestId,
+        });
+      }
+
+      // Add success attributes to span
+      if (
+        span &&
+        typeof span === 'object' &&
+        span !== null &&
+        'setAttributes' in span &&
+        typeof span.setAttributes === 'function'
+      ) {
+        span.setAttributes({
+          'wordpress.response_status': response.status ?? 200,
+          'wordpress.synced_count': result.syncedCount ?? 0,
+          'wordpress.duration_ms': duration,
+          'wordpress.success': true,
+        });
+      }
+
+      return result;
     } catch (error) {
+      const duration = Date.now() - startTime;
+      const statusCode = this.extractStatusCode(error);
+
+      // Record failed webhook delivery metrics
+      if (isTelemetryInitialized()) {
+        recordWebhookMetrics('wordpress-sync', 'failure', statusCode, duration, {
+          'webhook.event': 'job.sync',
+          'webhook.job_count': jobs.length,
+          'webhook.source': source,
+          'webhook.request_id': requestId,
+          'webhook.error': error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      // Add error attributes to span
+      if (
+        span &&
+        typeof span === 'object' &&
+        span !== null &&
+        'setAttributes' in span &&
+        typeof span.setAttributes === 'function'
+      ) {
+        span.setAttributes({
+          'wordpress.response_status': statusCode,
+          'wordpress.duration_ms': duration,
+          'wordpress.success': false,
+          'wordpress.error': error instanceof Error ? error.message : String(error),
+        });
+      }
+
       return this.handleSyncError(error, requestId);
     }
+  }
+
+  /**
+   * Extract HTTP status code from error for metrics
+   *
+   * Safely extracts the HTTP status code from various error types
+   * for consistent error reporting and monitoring.
+   *
+   * @param error - Error object that may contain status information
+   * @returns HTTP status code or 500 for unknown errors
+   * @since 1.0.0
+   */
+  private extractStatusCode(error: unknown): number {
+    if (error && typeof error === 'object') {
+      // Check common error properties that might contain status
+      const errorObj = error as Record<string, unknown>;
+      if (typeof errorObj['status'] === 'number') return errorObj['status'];
+      if (typeof errorObj['statusCode'] === 'number') return errorObj['statusCode'];
+      if (typeof errorObj['code'] === 'number') return errorObj['code'];
+    }
+    return 500; // Default to server error
   }
 
   /**
@@ -445,7 +583,7 @@ export class WordPressClientError extends Error {
  * @example
  * ```typescript
  * const config = {
- *   baseUrl: 'https://mysite.com/wp-json/drivehr/v1/sync',
+ *   baseUrl: 'https://mysite.com/webhook/drivehr-sync',
  *   timeout: 30000,
  *   retries: 3
  * };
@@ -482,10 +620,12 @@ export function createWordPressClient(
  * @example
  * ```typescript
  * // In a webhook handler
+ * import { getEnvVar } from '../lib/env.js';
+ *
  * const isValid = validateWebhookSignature(
  *   requestBody,
  *   req.headers['x-webhook-signature'],
- *   process.env.WEBHOOK_SECRET
+ *   getEnvVar('WEBHOOK_SECRET', true)
  * );
  *
  * if (!isValid) {
