@@ -132,7 +132,15 @@ jobs:
         env:
           NODE_ENV: test
 
-      # Individual Codecov uploads removed - using aggregated upload instead
+      - name: Upload individual coverage to Codecov
+        uses: codecov/codecov-action@v5.5.0
+        with:
+          files: ./coverage/lcov.info
+          flags: ${{ matrix.test-suite.name }}
+          name: ${{ matrix.test-suite.name }}-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          verbose: true
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
@@ -233,122 +241,11 @@ jobs:
           echo "Secret scanning is automatically enabled for private repos with GitHub Advanced Security"
           echo "For additional secret patterns, configure .gitleaks.toml or similar tools"
 
-  # Coverage aggregation and summary
-  coverage-summary:
-    name: Coverage Summary
-    runs-on: ubuntu-latest
-    needs: test
-    if: always()
-
-    steps:
-      - name: Download all coverage artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: coverage-*
-          path: ./coverage-reports
-
-      - name: Install lcov for coverage merging
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y lcov
-
-      - name: Merge coverage data and create summary
-        run: |
-          echo "# Coverage Summary for Commit ${{ github.sha }}" > coverage-summary.md
-          echo "" >> coverage-summary.md
-          echo "## Aggregated Coverage Report" >> coverage-summary.md
-          echo "" >> coverage-summary.md
-
-          # Find all LCOV files from different test suites
-          echo "### Individual Test Suite Coverage Files:" >> coverage-summary.md
-          find ./coverage-reports -name "lcov.info" -type f | while read lcov_file; do
-            test_suite=$(echo "$lcov_file" | sed 's/.*coverage-\([^/]*\)\/coverage.*/\1/')
-            echo "- $test_suite: $lcov_file" >> coverage-summary.md
-          done
-          echo "" >> coverage-summary.md
-
-          # Create list of valid LCOV files for merging  
-          echo "Searching for LCOV files..."
-          find ./coverage-reports -name "lcov.info" -type f > all_lcov_files.txt
-          echo "Found potential LCOV files:"
-          cat all_lcov_files.txt
-
-          # Filter out files that are not valid LCOV (containing only error messages)
-          > valid_lcov_files.txt
-          while IFS= read -r lcov_file; do
-            if [ -f "$lcov_file" ] && grep -q "^SF:" "$lcov_file" 2>/dev/null; then
-              echo "$lcov_file" >> valid_lcov_files.txt
-              echo "✓ Valid LCOV: $lcov_file"
-            else
-              echo "⚠️  Invalid LCOV: $lcov_file"
-            fi
-          done < all_lcov_files.txt
-
-          echo "Valid LCOV files for merging:"
-          cat valid_lcov_files.txt
-
-          # Merge all valid LCOV files into a single aggregated report
-          if [ -s valid_lcov_files.txt ]; then
-            mkdir -p ./aggregated-coverage
-            echo "Merging coverage files..."
-            
-            # Build lcov command with proper --add-tracefile flags
-            lcov_cmd="lcov"
-            while IFS= read -r lcov_file; do
-              lcov_cmd="$lcov_cmd --add-tracefile \"$lcov_file\""
-            done < valid_lcov_files.txt
-            lcov_cmd="$lcov_cmd --output-file ./aggregated-coverage/merged.info"
-            
-            echo "Executing: $lcov_cmd"
-            eval $lcov_cmd
-            
-            # Generate summary statistics
-            echo "### Overall Coverage Statistics:" >> coverage-summary.md
-            lcov --summary ./aggregated-coverage/merged.info 2>&1 | tee -a coverage-summary.md
-            
-            echo "" >> coverage-summary.md
-            echo "### Coverage Report Generated:" >> coverage-summary.md
-            echo "- Merged LCOV file: \`./aggregated-coverage/merged.info\`" >> coverage-summary.md
-            echo "- View HTML reports at: https://codecov.io" >> coverage-summary.md
-          else
-            echo "❌ No LCOV files found for aggregation" >> coverage-summary.md
-          fi
-
-          echo "" >> coverage-summary.md
-          echo "**Date:** $(date)" >> coverage-summary.md
-          echo "**Commit:** ${{ github.sha }}" >> coverage-summary.md
-
-          cat coverage-summary.md
-
-      - name: Upload aggregated coverage to Codecov
-        if: success() && github.event_name != 'schedule'
-        uses: codecov/codecov-action@v5.5.0
-        with:
-          files: ./aggregated-coverage/merged.info
-          flags: aggregated
-          name: aggregated-coverage
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-          disable_search: true
-          verbose: true
-          root_dir: ./
-          working-directory: ./
-
-      - name: Upload aggregated coverage summary
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-summary-${{ github.sha }}
-          path: |
-            coverage-summary.md
-            aggregated-coverage/
-            coverage-reports/
-          retention-days: 90
-
   # CI Success Notification
   ci-success:
     name: CI Pipeline Complete
     runs-on: ubuntu-latest
-    needs: [quality, test, build, security, coverage-summary]
+    needs: [quality, test, build, security]
     if: always()
 
     steps:
