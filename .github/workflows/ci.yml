@@ -313,13 +313,10 @@ jobs:
             echo "### Overall Coverage Statistics:" >> coverage-summary.md
             lcov --summary ./aggregated-coverage/merged.info 2>&1 | tee -a coverage-summary.md
             
-            # Generate HTML report
-            genhtml ./aggregated-coverage/merged.info --output-directory ./aggregated-coverage/html-report
-            
             echo "" >> coverage-summary.md
             echo "### Coverage Report Generated:" >> coverage-summary.md
             echo "- Merged LCOV file: \`./aggregated-coverage/merged.info\`" >> coverage-summary.md
-            echo "- HTML report: \`./aggregated-coverage/html-report/index.html\`" >> coverage-summary.md
+            echo "- View HTML reports at: https://codecov.io" >> coverage-summary.md
           else
             echo "❌ No LCOV files found for aggregation" >> coverage-summary.md
           fi
