@@ -132,14 +132,7 @@ jobs:
         env:
           NODE_ENV: test
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: ${{ matrix.test-suite.name }}
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
+      # Individual Codecov uploads removed - using aggregated upload instead
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
@@ -326,6 +319,16 @@ jobs:
           echo "**Commit:** ${{ github.sha }}" >> coverage-summary.md
 
           cat coverage-summary.md
+
+      - name: Upload aggregated coverage to Codecov
+        if: success() && github.event_name != 'schedule'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./aggregated-coverage/merged.info
+          flags: aggregated
+          name: aggregated-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
       - name: Upload aggregated coverage summary
         uses: actions/upload-artifact@v4
