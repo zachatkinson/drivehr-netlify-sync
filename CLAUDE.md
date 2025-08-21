@@ -577,6 +577,25 @@ these checks will be rejected.**
 - All scripts should be run with `pnpm run <script>`
 - Dependencies should be added with `pnpm add <package>`
 
+## WordPress Integration Standards
+
+**CRITICAL: WordPress Webhook Endpoint Format**
+
+The WordPress webhook endpoint URL format is **FIXED** and must NOT be changed:
+
+- **Correct Format**: `https://yoursite.com/webhook/drivehr-sync`
+- **NEVER use**: `https://yoursite.com/wp-json/drivehr/v1/sync` (this is REST
+  API format)
+- **NEVER use**: Any other wp-json or REST API endpoint format
+
+**Important Notes:**
+
+- We do NOT use WordPress REST API for this integration
+- The endpoint is a custom webhook handler at `/webhook/drivehr-sync`
+- All documentation must reflect this exact endpoint format
+- Any references to wp-json or REST API endpoints are incorrect and must be
+  fixed
+
 ## Commands to Remember
 
 ### Local Development

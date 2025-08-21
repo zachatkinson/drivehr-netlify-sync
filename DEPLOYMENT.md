@@ -175,7 +175,7 @@ netlify logs:function sync-jobs --tail
 
 #### `WP_API_URL`
 
-- **Format**: Full URL (e.g., `https://yoursite.com/wp-json/drivehr/v1/sync`)
+- **Format**: Full URL (e.g., `https://yoursite.com/webhook/drivehr-sync`)
 - **Purpose**: WordPress webhook endpoint for job data
 - **Requirements**: Must accept POST requests with JSON payload
 
