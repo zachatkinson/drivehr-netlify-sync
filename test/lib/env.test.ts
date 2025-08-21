@@ -552,7 +552,7 @@ describe('Environment Utilities', () => {
         expect(config.driveHrCompanyId).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         );
-        expect(config.wpApiUrl).toMatch(/^https:\/\/.*\/webhook\/drivehr\/v1\/sync$/);
+        expect(config.wpApiUrl).toMatch(/^https:\/\/.*\/webhook\/drivehr-sync$/);
         expect(config.webhookSecret.length).toBeGreaterThanOrEqual(32);
       });
     });
