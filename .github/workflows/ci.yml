@@ -322,7 +322,7 @@ jobs:
 
       - name: Upload aggregated coverage to Codecov
         if: success() && github.event_name != 'schedule'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./aggregated-coverage/merged.info
           flags: aggregated
@@ -331,6 +331,7 @@ jobs:
           fail_ci_if_error: false
           disable_search: true
           verbose: true
+          working-directory: ./
 
       - name: Upload aggregated coverage summary
         uses: actions/upload-artifact@v4
