@@ -77,6 +77,12 @@ jobs:
             pattern: 'test/lib/utils.test.ts'
           - name: 'Job Fetch Utils'
             pattern: 'test/lib/job-fetch-utils.test.ts'
+          - name: 'Performance Monitor'
+            pattern: 'test/lib/performance-monitor.test.ts'
+          - name: 'Telemetry'
+            pattern: 'test/lib/telemetry.test.ts'
+          - name: 'Telemetry Init'
+            pattern: 'test/lib/telemetry-init.test.ts'
 
           # Service Tests
           - name: 'Job Fetcher Service'
