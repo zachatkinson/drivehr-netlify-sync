@@ -75,21 +75,21 @@ class WordPressClientTestUtils extends BaseTestUtils {
    */
   static readonly VALID_CONFIGS = {
     basic: {
-      baseUrl: 'https://example.com/webhook/drivehr/v1/sync',
+      baseUrl: 'https://example.com/webhook/drivehr-sync',
       token: 'wp_token_123',
       timeout: 30000,
       retries: 3,
     } as WordPressApiConfig,
 
     custom: {
-      baseUrl: 'https://mysite.wordpress.com/webhook/drivehr/v1/sync',
+      baseUrl: 'https://mysite.wordpress.com/webhook/drivehr-sync',
       token: 'wp_custom_token_456',
       timeout: 45000,
       retries: 5,
     } as WordPressApiConfig,
 
     minimal: {
-      baseUrl: 'https://minimal.com/webhook/drivehr/v1/sync',
+      baseUrl: 'https://minimal.com/webhook/drivehr-sync',
     } as WordPressApiConfig,
   } as const;
 
@@ -441,7 +441,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
    * ```typescript
    * await client.syncJobs(jobs, 'webhook');
    * WordPressClientTestUtils.verifyHttpCall(
-   *   'https://example.com/webhook/drivehr/v1/sync',
+   *   'https://example.com/webhook/drivehr-sync',
    *   expect.objectContaining({ source: 'webhook' }),
    *   expect.objectContaining({ 'Content-Type': 'application/json' })
    * );

@@ -119,7 +119,7 @@ class WordPressWebhookClient {
    */
   async sendJobs(jobs: NormalizedJob[], source: string = 'github-actions'): Promise<WebhookResult> {
     const logger = getLogger();
-    const webhookUrl = `${this.apiUrl}/webhook/drivehr-sync/v1/jobs`;
+    const webhookUrl = this.apiUrl;
 
     const payload = {
       source,

@@ -53,7 +53,7 @@ In your Netlify site dashboard → **Site settings** → **Environment variables
 | Variable             | Value                                       | Required |
 | -------------------- | ------------------------------------------- | -------- |
 | `DRIVEHR_COMPANY_ID` | `your-uuid-from-drivehr`                    | ✅       |
-| `WP_API_URL`         | `https://yoursite.com/webhook/drivehr-jobs` | ✅       |
+| `WP_API_URL`         | `https://yoursite.com/webhook/drivehr-sync` | ✅       |
 | `WEBHOOK_SECRET`     | `secure-secret-32-chars-minimum`            | ✅       |
 | `NODE_ENV`           | `production`                                | ✅       |
 | `LOG_LEVEL`          | `info`                                      | ❌       |

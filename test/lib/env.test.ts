@@ -535,7 +535,7 @@ describe('Environment Utilities', () => {
         // Arrange - Realistic environment variable values
         const realisticConfig = {
           driveHrCompanyId: BaseTestUtils.generateTestUuid(),
-          wpApiUrl: BaseTestUtils.generateTestUrl('mycompany.com', '/webhook/drivehr/v1/sync'),
+          wpApiUrl: BaseTestUtils.generateTestUrl('mycompany.com', '/webhook/drivehr-sync'),
           webhookSecret: BaseTestUtils.generateTestSecret(32),
           environment: 'production' as const,
           logLevel: 'info' as const,

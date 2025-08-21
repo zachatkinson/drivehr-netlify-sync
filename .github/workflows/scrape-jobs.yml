@@ -63,7 +63,7 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           WP_API_URL: ${{ secrets.WP_API_URL }}
         run: |
-          curl -X POST "$WP_API_URL/webhook/drivehr-sync/v1/jobs" \
+          curl -X POST "$WP_API_URL" \
             -H "Content-Type: application/json" \
             -H "X-Webhook-Signature: sha256=$(echo -n '{"error":"GitHub Actions scraper failed","run_id":"${{ github.run_id }}","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}' | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -binary | base64)" \
             -d '{"error":"GitHub Actions scraper failed","run_id":"${{ github.run_id }}","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'

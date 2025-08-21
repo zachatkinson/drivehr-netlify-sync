@@ -172,7 +172,7 @@ export interface ApiCredentials {
  * @example
  * ```typescript
  * const wpConfig: WordPressApiConfig = {
- *   baseUrl: 'https://mysite.com/webhook/drivehr/v1/sync',
+ *   baseUrl: 'https://mysite.com/webhook/drivehr-sync',
  *   timeout: 30000,
  *   retries: 3
  * };
