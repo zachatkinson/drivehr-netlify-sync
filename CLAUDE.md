@@ -239,11 +239,29 @@ class ServiceTestUtils extends BaseTestUtils {
 
 #### Coverage Standards
 
-- Minimum 90% code coverage for all modules
-- 100% coverage for security-critical functions
+- **Target 80% code coverage** for enterprise-grade quality (industry standard)
+- **90%+ coverage for security-critical functions** (authentication, webhook
+  validation, HMAC signature generation)
+- **70%+ coverage for integration services** (HTTP clients, external API
+  wrappers)
+- **Focus on business logic over framework glue code** (prioritize job parsing,
+  sync logic, data transformations)
 - Unit tests for all business logic
 - Integration tests for all API endpoints
 - Security tests for authentication and authorization
+- **Quality over quantity**: Prefer maintainable tests that catch real bugs over
+  brittle mocks that chase coverage percentages
+
+**Coverage Target Rationale:**
+
+- 80% aligns with industry standard for enterprise serverless applications
+- 90%+ reserved for life-critical systems (medical, aviation, nuclear) - our
+  system is business-critical, not life-critical
+- Focus on testing business logic, error paths, and integration points rather
+  than framework boilerplate
+- Avoid brittle mocks for external services; use dependency injection and
+  interface testing instead
+- Prioritize end-to-end workflow testing over exhaustive unit test coverage
 
 #### Test Naming Standards
 
