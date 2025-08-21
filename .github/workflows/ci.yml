@@ -324,7 +324,7 @@ jobs:
         if: success() && github.event_name != 'schedule'
         uses: codecov/codecov-action@v5.5.0
         with:
-          file: ./aggregated-coverage/merged.info
+          files: ./aggregated-coverage/merged.info
           flags: aggregated
           name: aggregated-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
