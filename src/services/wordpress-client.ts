@@ -28,6 +28,471 @@ import type { NormalizedJob, JobSyncRequest, JobSyncResponse, JobSource } from '
 import type { WordPressApiConfig } from '../types/api.js';
 
 /**
+ * Strategy interface for telemetry handling during sync operations
+ *
+ * Defines the contract for different telemetry strategies that can be used
+ * to instrument WordPress sync operations. Enables different approaches
+ * for metrics collection, tracing, and monitoring based on environment
+ * and requirements.
+ *
+ * @since 1.0.0
+ * @see {@link DefaultSyncTelemetryStrategy} for the standard implementation
+ * @see {@link NoOpSyncTelemetryStrategy} for testing environments
+ */
+interface ISyncTelemetryStrategy {
+  /**
+   * Record metrics for a sync operation
+   *
+   * @param operation - The operation name being tracked
+   * @param status - Success or failure status
+   * @param statusCode - HTTP status code from the operation
+   * @param duration - Operation duration in milliseconds
+   * @param attributes - Additional attributes for the metric
+   * @since 1.0.0
+   */
+  recordMetrics(
+    operation: string,
+    status: 'success' | 'failure',
+    statusCode: number,
+    duration: number,
+    attributes: Record<string, string | number | boolean>
+  ): void;
+
+  /**
+   * Set attributes on a telemetry span
+   *
+   * @param span - The span object to modify (if available)
+   * @param attributes - Attributes to set on the span
+   * @since 1.0.0
+   */
+  setSpanAttributes(span: unknown, attributes: Record<string, unknown>): void;
+}
+
+/**
+ * Default telemetry strategy implementation
+ *
+ * Standard implementation that uses OpenTelemetry for metrics and tracing.
+ * Provides comprehensive instrumentation for production environments
+ * while gracefully handling cases where telemetry is not available.
+ *
+ * @implements {ISyncTelemetryStrategy}
+ * @since 1.0.0
+ */
+class DefaultSyncTelemetryStrategy implements ISyncTelemetryStrategy {
+  /**
+   * Record webhook metrics using OpenTelemetry
+   *
+   * @param operation - The operation name being tracked
+   * @param status - Success or failure status
+   * @param statusCode - HTTP status code from the operation
+   * @param duration - Operation duration in milliseconds
+   * @param attributes - Additional attributes for the metric
+   * @since 1.0.0
+   */
+  public recordMetrics(
+    operation: string,
+    status: 'success' | 'failure',
+    statusCode: number,
+    duration: number,
+    attributes: Record<string, string | number | boolean>
+  ): void {
+    if (isTelemetryInitialized()) {
+      recordWebhookMetrics(operation, status, statusCode, duration, attributes);
+    }
+  }
+
+  /**
+   * Set attributes on an OpenTelemetry span
+   *
+   * @param span - The span object to modify (if available)
+   * @param attributes - Attributes to set on the span
+   * @since 1.0.0
+   */
+  public setSpanAttributes(span: unknown, attributes: Record<string, unknown>): void {
+    if (
+      span &&
+      typeof span === 'object' &&
+      span !== null &&
+      'setAttributes' in span &&
+      typeof span.setAttributes === 'function'
+    ) {
+      span.setAttributes(attributes);
+    }
+  }
+}
+
+/**
+ * No-operation telemetry strategy for testing
+ *
+ * Implementation that doesn't perform any telemetry operations.
+ * Useful for testing environments where telemetry instrumentation
+ * should be disabled to avoid interference with test execution.
+ *
+ * @implements {ISyncTelemetryStrategy}
+ * @since 1.0.0
+ */
+class _NoOpSyncTelemetryStrategy implements ISyncTelemetryStrategy {
+  /**
+   * No-operation metrics recording
+   *
+   * @param _operation - Ignored operation name
+   * @param _status - Ignored status
+   * @param _statusCode - Ignored status code
+   * @param _duration - Ignored duration
+   * @param _attributes - Ignored attributes
+   * @since 1.0.0
+   */
+  public recordMetrics(
+    _operation: string,
+    _status: 'success' | 'failure',
+    _statusCode: number,
+    _duration: number,
+    _attributes: Record<string, string | number | boolean>
+  ): void {
+    // No-op implementation for testing
+  }
+
+  /**
+   * No-operation span attribute setting
+   *
+   * @param _span - Ignored span object
+   * @param _attributes - Ignored attributes
+   * @since 1.0.0
+   */
+  public setSpanAttributes(_span: unknown, _attributes: Record<string, unknown>): void {
+    // No-op implementation for testing
+  }
+}
+
+/**
+ * Abstract template for sync operations
+ *
+ * Implements the Template Method pattern to define the overall structure
+ * of sync operations while allowing subclasses to customize specific steps.
+ * Provides common functionality for request preparation, execution, and
+ * error handling while enabling customization of telemetry strategies.
+ *
+ * @abstract
+ * @since 1.0.0
+ */
+abstract class SyncOperationTemplate {
+  /**
+   * Create sync operation template with telemetry strategy
+   *
+   * @param telemetryStrategy - Strategy for handling telemetry operations
+   * @since 1.0.0
+   */
+  constructor(protected readonly telemetryStrategy: ISyncTelemetryStrategy) {}
+
+  /**
+   * Execute the complete sync operation using template method pattern
+   *
+   * Defines the overall algorithm for sync operations while delegating
+   * specific steps to template methods that can be customized by subclasses.
+   *
+   * @param jobs - Jobs to synchronize
+   * @param source - Source identifier for tracking
+   * @param span - Optional OpenTelemetry span for tracing
+   * @returns Promise resolving to sync result
+   * @since 1.0.0
+   */
+  public async execute(
+    jobs: readonly NormalizedJob[],
+    source: JobSource,
+    span?: unknown
+  ): Promise<JobSyncResponse> {
+    const startTime = Date.now();
+    const context = this.prepareContext(jobs, source);
+
+    // Set initial span attributes
+    this.telemetryStrategy.setSpanAttributes(span, {
+      'wordpress.request_id': context.requestId,
+      'wordpress.timestamp': context.timestamp,
+      'wordpress.payload_size': JSON.stringify(context.syncRequest).length,
+    });
+
+    try {
+      const response = await this.performOperation(context);
+      return this.handleSuccess(response, context, startTime, span);
+    } catch (error) {
+      return this.handleError(error, context, startTime, span);
+    }
+  }
+
+  /**
+   * Prepare the operation context
+   *
+   * Template method for preparing the sync operation context including
+   * request ID generation, timestamp creation, and payload preparation.
+   *
+   * @param jobs - Jobs to synchronize
+   * @param source - Source identifier
+   * @returns Operation context with all necessary data
+   * @since 1.0.0
+   */
+  protected abstract prepareContext(
+    jobs: readonly NormalizedJob[],
+    source: JobSource
+  ): SyncOperationContext;
+
+  /**
+   * Perform the actual sync operation
+   *
+   * Template method for executing the core sync operation.
+   * Implementations should handle the actual HTTP request and
+   * return the response data.
+   *
+   * @param context - Operation context with request data
+   * @returns Promise resolving to the HTTP response
+   * @since 1.0.0
+   */
+  protected abstract performOperation(
+    context: SyncOperationContext
+  ): Promise<{ success: boolean; status?: number; data: JobSyncResponse }>;
+
+  /**
+   * Handle successful operation completion
+   *
+   * Template method for processing successful sync operations.
+   * Records metrics, updates span attributes, and formats the response.
+   *
+   * @param response - HTTP response from the sync operation
+   * @param context - Operation context
+   * @param startTime - Operation start time for duration calculation
+   * @param span - Optional OpenTelemetry span
+   * @returns Formatted success response
+   * @since 1.0.0
+   */
+  protected handleSuccess(
+    response: { success: boolean; status?: number; data: JobSyncResponse },
+    context: SyncOperationContext,
+    startTime: number,
+    span?: unknown
+  ): JobSyncResponse {
+    const duration = Date.now() - startTime;
+
+    // Record success metrics
+    this.telemetryStrategy.recordMetrics(
+      'wordpress-sync',
+      'success',
+      response.status ?? 200,
+      duration,
+      {
+        'webhook.event': 'job.sync',
+        'webhook.job_count': context.jobs.length,
+        'webhook.source': context.source,
+        'webhook.request_id': context.requestId,
+      }
+    );
+
+    // Update span with success attributes
+    this.telemetryStrategy.setSpanAttributes(span, {
+      'wordpress.response_status': response.status ?? 200,
+      'wordpress.synced_count': response.data.syncedCount ?? 0,
+      'wordpress.duration_ms': duration,
+      'wordpress.success': true,
+    });
+
+    return {
+      success: true,
+      syncedCount: response.data.syncedCount || 0,
+      skippedCount: response.data.skippedCount ?? 0,
+      errorCount: response.data.errorCount ?? 0,
+      message: response.data.message ?? 'Sync completed successfully',
+      errors: response.data.errors ?? [],
+      processedAt: response.data.processedAt ?? context.timestamp,
+    };
+  }
+
+  /**
+   * Handle operation errors
+   *
+   * Template method for processing sync operation errors.
+   * Records error metrics, updates span attributes, and throws
+   * appropriate exceptions.
+   *
+   * @param error - Error that occurred during sync
+   * @param context - Operation context
+   * @param startTime - Operation start time for duration calculation
+   * @param span - Optional OpenTelemetry span
+   * @throws {WordPressClientError} Always throws with error details
+   * @since 1.0.0
+   */
+  protected handleError(
+    error: unknown,
+    context: SyncOperationContext,
+    startTime: number,
+    span?: unknown
+  ): never {
+    const duration = Date.now() - startTime;
+    const statusCode = this.extractStatusCode(error);
+
+    // Record error metrics
+    this.telemetryStrategy.recordMetrics('wordpress-sync', 'failure', statusCode, duration, {
+      'webhook.event': 'job.sync',
+      'webhook.job_count': context.jobs.length,
+      'webhook.source': context.source,
+      'webhook.request_id': context.requestId,
+      'webhook.error': error instanceof Error ? error.message : String(error),
+    });
+
+    // Update span with error attributes
+    this.telemetryStrategy.setSpanAttributes(span, {
+      'wordpress.response_status': statusCode,
+      'wordpress.duration_ms': duration,
+      'wordpress.success': false,
+      'wordpress.error': error instanceof Error ? error.message : String(error),
+    });
+
+    throw new WordPressClientError(
+      `WordPress sync failed: ${error instanceof Error ? error.message : String(error)}`,
+      statusCode,
+      undefined,
+      error
+    );
+  }
+
+  /**
+   * Extract HTTP status code from error
+   *
+   * Utility method for extracting status codes from various error types
+   * to ensure consistent error reporting and metrics.
+   *
+   * @param error - Error object that may contain status information
+   * @returns HTTP status code or 500 for unknown errors
+   * @since 1.0.0
+   */
+  private extractStatusCode(error: unknown): number {
+    if (error && typeof error === 'object') {
+      const errorObj = error as Record<string, unknown>;
+      if (typeof errorObj['status'] === 'number') return errorObj['status'];
+      if (typeof errorObj['statusCode'] === 'number') return errorObj['statusCode'];
+      if (typeof errorObj['code'] === 'number') return errorObj['code'];
+    }
+    return 500;
+  }
+}
+
+/**
+ * Context object for sync operations
+ *
+ * Contains all the data needed to perform a sync operation,
+ * including request metadata, job data, and timing information.
+ *
+ * @interface
+ * @since 1.0.0
+ */
+interface SyncOperationContext {
+  /** Array of jobs to synchronize */
+  readonly jobs: readonly NormalizedJob[];
+  /** Source identifier for tracking */
+  readonly source: JobSource;
+  /** ISO timestamp of the operation */
+  readonly timestamp: string;
+  /** Unique request identifier */
+  readonly requestId: string;
+  /** Structured sync request payload */
+  readonly syncRequest: JobSyncRequest;
+}
+
+/**
+ * WordPress webhook sync operation implementation
+ *
+ * Concrete implementation of the sync operation template that handles
+ * WordPress-specific sync logic. Encapsulates request preparation,
+ * HTTP communication, and response processing for WordPress webhooks.
+ *
+ * @extends {SyncOperationTemplate}
+ * @since 1.0.0
+ */
+class WordPressWebhookSyncOperation extends SyncOperationTemplate {
+  /**
+   * Create WordPress webhook sync operation
+   *
+   * @param httpClient - HTTP client for making requests
+   * @param config - WordPress API configuration
+   * @param webhookSecret - Secret for HMAC signature generation
+   * @param telemetryStrategy - Strategy for telemetry operations
+   * @since 1.0.0
+   */
+  constructor(
+    private readonly httpClient: IHttpClient,
+    private readonly config: WordPressApiConfig,
+    private readonly webhookSecret: string,
+    telemetryStrategy: ISyncTelemetryStrategy
+  ) {
+    super(telemetryStrategy);
+  }
+
+  /**
+   * Prepare sync operation context with WordPress-specific data
+   *
+   * @param jobs - Jobs to synchronize
+   * @param source - Source identifier for tracking
+   * @returns Complete operation context
+   * @since 1.0.0
+   */
+  protected prepareContext(
+    jobs: readonly NormalizedJob[],
+    source: JobSource
+  ): SyncOperationContext {
+    const requestId = `req_${StringUtils.generateRequestId()}`;
+    const timestamp = new Date().toISOString();
+    const syncRequest: JobSyncRequest = { source, jobs, timestamp, requestId };
+
+    return { jobs, source, timestamp, requestId, syncRequest };
+  }
+
+  /**
+   * Perform WordPress webhook sync operation
+   *
+   * @param context - Operation context with request data
+   * @returns Promise resolving to HTTP response
+   * @since 1.0.0
+   */
+  protected async performOperation(
+    context: SyncOperationContext
+  ): Promise<{ success: boolean; status?: number; data: JobSyncResponse }> {
+    const logger = getLogger();
+    logger.info(`Syncing ${context.jobs.length} jobs to WordPress`, {
+      requestId: context.requestId,
+      source: context.source,
+    });
+
+    const payload = JSON.stringify(context.syncRequest);
+    const signature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
+
+    const response = await this.httpClient.post<JobSyncResponse>(
+      this.config.baseUrl,
+      context.syncRequest,
+      {
+        'Content-Type': 'application/json',
+        'X-Webhook-Signature': signature,
+        'X-Request-ID': context.requestId,
+        'User-Agent': 'DriveHR-Sync-Netlify/1.0',
+      }
+    );
+
+    if (!response.success) {
+      throw new WordPressClientError(
+        `WordPress sync failed with status ${response.status}`,
+        response.status,
+        response.data
+      );
+    }
+
+    logger.info('WordPress sync completed successfully', {
+      requestId: context.requestId,
+      processed: response.data.syncedCount,
+      skipped: response.data.skippedCount,
+      errors: response.data.errorCount,
+    });
+
+    return response;
+  }
+}
+
+/**
  * WordPress webhook client interface
  *
  * Defines the contract for WordPress integration clients that handle
@@ -106,6 +571,8 @@ export interface IWordPressClient {
  * @see {@link createWordPressClient} for the recommended factory function
  */
 export class WordPressWebhookClient implements IWordPressClient {
+  private readonly syncOperation: WordPressWebhookSyncOperation;
+
   /**
    * Create WordPress webhook client with configuration validation
    *
@@ -121,14 +588,23 @@ export class WordPressWebhookClient implements IWordPressClient {
     private readonly webhookSecret: string
   ) {
     this.validateConfig();
+
+    // Initialize with default telemetry strategy
+    const telemetryStrategy = new DefaultSyncTelemetryStrategy();
+    this.syncOperation = new WordPressWebhookSyncOperation(
+      httpClient,
+      config,
+      webhookSecret,
+      telemetryStrategy
+    );
   }
 
   /**
    * Synchronize jobs to WordPress via secure webhook
    *
    * Sends normalized job data to WordPress through a secure webhook endpoint
-   * with HMAC signature verification. Includes comprehensive error handling
-   * and detailed logging for monitoring and debugging.
+   * with HMAC signature verification. Uses enterprise-grade Strategy and Template
+   * Method patterns for maintainable, extensible, and well-tested sync operations.
    *
    * @param jobs - Array of normalized job data to synchronize
    * @param source - Source identifier for tracking job origin (e.g., 'webhook', 'manual')
@@ -169,7 +645,7 @@ export class WordPressWebhookClient implements IWordPressClient {
             'operation.type': 'webhook_delivery',
           });
 
-          return this.executeSyncJobs(jobs, source, span);
+          return this.syncOperation.execute(jobs, source, span);
         },
         { 'service.name': 'wordpress-client' },
         SpanKind.CLIENT
@@ -177,235 +653,7 @@ export class WordPressWebhookClient implements IWordPressClient {
     }
 
     // Fallback to non-instrumented execution
-    return this.executeSyncJobs(jobs, source);
-  }
-
-  /**
-   * Execute job synchronization with comprehensive instrumentation
-   *
-   * Internal method that performs the actual WordPress sync with
-   * detailed performance tracking and webhook delivery metrics.
-   *
-   * @param jobs - Array of normalized job data to synchronize
-   * @param source - Source identifier for tracking job origin
-   * @param span - OpenTelemetry span for tracing (optional)
-   * @returns Promise resolving to sync result with statistics
-   * @since 1.0.0
-   */
-  private async executeSyncJobs(
-    jobs: readonly NormalizedJob[],
-    source: JobSource,
-    span?: unknown
-  ): Promise<JobSyncResponse> {
-    const startTime = Date.now();
-    const requestId = this.generateRequestId();
-    const timestamp = new Date().toISOString();
-    const syncRequest = this.createSyncRequest(jobs, source, timestamp, requestId);
-
-    // Add request details to span
-    if (
-      span &&
-      typeof span === 'object' &&
-      span !== null &&
-      'setAttributes' in span &&
-      typeof span.setAttributes === 'function'
-    ) {
-      span.setAttributes({
-        'wordpress.request_id': requestId,
-        'wordpress.timestamp': timestamp,
-        'wordpress.payload_size': JSON.stringify(syncRequest).length,
-      });
-    }
-
-    try {
-      const response = await this.performSync(syncRequest, requestId, source);
-      const result = this.createSuccessResponse(response, timestamp);
-
-      // Record successful webhook delivery metrics
-      const duration = Date.now() - startTime;
-      if (isTelemetryInitialized()) {
-        recordWebhookMetrics('wordpress-sync', 'success', response.status ?? 200, duration, {
-          'webhook.event': 'job.sync',
-          'webhook.job_count': jobs.length,
-          'webhook.source': source,
-          'webhook.request_id': requestId,
-        });
-      }
-
-      // Add success attributes to span
-      if (
-        span &&
-        typeof span === 'object' &&
-        span !== null &&
-        'setAttributes' in span &&
-        typeof span.setAttributes === 'function'
-      ) {
-        span.setAttributes({
-          'wordpress.response_status': response.status ?? 200,
-          'wordpress.synced_count': result.syncedCount ?? 0,
-          'wordpress.duration_ms': duration,
-          'wordpress.success': true,
-        });
-      }
-
-      return result;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const statusCode = this.extractStatusCode(error);
-
-      // Record failed webhook delivery metrics
-      if (isTelemetryInitialized()) {
-        recordWebhookMetrics('wordpress-sync', 'failure', statusCode, duration, {
-          'webhook.event': 'job.sync',
-          'webhook.job_count': jobs.length,
-          'webhook.source': source,
-          'webhook.request_id': requestId,
-          'webhook.error': error instanceof Error ? error.message : String(error),
-        });
-      }
-
-      // Add error attributes to span
-      if (
-        span &&
-        typeof span === 'object' &&
-        span !== null &&
-        'setAttributes' in span &&
-        typeof span.setAttributes === 'function'
-      ) {
-        span.setAttributes({
-          'wordpress.response_status': statusCode,
-          'wordpress.duration_ms': duration,
-          'wordpress.success': false,
-          'wordpress.error': error instanceof Error ? error.message : String(error),
-        });
-      }
-
-      return this.handleSyncError(error, requestId);
-    }
-  }
-
-  /**
-   * Extract HTTP status code from error for metrics
-   *
-   * Safely extracts the HTTP status code from various error types
-   * for consistent error reporting and monitoring.
-   *
-   * @param error - Error object that may contain status information
-   * @returns HTTP status code or 500 for unknown errors
-   * @since 1.0.0
-   */
-  private extractStatusCode(error: unknown): number {
-    if (error && typeof error === 'object') {
-      // Check common error properties that might contain status
-      const errorObj = error as Record<string, unknown>;
-      if (typeof errorObj['status'] === 'number') return errorObj['status'];
-      if (typeof errorObj['statusCode'] === 'number') return errorObj['statusCode'];
-      if (typeof errorObj['code'] === 'number') return errorObj['code'];
-    }
-    return 500; // Default to server error
-  }
-
-  /**
-   * Create job synchronization request payload
-   *
-   * Builds the request payload that will be sent to WordPress,
-   * including metadata for tracking and debugging.
-   *
-   * @param jobs - Array of normalized job data
-   * @param source - Source identifier for tracking
-   * @param timestamp - ISO timestamp of the sync request
-   * @param requestId - Unique request identifier
-   * @returns Structured sync request payload
-   * @since 1.0.0
-   */
-  private createSyncRequest(
-    jobs: readonly NormalizedJob[],
-    source: JobSource,
-    timestamp: string,
-    requestId: string
-  ): JobSyncRequest {
-    return { source, jobs, timestamp, requestId };
-  }
-
-  /**
-   * Perform the actual sync operation with WordPress
-   *
-   * Executes the HTTP request to WordPress with proper headers,
-   * HMAC signature, and error handling. Logs the operation for
-   * monitoring and debugging purposes.
-   *
-   * @param syncRequest - The job sync request payload
-   * @param requestId - Unique request identifier for tracking
-   * @param source - Source identifier for logging context
-   * @returns Promise resolving to the HTTP response with sync results
-   * @throws {WordPressClientError} When the HTTP request fails
-   * @since 1.0.0
-   */
-  private async performSync(
-    syncRequest: JobSyncRequest,
-    requestId: string,
-    source: JobSource
-  ): Promise<{ success: boolean; status?: number; data: JobSyncResponse }> {
-    const logger = getLogger();
-    logger.info(`Syncing ${syncRequest.jobs.length} jobs to WordPress`, { requestId, source });
-
-    const payload = JSON.stringify(syncRequest);
-    const signature = this.generateSignature(payload);
-
-    const response = await this.httpClient.post<JobSyncResponse>(this.config.baseUrl, syncRequest, {
-      'Content-Type': 'application/json',
-      'X-Webhook-Signature': signature,
-      'X-Request-ID': requestId,
-      'User-Agent': 'DriveHR-Sync-Netlify/1.0',
-    });
-
-    if (!response.success) {
-      throw new WordPressClientError(
-        `WordPress sync failed with status ${response.status}`,
-        response.status,
-        response.data
-      );
-    }
-
-    logger.info('WordPress sync completed successfully', {
-      requestId,
-      processed: response.data.syncedCount,
-      skipped: response.data.skippedCount,
-      errors: response.data.errorCount,
-    });
-
-    return response;
-  }
-
-  private createSuccessResponse(
-    response: { data: JobSyncResponse },
-    timestamp: string
-  ): JobSyncResponse {
-    return {
-      success: true,
-      syncedCount: response.data.syncedCount || 0,
-      skippedCount: response.data.skippedCount ?? 0,
-      errorCount: response.data.errorCount ?? 0,
-      message: response.data.message ?? 'Sync completed successfully',
-      errors: response.data.errors ?? [],
-      processedAt: response.data.processedAt ?? timestamp,
-    };
-  }
-
-  private handleSyncError(error: unknown, requestId: string): never {
-    const logger = getLogger();
-    logger.error('WordPress sync failed', { requestId, error });
-
-    if (error instanceof WordPressClientError) {
-      throw error;
-    }
-
-    throw new WordPressClientError(
-      `WordPress sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      undefined,
-      undefined,
-      error
-    );
+    return this.syncOperation.execute(jobs, source);
   }
 
   /**
@@ -435,7 +683,7 @@ export class WordPressWebhookClient implements IWordPressClient {
         action: 'health_check',
         timestamp: new Date().toISOString(),
       });
-      const signature = this.generateSignature(payload);
+      const signature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
 
       const response = await this.httpClient.post(
         this.config.baseUrl,
@@ -453,35 +701,6 @@ export class WordPressWebhookClient implements IWordPressClient {
       logger.warn('WordPress health check failed', { error });
       return false;
     }
-  }
-
-  /**
-   * Generate HMAC signature for webhook authentication
-   *
-   * Creates a secure HMAC-SHA256 signature for the request payload
-   * to ensure webhook authenticity and prevent tampering.
-   *
-   * @param payload - JSON string payload to sign
-   * @returns HMAC signature in the format 'sha256=<hex_digest>'
-   * @since 1.0.0
-   * @see {@link SecurityUtils.generateHmacSignature} for implementation details
-   */
-  private generateSignature(payload: string): string {
-    return SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
-  }
-
-  /**
-   * Generate unique request ID for tracking and debugging
-   *
-   * Creates a unique identifier for each sync request to enable
-   * request tracing across logs and systems.
-   *
-   * @returns Unique request ID with 'req_' prefix
-   * @since 1.0.0
-   * @see {@link StringUtils.generateRequestId} for ID generation logic
-   */
-  private generateRequestId(): string {
-    return `req_${StringUtils.generateRequestId()}`;
   }
 
   /**

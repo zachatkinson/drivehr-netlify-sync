@@ -766,18 +766,15 @@ describe('WordPress Client Service', () => {
         );
       });
 
-      it('should log sync errors', async () => {
+      it('should throw appropriate errors for sync failures', async () => {
         const jobs = WordPressClientTestUtils.SAMPLE_JOBS.single;
 
         WordPressClientTestUtils.setupNetworkErrorMock('Connection failed');
 
-        await expect(client.syncJobs(jobs, 'webhook')).rejects.toThrow();
-
-        expect(WordPressClientTestUtils.mockLogger.error).toHaveBeenCalledWith(
-          'WordPress sync failed',
+        await expect(client.syncJobs(jobs, 'webhook')).rejects.toThrow(
           expect.objectContaining({
-            requestId: 'req_test-req-id-123',
-            error: expect.any(Error),
+            name: 'WordPressClientError',
+            message: expect.stringMatching(/WordPress sync failed/),
           })
         );
       });

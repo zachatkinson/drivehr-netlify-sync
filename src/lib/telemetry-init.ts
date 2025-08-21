@@ -146,6 +146,61 @@ const TEST_CONFIG: TelemetryConfig = {
  * ```
  * @since 1.0.0
  */
+/**
+ * Select telemetry configuration based on environment
+ *
+ * @param environment - Current environment
+ * @param forceConfig - Optional override configuration
+ * @returns Selected telemetry configuration
+ * @since 1.0.0
+ */
+function selectTelemetryConfig(
+  environment: string,
+  forceConfig?: Partial<TelemetryConfig>
+): TelemetryConfig {
+  if (forceConfig) {
+    // Use forced configuration (typically for testing)
+    return { ...DEVELOPMENT_CONFIG, ...forceConfig };
+  }
+
+  switch (environment) {
+    case 'development':
+    case 'dev':
+      return DEVELOPMENT_CONFIG;
+    case 'test':
+    case 'testing':
+      return TEST_CONFIG;
+    case 'production':
+    case 'prod':
+    default:
+      return PRODUCTION_CONFIG;
+  }
+}
+
+/**
+ * Handle telemetry initialization errors based on environment
+ *
+ * @param error - The error that occurred
+ * @param environment - Current environment
+ * @throws Error in non-production environments
+ * @since 1.0.0
+ */
+function handleTelemetryError(error: unknown, environment: string): void {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+
+  // In production, telemetry failures should not crash the application
+  if (environment === 'production') {
+    logger.error('Telemetry initialization failed, continuing without instrumentation', {
+      error: errorMessage,
+      environment,
+    });
+  } else {
+    // In development/test, we want to know about telemetry issues
+    logger.error('Telemetry initialization failed', { error: errorMessage });
+    throw error;
+  }
+}
+
 export async function initializeApplicationTelemetry(
   forceConfig?: Partial<TelemetryConfig>
 ): Promise<void> {
@@ -157,28 +212,7 @@ export async function initializeApplicationTelemetry(
 
   // Determine environment and select appropriate config
   const environment = getEnvVar('NODE_ENV', 'production');
-  let config: TelemetryConfig;
-
-  if (forceConfig) {
-    // Use forced configuration (typically for testing)
-    config = { ...DEVELOPMENT_CONFIG, ...forceConfig };
-  } else {
-    switch (environment) {
-      case 'development':
-      case 'dev':
-        config = DEVELOPMENT_CONFIG;
-        break;
-      case 'test':
-      case 'testing':
-        config = TEST_CONFIG;
-        break;
-      case 'production':
-      case 'prod':
-      default:
-        config = PRODUCTION_CONFIG;
-        break;
-    }
-  }
+  const config = selectTelemetryConfig(environment, forceConfig);
 
   try {
     logger.info('Initializing application telemetry', {
@@ -196,19 +230,7 @@ export async function initializeApplicationTelemetry(
       namespace: config.namespace,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // In production, telemetry failures should not crash the application
-    if (environment === 'production') {
-      logger.error('Telemetry initialization failed, continuing without instrumentation', {
-        error: errorMessage,
-        environment,
-      });
-    } else {
-      // In development/test, we want to know about telemetry issues
-      logger.error('Telemetry initialization failed', { error: errorMessage });
-      throw error;
-    }
+    handleTelemetryError(error, environment);
   }
 }
 
