@@ -24,7 +24,7 @@ import { load as cheerioLoad, type CheerioAPI } from 'cheerio';
 import { getLogger } from '../lib/logger.js';
 import { StringUtils, DateUtils, UrlUtils } from '../lib/utils.js';
 import type { RawJobData } from '../types/job.js';
-import type { IHtmlParser } from './job-fetcher.js';
+import type { IHtmlParser } from './job-fetcher/types.js';
 
 /**
  * Re-export IHtmlParser interface for testing and external use

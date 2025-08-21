@@ -22,6 +22,7 @@
 import { getLogger } from '../lib/logger.js';
 import { StringUtils, SecurityUtils } from '../lib/utils.js';
 import { withSpan, recordWebhookMetrics, isTelemetryInitialized } from '../lib/telemetry.js';
+import { BaseTelemetryStrategy, type ITelemetryStrategy } from '../lib/telemetry-strategy.js';
 import { SpanKind } from '@opentelemetry/api';
 import type { IHttpClient } from '../lib/http-client.js';
 import type { NormalizedJob, JobSyncRequest, JobSyncResponse, JobSource } from '../types/job.js';
@@ -37,9 +38,8 @@ import type { WordPressApiConfig } from '../types/api.js';
  *
  * @since 1.0.0
  * @see {@link DefaultSyncTelemetryStrategy} for the standard implementation
- * @see {@link NoOpSyncTelemetryStrategy} for testing environments
  */
-interface ISyncTelemetryStrategy {
+interface ISyncTelemetryStrategy extends ITelemetryStrategy {
   /**
    * Record metrics for a sync operation
    *
@@ -57,15 +57,6 @@ interface ISyncTelemetryStrategy {
     duration: number,
     attributes: Record<string, string | number | boolean>
   ): void;
-
-  /**
-   * Set attributes on a telemetry span
-   *
-   * @param span - The span object to modify (if available)
-   * @param attributes - Attributes to set on the span
-   * @since 1.0.0
-   */
-  setSpanAttributes(span: unknown, attributes: Record<string, unknown>): void;
 }
 
 /**
@@ -78,7 +69,7 @@ interface ISyncTelemetryStrategy {
  * @implements {ISyncTelemetryStrategy}
  * @since 1.0.0
  */
-class DefaultSyncTelemetryStrategy implements ISyncTelemetryStrategy {
+class DefaultSyncTelemetryStrategy extends BaseTelemetryStrategy implements ISyncTelemetryStrategy {
   /**
    * Record webhook metrics using OpenTelemetry
    *
@@ -96,71 +87,9 @@ class DefaultSyncTelemetryStrategy implements ISyncTelemetryStrategy {
     duration: number,
     attributes: Record<string, string | number | boolean>
   ): void {
-    if (isTelemetryInitialized()) {
+    if (this.isTelemetryEnabled()) {
       recordWebhookMetrics(operation, status, statusCode, duration, attributes);
     }
-  }
-
-  /**
-   * Set attributes on an OpenTelemetry span
-   *
-   * @param span - The span object to modify (if available)
-   * @param attributes - Attributes to set on the span
-   * @since 1.0.0
-   */
-  public setSpanAttributes(span: unknown, attributes: Record<string, unknown>): void {
-    if (
-      span &&
-      typeof span === 'object' &&
-      span !== null &&
-      'setAttributes' in span &&
-      typeof span.setAttributes === 'function'
-    ) {
-      span.setAttributes(attributes);
-    }
-  }
-}
-
-/**
- * No-operation telemetry strategy for testing
- *
- * Implementation that doesn't perform any telemetry operations.
- * Useful for testing environments where telemetry instrumentation
- * should be disabled to avoid interference with test execution.
- *
- * @implements {ISyncTelemetryStrategy}
- * @since 1.0.0
- */
-class _NoOpSyncTelemetryStrategy implements ISyncTelemetryStrategy {
-  /**
-   * No-operation metrics recording
-   *
-   * @param _operation - Ignored operation name
-   * @param _status - Ignored status
-   * @param _statusCode - Ignored status code
-   * @param _duration - Ignored duration
-   * @param _attributes - Ignored attributes
-   * @since 1.0.0
-   */
-  public recordMetrics(
-    _operation: string,
-    _status: 'success' | 'failure',
-    _statusCode: number,
-    _duration: number,
-    _attributes: Record<string, string | number | boolean>
-  ): void {
-    // No-op implementation for testing
-  }
-
-  /**
-   * No-operation span attribute setting
-   *
-   * @param _span - Ignored span object
-   * @param _attributes - Ignored attributes
-   * @since 1.0.0
-   */
-  public setSpanAttributes(_span: unknown, _attributes: Record<string, unknown>): void {
-    // No-op implementation for testing
   }
 }
 
