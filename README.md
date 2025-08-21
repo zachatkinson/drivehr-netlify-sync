@@ -2,6 +2,9 @@
 
 > **Enterprise-grade job synchronization service built with TypeScript and
 > Netlify Functions**
+>
+> ✅ **Recently Refactored**: Modular architecture with comprehensive test
+> coverage (August 21, 2024)
 
 [![CI Pipeline](https://github.com/zachatkinson/drivehr-netlify-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/zachatkinson/drivehr-netlify-sync/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync/branch/main/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync)
