@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/test-results-action@v1.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -322,7 +322,7 @@ jobs:
 
       - name: Upload aggregated coverage to Codecov
         if: success() && github.event_name != 'schedule'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v5.5.0
         with:
           file: ./aggregated-coverage/merged.info
           flags: aggregated
