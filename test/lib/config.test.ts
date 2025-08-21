@@ -566,7 +566,6 @@ describe('Config Service', () => {
           enableCors: true,
           corsOrigins: ['https://example.com'],
           enableRateLimit: true,
-          maxRequestsPerMinute: 60,
           rateLimitMaxRequests: 100,
           rateLimitWindowMs: 60000,
           enableInputValidation: true,
@@ -683,7 +682,6 @@ describe('Config Service', () => {
       expect(result.isValid).toBe(true);
       expect(result.config?.performance.httpTimeout).toBe(30000); // Default for HTTP_TIMEOUT
       expect(result.config?.performance.maxRetries).toBe(3); // Default for MAX_RETRIES
-      expect(result.config?.security.maxRequestsPerMinute).toBe(60); // Default for RATE_LIMIT_MAX
     });
 
     it('should parse CORS origins with various formats', () => {

@@ -406,7 +406,6 @@ export class ConfigService {
         enableCors: corsOrigins.length > 0,
         corsOrigins,
         enableRateLimit: environment === 'production',
-        maxRequestsPerMinute: rateLimitMax,
         rateLimitMaxRequests: rateLimitMaxRequests,
         rateLimitWindowMs: 60000, // 1 minute
         enableInputValidation: true,

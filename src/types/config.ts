@@ -149,8 +149,6 @@ export interface SecurityConfig {
   readonly corsOrigins: string[];
   /** Whether to enable rate limiting protection */
   readonly enableRateLimit: boolean;
-  /** Maximum requests allowed per minute (legacy field) */
-  readonly maxRequestsPerMinute: number;
   /** Maximum requests allowed within the rate limit window */
   readonly rateLimitMaxRequests: number;
   /** Rate limit time window in milliseconds */
@@ -358,7 +356,6 @@ export const SecurityConfigSchema = z.object({
   enableCors: z.boolean(),
   corsOrigins: z.array(z.string().url()),
   enableRateLimit: z.boolean(),
-  maxRequestsPerMinute: z.number().positive(),
   rateLimitMaxRequests: z.number().positive(),
   rateLimitWindowMs: z.number().positive(),
   enableInputValidation: z.boolean(),
