@@ -32,6 +32,7 @@ import type { IHttpClient } from '../../src/lib/http-client.js';
 import { BaseTestUtils } from '../shared/base-test-utils.js';
 import * as logger from '../../src/lib/logger.js';
 import * as utils from '../../src/lib/utils.js';
+import { SpanKind } from '@opentelemetry/api';
 
 /**
  * Specialized test utilities for WordPress client testing
@@ -776,6 +777,57 @@ describe('WordPress Client Service', () => {
             name: 'WordPressClientError',
             message: expect.stringMatching(/WordPress sync failed/),
           })
+        );
+      });
+
+      it('should execute telemetry code paths when telemetry is initialized', async () => {
+        const jobs = WordPressClientTestUtils.SAMPLE_JOBS.multiple;
+
+        // Mock telemetry functions to trigger telemetry code paths
+        const mockWithSpan = vi
+          .fn()
+          .mockImplementation(async (name, fn, _attributes, _spanKind) => {
+            // Simulate span object with setAttributes method
+            const mockSpan = {
+              setAttributes: vi.fn(),
+            };
+            return await fn(mockSpan);
+          });
+
+        // Import and mock telemetry module
+        const telemetryModule = await import('../../src/lib/telemetry.js');
+        const originalIsTelemetryInitialized = telemetryModule.isTelemetryInitialized;
+        const originalWithSpan = telemetryModule.withSpan;
+        const originalRecordWebhookMetrics = telemetryModule.recordWebhookMetrics;
+
+        // Mock telemetry as initialized
+        vi.spyOn(telemetryModule, 'isTelemetryInitialized').mockReturnValue(true);
+        vi.spyOn(telemetryModule, 'withSpan').mockImplementation(mockWithSpan);
+        vi.spyOn(telemetryModule, 'recordWebhookMetrics').mockImplementation(vi.fn());
+
+        WordPressClientTestUtils.setupSyncSuccessMock();
+
+        const result = await client.syncJobs(jobs, 'webhook');
+
+        expect(result.success).toBe(true);
+        expect(result.syncedCount).toBe(3);
+
+        // Verify telemetry code paths were executed
+        expect(telemetryModule.isTelemetryInitialized).toHaveBeenCalled();
+        expect(telemetryModule.withSpan).toHaveBeenCalledWith(
+          'wordpress-client.sync-jobs',
+          expect.any(Function),
+          { 'service.name': 'wordpress-client' },
+          SpanKind.CLIENT
+        );
+
+        // Restore original functions
+        vi.spyOn(telemetryModule, 'isTelemetryInitialized').mockImplementation(
+          originalIsTelemetryInitialized
+        );
+        vi.spyOn(telemetryModule, 'withSpan').mockImplementation(originalWithSpan);
+        vi.spyOn(telemetryModule, 'recordWebhookMetrics').mockImplementation(
+          originalRecordWebhookMetrics
         );
       });
     });
