@@ -322,40 +322,6 @@ export interface CorsConfig {
 }
 
 /**
- * Rate limiting configuration interface
- *
- * Configuration for API rate limiting to prevent abuse and ensure
- * fair usage across clients. Defines time windows, request limits,
- * and behavior options.
- *
- * @example
- * ```typescript
- * // Standard rate limiting
- * const rateLimitConfig: RateLimitConfig = {
- *   windowMs: 60000, // 1 minute
- *   maxRequests: 100, // 100 requests per minute
- *   skipSuccessfulRequests: false
- * };
- *
- * // Strict rate limiting for sensitive endpoints
- * const strictLimits: RateLimitConfig = {
- *   windowMs: 900000, // 15 minutes
- *   maxRequests: 5, // 5 requests per 15 minutes
- *   skipSuccessfulRequests: true // only count failed requests
- * };
- * ```
- * @since 1.0.0
- */
-export interface RateLimitConfig {
-  /** Time window in milliseconds for rate limit calculation */
-  readonly windowMs: number;
-  /** Maximum number of requests allowed within the time window */
-  readonly maxRequests: number;
-  /** Whether to exclude successful requests from rate limit counting */
-  readonly skipSuccessfulRequests?: boolean;
-}
-
-/**
  * HTTP request retry configuration interface
  *
  * Configuration for automatic retry logic including exponential backoff,
