@@ -173,6 +173,7 @@ export class HttpTestUtils {
     //    maintenance burden for test-only type definitions
     //
     // CONCLUSION: eslint-disable is architecturally necessary for test mock compatibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (response.headers as any).forEach = (callback: (value: string, key: string) => void) => {
       for (const [key, value] of response.headers as unknown as Map<string, string>) {
         callback(value, key);

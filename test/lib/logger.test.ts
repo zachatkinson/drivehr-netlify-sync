@@ -560,6 +560,7 @@ describe('Logger Service', () => {
       // ARCHITECTURAL JUSTIFICATION: Testing logger implementation requires direct console verification
       // to ensure proper mapping between log levels and console methods. Mocking console is necessary
       // for unit test isolation and cannot be avoided when testing console-based logging systems.
+      // eslint-disable-next-line no-console
       expect(console.debug).toHaveBeenCalledTimes(1);
     });
 
@@ -574,21 +575,25 @@ describe('Logger Service', () => {
       // ARCHITECTURAL JUSTIFICATION: Testing logger implementation requires direct console verification
       // to ensure proper mapping between log levels and console methods. Mocking console is necessary
       // for unit test isolation and cannot be avoided when testing console-based logging systems.
+      // eslint-disable-next-line no-console
       expect(console.error).toHaveBeenCalledTimes(1);
 
       // ARCHITECTURAL JUSTIFICATION: Testing logger implementation requires direct console verification
       // to ensure proper mapping between log levels and console methods. Mocking console is necessary
       // for unit test isolation and cannot be avoided when testing console-based logging systems.
+      // eslint-disable-next-line no-console
       expect(console.warn).toHaveBeenCalledTimes(1);
 
       // ARCHITECTURAL JUSTIFICATION: Testing logger implementation requires direct console verification
       // to ensure proper mapping between log levels and console methods. Mocking console is necessary
       // for unit test isolation and cannot be avoided when testing console-based logging systems.
+      // eslint-disable-next-line no-console
       expect(console.info).toHaveBeenCalledTimes(1);
 
       // ARCHITECTURAL JUSTIFICATION: Testing logger implementation requires direct console verification
       // to ensure proper mapping between log levels and console methods. Mocking console is necessary
       // for unit test isolation and cannot be avoided when testing console-based logging systems.
+      // eslint-disable-next-line no-console
       expect(console.debug).toHaveBeenCalledTimes(1);
     });
   });
