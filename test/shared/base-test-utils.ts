@@ -302,14 +302,12 @@ export class BaseTestUtils {
    * @since 1.0.0
    */
   static createTestError(message: string, code?: string, cause?: unknown): Error {
-    const error = new Error(message);
+    const error = new Error(message) as Error & { cause?: unknown; code?: string };
     if (cause) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (error as any).cause = cause;
+      error.cause = cause;
     }
     if (code) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (error as any).code = code;
+      error.code = code;
     }
     return error;
   }
@@ -414,8 +412,7 @@ export class BaseTestUtils {
     }
 
     if (expectedCode) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((err as any).code).toBe(expectedCode);
+      expect((err as Error & { code?: string }).code).toBe(expectedCode);
     }
   }
 }

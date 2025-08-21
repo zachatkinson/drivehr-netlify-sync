@@ -40,8 +40,8 @@ interface JobComparison {
   after?: NormalizedJob;
   changes?: Array<{
     field: string;
-    before: any;
-    after: any;
+    before: string;
+    after: string;
   }>;
 }
 
@@ -327,8 +327,8 @@ function compareJobs(before: NormalizedJob[], after: NormalizedJob[]): JobCompar
 /**
  * Find changes between two jobs
  */
-function findJobChanges(before: NormalizedJob, after: NormalizedJob): Array<{ field: string; before: any; after: any }> {
-  const changes: Array<{ field: string; before: any; after: any }> = [];
+function findJobChanges(before: NormalizedJob, after: NormalizedJob): Array<{ field: string; before: string; after: string }> {
+  const changes: Array<{ field: string; before: string; after: string }> = [];
   const fields: (keyof NormalizedJob)[] = [
     'title', 'department', 'location', 'type', 'description', 'postedDate', 'applyUrl'
   ];

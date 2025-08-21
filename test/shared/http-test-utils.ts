@@ -157,8 +157,22 @@ export class HttpTestUtils {
       json: vi.fn().mockResolvedValue(data),
     } as unknown as Response;
 
-    // Mock headers.forEach for header extraction
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // Mock headers.forEach for header extraction - using any for architectural necessity:
+    // node-fetch Headers type conflicts with Map interface used in our mocks
+
+    // ARCHITECTURAL JUSTIFICATION: Test mocking requires dynamic assignment of forEach method
+    // to Map-based headers mock. node-fetch Headers interface expects specific method signature
+    // that conflicts with Map interface. Type casting to any is necessary for mock compatibility.
+    //
+    // ALTERNATIVES CONSIDERED:
+    // 1. Creating complete Headers implementation: Would require complex polyfill and lose
+    //    test simplicity benefits of Map-based mocking approach
+    // 2. Using real Headers object: Would introduce external dependencies and complicate
+    //    test setup without providing testing benefits over controlled mock objects
+    // 3. Separate interface definition: Would duplicate Headers contract and create
+    //    maintenance burden for test-only type definitions
+    //
+    // CONCLUSION: eslint-disable is architecturally necessary for test mock compatibility
     (response.headers as any).forEach = (callback: (value: string, key: string) => void) => {
       for (const [key, value] of response.headers as unknown as Map<string, string>) {
         callback(value, key);

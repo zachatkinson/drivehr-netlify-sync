@@ -445,6 +445,17 @@ export class PlaywrightScraper {
       // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
       // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
       // executes this code in the browser context where these globals are standard and safe.
+      //
+      // ALTERNATIVES CONSIDERED:
+      // 1. External DOM library (jsdom): Would require significant refactoring and lose browser
+      //    context benefits like actual rendering, JavaScript execution, and CSS application
+      // 2. Type declarations for browser globals: Cannot be used as this code runs in dual
+      //    contexts (Node.js compilation + browser execution) with conflicting global types
+      // 3. Separate browser-only TypeScript files: Would break the cohesive scraping logic
+      //    and complicate the build process with multiple compilation targets
+      //
+      // CONCLUSION: eslint-disable is architecturally necessary for browser context code
+      // execution within Playwright's page.evaluate() method.
       const jobs: RawJobData[] = [];
 
       // Common selectors for job listings
@@ -555,6 +566,17 @@ export class PlaywrightScraper {
       // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
       // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
       // executes this code in the browser context where these globals are standard and safe.
+      //
+      // ALTERNATIVES CONSIDERED:
+      // 1. External DOM library (jsdom): Would require significant refactoring and lose browser
+      //    context benefits like actual rendering, JavaScript execution, and CSS application
+      // 2. Type declarations for browser globals: Cannot be used as this code runs in dual
+      //    contexts (Node.js compilation + browser execution) with conflicting global types
+      // 3. Separate browser-only TypeScript files: Would break the cohesive scraping logic
+      //    and complicate the build process with multiple compilation targets
+      //
+      // CONCLUSION: eslint-disable is architecturally necessary for browser context code
+      // execution within Playwright's page.evaluate() method.
       const jobs: RawJobData[] = [];
       const scripts = document.querySelectorAll('script[type="application/ld+json"]');
 
@@ -631,6 +653,17 @@ export class PlaywrightScraper {
       // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
       // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
       // executes this code in the browser context where these globals are standard and safe.
+      //
+      // ALTERNATIVES CONSIDERED:
+      // 1. External DOM library (jsdom): Would require significant refactoring and lose browser
+      //    context benefits like actual rendering, JavaScript execution, and CSS application
+      // 2. Type declarations for browser globals: Cannot be used as this code runs in dual
+      //    contexts (Node.js compilation + browser execution) with conflicting global types
+      // 3. Separate browser-only TypeScript files: Would break the cohesive scraping logic
+      //    and complicate the build process with multiple compilation targets
+      //
+      // CONCLUSION: eslint-disable is architecturally necessary for browser context code
+      // execution within Playwright's page.evaluate() method.
       const jobs: RawJobData[] = [];
       const text = document.body.textContent || '';
 

@@ -1019,9 +1019,17 @@ describe('WordPress Client Service', () => {
       // Verify all operations succeeded
       expect(results[0]).toBeDefined();
       expect(results[1]).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+      // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
+      // guarantees non-null state. Non-null assertion is safe and more readable than
+      // additional conditional checks in test code. Alternative optional chaining would
+      // mask test failures rather than providing clear assertion points.
       expect(results[0]!.success).toBe(true);
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+      // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
+      // guarantees non-null state. Non-null assertion is safe and more readable than
+      // additional conditional checks in test code. Alternative optional chaining would
+      // mask test failures rather than providing clear assertion points.
       expect(results[1]!.success).toBe(true);
       expect(results[2]).toBe(true);
       expect(results[3]).toBe(true);

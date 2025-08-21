@@ -114,8 +114,11 @@ temp/
 .netlify
 
 # Vitest
-coverage
+coverage/
+coverage-cli/
+lcov-viewer/
 test-report.junit.xml
+*.junit.xml
 
 # Husky
 .husky/_

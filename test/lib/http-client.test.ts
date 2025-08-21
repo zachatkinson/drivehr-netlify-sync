@@ -32,6 +32,28 @@ import {
 import { HttpTestUtils } from '../shared/http-test-utils.js';
 
 /**
+ * Mock Response interface for testing
+ *
+ * Provides proper typing for mock response objects used in tests,
+ * avoiding the need for 'any' types while maintaining compatibility
+ * with node-fetch Response interface requirements.
+ *
+ * @since 1.0.0
+ */
+interface MockResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Map<string, string> & {
+    forEach: (
+      callbackfn: (value: string, key: string, map: Map<string, string>) => void,
+      thisArg?: unknown
+    ) => void;
+  };
+  text: ReturnType<typeof vi.fn>;
+}
+
+/**
  * Mock node-fetch for controlled testing
  */
 vi.mock('node-fetch');
@@ -73,24 +95,26 @@ describe('HttpClient', () => {
       const testData = { id: 1, name: 'Test Item' };
       const mockFetch = HttpTestUtils.getMockFetch();
 
-      // Create a simple response mock
-      const mockResponse = {
+      const mockResponse: MockResponse = {
         ok: true,
         status: 200,
         statusText: 'OK',
-        headers: new Map([['content-type', 'application/json']]),
+        headers: new Map([['content-type', 'application/json']]) as Map<string, string> & {
+          forEach: (callback: (value: string, key: string) => void) => void;
+        },
         text: vi.fn().mockResolvedValue(JSON.stringify(testData)),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
+      };
 
       // Mock headers.forEach for header extraction
-      mockResponse.headers.forEach = (callback: (value: string, key: string) => void) => {
+      mockResponse.headers.forEach = (
+        callbackfn: (value: string, key: string, map: Map<string, string>) => void
+      ) => {
         for (const [key, value] of mockResponse.headers) {
-          callback(value, key);
+          callbackfn(value, key, mockResponse.headers);
         }
       };
 
-      mockFetch.mockResolvedValue(mockResponse);
+      mockFetch.mockResolvedValue(mockResponse as unknown as import('node-fetch').Response);
 
       const response = await client.get('/test');
 
@@ -241,24 +265,27 @@ describe('HttpClient', () => {
 
     it('should handle JSON parsing errors gracefully', async () => {
       const mockFetch = HttpTestUtils.getMockFetch();
-      const response = {
+
+      const mockResponse: MockResponse = {
         ok: true,
         status: 200,
         statusText: 'OK',
-        headers: new Map([['content-type', 'application/json']]),
+        headers: new Map([['content-type', 'application/json']]) as Map<string, string> & {
+          forEach: (callback: (value: string, key: string) => void) => void;
+        },
         text: vi.fn().mockResolvedValue('invalid json {'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
+      };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (response.headers as any).forEach = (callback: (value: string, key: string) => void) => {
-        for (const [key, value] of response.headers as unknown as Map<string, string>) {
-          callback(value, key);
+      // Mock headers.forEach for header extraction
+      mockResponse.headers.forEach = (
+        callbackfn: (value: string, key: string, map: Map<string, string>) => void
+      ) => {
+        for (const [key, value] of mockResponse.headers) {
+          callbackfn(value, key, mockResponse.headers);
         }
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockFetch.mockResolvedValue(response as any);
+      mockFetch.mockResolvedValue(mockResponse as unknown as import('node-fetch').Response);
 
       const result = await client.get('/test');
 
@@ -433,8 +460,21 @@ describe('RetryStrategy', () => {
 
 describe('HttpClientError', () => {
   it('should create error with all properties', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = { status: 404 } as any;
+    interface MockHttpResponse {
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      data: unknown;
+      success: boolean;
+    }
+
+    const response: MockHttpResponse = {
+      status: 404,
+      statusText: 'Not Found',
+      headers: {},
+      data: null,
+      success: false,
+    };
 
     const error = new HttpClientError('Not Found', 404, 'Not Found', response, false, true);
 

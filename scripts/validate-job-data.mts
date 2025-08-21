@@ -46,7 +46,7 @@ interface ValidationIssue {
   field: string;
   rule: string;
   message: string;
-  value?: any;
+  value?: string;
   suggestion?: string;
 }
 
@@ -581,7 +581,7 @@ function generateReport(
 /**
  * Generate actionable recommendations
  */
-function generateRecommendations(issues: ValidationIssue[], summary: any): string[] {
+function generateRecommendations(issues: ValidationIssue[], summary: ValidationReport['summary']): string[] {
   const recommendations: string[] = [];
 
   if (summary.errors > 0) {

@@ -15,7 +15,7 @@ import {
 } from '../../src/services/playwright-scraper.js';
 import type { DriveHrApiConfig } from '../../src/types/api.js';
 import type { RawJobData } from '../../src/types/job.js';
-import type { Logger } from '../../src/types/common.js';
+import type { Logger } from '../../src/lib/logger.js';
 import type { Browser } from 'playwright';
 import * as logger from '../../src/lib/logger.js';
 import * as utils from '../../src/lib/utils.js';

@@ -452,9 +452,14 @@ describe('HTML Parser Service', () => {
         expect(expectedFirstJob).toBeDefined();
         expect(expectedSecondJob).toBeDefined();
 
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertions
+        // guarantees non-null state for job objects. Non-null assertion provides clearer test
+        // intent and better error messages than optional chaining in test validation.
         HtmlParserTestUtils.verifyJobData(firstJob!, expectedFirstJob!);
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertions
+        // guarantees non-null state for job objects. Non-null assertion provides clearer test
+        // intent and better error messages than optional chaining in test validation.
         HtmlParserTestUtils.verifyJobData(secondJob!, expectedSecondJob!);
       });
 
@@ -469,7 +474,9 @@ describe('HTML Parser Service', () => {
         expect(job).toBeDefined();
         expect(expectedJob).toBeDefined();
 
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertions
+        // guarantees non-null state for job objects. Non-null assertion provides clearer test
+        // intent and better error messages than optional chaining in test validation.
         HtmlParserTestUtils.verifyJobData(job!, expectedJob!);
       });
 
@@ -480,15 +487,30 @@ describe('HTML Parser Service', () => {
         expect(result).toHaveLength(1);
         const job = result[0];
         expect(job).toBeDefined();
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
+        // guarantees non-null state. Direct property access provides clearer test assertions
+        // than conditional checks, improving test readability and error reporting.
         expect(job!.title).toBe('DevOps Engineer');
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
+        // guarantees non-null state. Direct property access provides clearer test assertions
+        // than conditional checks, improving test readability and error reporting.
         expect(job!.description).toBe('Manage infrastructure and deployment pipelines.');
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
+        // guarantees non-null state. Direct property access provides clearer test assertions
+        // than conditional checks, improving test readability and error reporting.
         expect(job!.department).toBe('');
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
+        // guarantees non-null state. Direct property access provides clearer test assertions
+        // than conditional checks, improving test readability and error reporting.
         expect(job!.location).toBe('');
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
+        // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
+        // guarantees non-null state. Direct property access provides clearer test assertions
+        // than conditional checks, improving test readability and error reporting.
         expect(job!.type).toBe('');
       });
 
