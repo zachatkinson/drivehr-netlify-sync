@@ -331,6 +331,7 @@ jobs:
           fail_ci_if_error: false
           disable_search: true
           verbose: true
+          root_dir: ./
           working-directory: ./
 
       - name: Upload aggregated coverage summary
