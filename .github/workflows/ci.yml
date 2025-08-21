@@ -85,8 +85,8 @@ jobs:
             pattern: 'test/lib/telemetry-init.test.ts'
 
           # Service Tests
-          - name: 'Job-Fetcher-Service'
-            pattern: 'test/services/job-fetcher.test.ts'
+          - name: 'Job-Fetcher-Services'
+            pattern: 'test/services/job-fetcher/**/*.test.ts'
           - name: 'HTML-Parser-Service'
             pattern: 'test/services/html-parser.test.ts'
           - name: 'WordPress-Client-Service'
