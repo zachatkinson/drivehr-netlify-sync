@@ -1,119 +1,108 @@
-# Deployment Guide - DriveHR Netlify Sync
+# Deployment Guide
 
-**Complete deployment instructions for the GitHub Actions + Netlify
-architecture**
+> **Simple, straightforward deployment instructions for DriveHR Netlify Sync**
+
+## 🚀 Quick Deployment
+
+Our serverless architecture makes deployment remarkably simple - just connect
+your repository to Netlify and configure environment variables. No complex
+infrastructure or orchestration required.
 
 ## 📋 Prerequisites
 
-Before deploying, ensure you have:
+- **GitHub Repository** - Fork or clone this repository
+- **Netlify Account** - Free tier sufficient for most use cases
+- **WordPress Site** - With webhook endpoint configured
+- **DriveHR Company ID** - UUID format from your DriveHR account
 
-- ✅ GitHub repository with Actions enabled
-- ✅ Netlify account with site deployed
-- ✅ WordPress site with webhook endpoint configured
-- ✅ DriveHR company ID (UUID format)
+## 🌐 Netlify Deployment
 
-## 🔐 GitHub Actions Secrets Configuration
+### 1. Connect Repository to Netlify
 
-Navigate to your GitHub repository → Settings → Secrets and variables → Actions,
-then add these **Repository Secrets**:
+**Option A: Netlify Dashboard**
 
-### Required Secrets
+1. Login to [Netlify](https://netlify.com)
+2. Click "New site from Git"
+3. Choose GitHub and authorize access
+4. Select your `drivehr-netlify-sync` repository
+5. Configure build settings:
+   - **Build command**: `pnpm run build`
+   - **Publish directory**: `dist`
+   - **Functions directory**: `dist/functions` (auto-detected)
 
-| Secret Name           | Description                                      | Example Value                                                |
-| --------------------- | ------------------------------------------------ | ------------------------------------------------------------ |
-| `DRIVEHR_COMPANY_ID`  | Your DriveHR company UUID                        | `12345678-1234-5678-9abc-123456789012`                       |
-| `WEBHOOK_SECRET`      | Shared secret for HMAC signatures (min 32 chars) | `your-super-secure-webhook-secret-key-here`                  |
-| `WP_API_URL`          | WordPress webhook endpoint URL                   | `https://yoursite.com/webhook/drivehr-sync`                  |
-| `NETLIFY_WEBHOOK_URL` | Netlify function URL for sync-jobs               | `https://your-site.netlify.app/.netlify/functions/sync-jobs` |
-
-### Optional Secrets
-
-| Secret Name       | Description              | Default Value |
-| ----------------- | ------------------------ | ------------- |
-| `LOG_LEVEL`       | Logging verbosity        | `info`        |
-| `SCRAPER_TIMEOUT` | Playwright timeout in ms | `30000`       |
-| `SCRAPER_RETRIES` | Number of retry attempts | `3`           |
-
-### Setting GitHub Secrets
+**Option B: Netlify CLI**
 
 ```bash
-# Using GitHub CLI (if available)
-gh secret set DRIVEHR_COMPANY_ID --body "your-company-uuid"
-gh secret set WEBHOOK_SECRET --body "your-webhook-secret"
-gh secret set WP_API_URL --body "https://yoursite.com/webhook/drivehr-sync"
-gh secret set NETLIFY_WEBHOOK_URL --body "https://your-site.netlify.app/.netlify/functions/sync-jobs"
-```
+# Install Netlify CLI
+npm install -g netlify-cli
 
-## 🌐 Netlify Configuration
+# Login to Netlify
+netlify login
 
-### Environment Variables
+# Initialize site from repository root
+netlify init
 
-In your Netlify site dashboard → Site settings → Environment variables, add:
-
-| Variable Name             | Description                    | Example Value                               |
-| ------------------------- | ------------------------------ | ------------------------------------------- |
-| `DRIVEHR_COMPANY_ID`      | Your DriveHR company UUID      | `12345678-1234-5678-9abc-123456789012`      |
-| `WEBHOOK_SECRET`          | Same secret as GitHub Actions  | `your-super-secure-webhook-secret-key-here` |
-| `WP_API_URL`              | WordPress webhook endpoint URL | `https://yoursite.com/webhook/drivehr-sync` |
-| `WP_USERNAME`             | WordPress username             | `api-user`                                  |
-| `WP_APPLICATION_PASSWORD` | WordPress application password | `xxxx xxxx xxxx xxxx`                       |
-| `LOG_LEVEL`               | Logging verbosity              | `info`                                      |
-| `ENVIRONMENT`             | Deployment environment         | `production`                                |
-
-### Netlify Site Settings
-
-1. **Build Settings**:
-   - Build command: `pnpm run build`
-   - Publish directory: `dist`
-   - Functions directory: `dist/functions`
-
-2. **Deploy Settings**:
-   - Branch to deploy: `main`
-   - Auto-deploy: Enabled
-
-## 🔧 WordPress Configuration
-
-### Application Passwords
-
-1. Go to WordPress Admin → Users → Your Profile
-2. Scroll to "Application Passwords"
-3. Create new application password for "DriveHR Sync"
-4. Copy the generated password (format: `xxxx xxxx xxxx xxxx`)
-5. Use this as `WP_APPLICATION_PASSWORD` in Netlify
-
-### WordPress Webhook Endpoint Verification
-
-Verify your WordPress webhook endpoint exists:
-
-```bash
-curl -X GET "https://yoursite.com/webhook/drivehr-sync" \
-  -H "Accept: application/json"
-```
-
-This should return information about the webhook endpoint (or a 404 if the
-plugin isn't installed).
-
-## 🚀 Deployment Steps
-
-### 1. Deploy to Netlify
-
-```bash
-# Option A: Auto-deploy (push to main branch)
-git push origin main
-
-# Option B: Manual deploy via CLI
+# Deploy
 netlify deploy --prod
 ```
 
-### 2. Verify Function Deployment
+### 2. Configure Environment Variables
 
-Test the health check endpoint:
+In your Netlify site dashboard → **Site settings** → **Environment variables**:
+
+| Variable             | Value                                       | Required |
+| -------------------- | ------------------------------------------- | -------- |
+| `DRIVEHR_COMPANY_ID` | `your-uuid-from-drivehr`                    | ✅       |
+| `WP_API_URL`         | `https://yoursite.com/webhook/drivehr-jobs` | ✅       |
+| `WEBHOOK_SECRET`     | `secure-secret-32-chars-minimum`            | ✅       |
+| `NODE_ENV`           | `production`                                | ✅       |
+| `LOG_LEVEL`          | `info`                                      | ❌       |
+
+#### Setting Environment Variables
+
+**Via Netlify Dashboard:**
+
+1. Go to **Site settings** → **Environment variables**
+2. Click **Add a variable**
+3. Enter name and value
+4. Click **Create variable**
+
+**Via Netlify CLI:**
 
 ```bash
-curl https://your-site.netlify.app/.netlify/functions/health-check
+netlify env:set DRIVEHR_COMPANY_ID "your-uuid-here"
+netlify env:set WP_API_URL "https://yoursite.com/webhook/endpoint"
+netlify env:set WEBHOOK_SECRET "your-secure-secret-key"
+netlify env:set NODE_ENV "production"
 ```
 
-Expected response:
+### 3. Deploy and Verify
+
+**Automatic Deployment:**
+
+- Push to `main` branch triggers automatic deployment
+- Build process runs `pnpm run build`
+- Functions automatically deployed to `/.netlify/functions/`
+
+**Manual Deployment:**
+
+```bash
+# Deploy to production
+netlify deploy --prod
+
+# Deploy preview
+netlify deploy
+```
+
+## ✅ Verification Steps
+
+### 1. Health Check
+
+```bash
+curl https://your-site-name.netlify.app/.netlify/functions/health-check
+```
+
+**Expected Response:**
 
 ```json
 {
@@ -122,158 +111,281 @@ Expected response:
     "status": "healthy",
     "environment": "production",
     "wordpress_configured": true,
-    "webhook_configured": true,
-    "architecture": "github-actions-scraper",
-    "version": "2.0.0"
-  },
-  "requestId": "webhook_xxxxx",
-  "timestamp": "2024-01-01T12:00:00.000Z"
+    "drivehr_configured": true,
+    "architecture": "netlify-functions"
+  }
 }
 ```
 
-### 3. Test GitHub Actions Workflow
+### 2. Test Manual Trigger
 
-#### Manual Trigger Test
+Generate HMAC signature:
 
 ```bash
-curl -X POST "https://your-site.netlify.app/.netlify/functions/manual-trigger" \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Signature: sha256=$(echo -n '{"force_sync":true}' | openssl dgst -sha256 -hmac 'your-webhook-secret' -binary | base64)" \
-  -d '{"force_sync": true}'
+# Generate test payload signature
+echo -n '{"force_sync": false, "reason": "deployment test"}' | \
+  openssl dgst -sha256 -hmac "your-webhook-secret" -binary | \
+  base64
 ```
 
-#### Scheduled Run Test
+Test endpoint:
 
-The workflow runs automatically based on the cron schedule in
-`.github/workflows/scrape-jobs.yml`. Monitor:
+```bash
+curl -X POST https://your-site-name.netlify.app/.netlify/functions/manual-trigger \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Signature: sha256=YOUR_GENERATED_SIGNATURE" \
+  -d '{"force_sync": false, "reason": "deployment test"}'
+```
 
-1. GitHub → Actions tab → Check workflow runs
-2. Netlify → Functions tab → Check sync-jobs logs
+**Expected Response:**
 
-## 📊 Monitoring & Verification
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Manual sync triggered successfully",
+    "timestamp": "2025-01-21T12:00:00.000Z"
+  }
+}
+```
 
-### GitHub Actions Logs
+### 3. Monitor Function Logs
 
-Monitor workflow execution:
+**Via Netlify Dashboard:**
 
-1. Go to GitHub → Actions tab
-2. Click on latest "Scrape and Sync Jobs" workflow
-3. Check each step for errors or issues
+1. Go to **Functions** tab
+2. Click on function name
+3. View **Function log**
 
-### Netlify Function Logs
+**Via CLI:**
 
-Monitor function execution:
+```bash
+netlify logs:function sync-jobs --tail
+```
 
-1. Go to Netlify site dashboard → Functions tab
-2. Click on function name (sync-jobs, health-check, manual-trigger)
-3. View recent invocations and logs
+## 🔧 Configuration Details
 
-### WordPress Verification
+### Required Environment Variables
 
-Check if jobs are being synchronized:
+#### `DRIVEHR_COMPANY_ID`
 
-1. Go to WordPress Admin → Posts (or custom post type)
-2. Verify new job postings appear
-3. Check post metadata for sync information
+- **Format**: UUID (e.g., `123e4567-e89b-12d3-a456-426614174000`)
+- **Purpose**: Identifies your company in DriveHR system
+- **Where to find**: DriveHR admin panel or career page URL
+
+#### `WP_API_URL`
+
+- **Format**: Full URL (e.g., `https://yoursite.com/wp-json/drivehr/v1/sync`)
+- **Purpose**: WordPress webhook endpoint for job data
+- **Requirements**: Must accept POST requests with JSON payload
+
+#### `WEBHOOK_SECRET`
+
+- **Format**: String (minimum 32 characters)
+- **Purpose**: HMAC signature validation for security
+- **Generate**: `openssl rand -hex 32`
+
+#### `NODE_ENV`
+
+- **Format**: `production` | `development` | `staging`
+- **Purpose**: Controls logging, security headers, and error handling
+- **Production**: Use `production` for live deployment
+
+### Optional Environment Variables
+
+#### `LOG_LEVEL`
+
+- **Default**: `info`
+- **Options**: `error` | `warn` | `info` | `debug` | `trace`
+- **Purpose**: Controls logging verbosity
 
 ## 🔍 Troubleshooting
 
-### Common Issues
+### Build Failures
 
-#### 1. Build Failures
-
-- **Issue**: TypeScript compilation errors
-- **Solution**: Run `pnpm run typecheck` locally and fix errors
-
-#### 2. Function Import Errors
-
-- **Issue**: Cannot resolve module imports
-- **Solution**: Check import paths use `.js` extensions
-
-#### 3. HMAC Signature Failures
-
-- **Issue**: Invalid webhook signature errors
-- **Solution**: Verify WEBHOOK_SECRET matches in both GitHub and Netlify
-
-#### 4. WordPress Connection Failures
-
-- **Issue**: HTTP 401/403 errors
-- **Solution**: Verify WP_APPLICATION_PASSWORD and user permissions
-
-#### 5. GitHub Actions Permission Denied
-
-- **Issue**: Cannot trigger workflow
-- **Solution**: Check GITHUB_TOKEN has `actions:write` permission
-
-### Debug Mode
-
-Enable debug logging by setting `LOG_LEVEL=debug` in environment variables.
-
-### Health Check Diagnostics
-
-The health check endpoint provides detailed system status:
+**TypeScript Errors:**
 
 ```bash
-# Check all system dependencies
-curl https://your-site.netlify.app/.netlify/functions/health-check | jq '.'
+# Run locally to identify issues
+pnpm run typecheck
+pnpm run lint
 ```
 
-## 🔄 Workflow Schedule
+**Dependency Issues:**
 
-The scraper runs automatically based on the cron schedule in the GitHub Actions
-workflow:
-
-- **Default**: Every 6 hours (`0 */6 * * *`)
-- **Timezone**: UTC
-- **Manual triggers**: Available via API endpoint
-
-### Customizing Schedule
-
-Edit `.github/workflows/scrape-jobs.yml`:
-
-```yaml
-on:
-  schedule:
-    # Run every 4 hours instead of 6
-    - cron: '0 */4 * * *'
+```bash
+# Clear cache and reinstall
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
 ```
 
-## 📈 Performance Optimization
+### Function Errors
 
-### Function Cold Starts
+**Environment Variables:**
 
-- Functions auto-scale based on demand
-- Cold start time: ~2-3 seconds
-- Warm execution time: ~200-500ms
+- Verify all required variables are set in Netlify
+- Check variable names match exactly (case-sensitive)
+- Ensure no trailing spaces in values
 
-### Scraping Performance
+**HMAC Signature Issues:**
 
-- Average scraping time: 30-60 seconds
-- Timeout limit: 5 minutes (GitHub Actions)
-- Retry logic: 3 attempts with exponential backoff
+- Verify webhook secret matches between systems
+- Ensure signature format: `sha256=hexdigest`
+- Use UTF-8 encoding for payload
 
-## 🔒 Security Considerations
+**WordPress Connectivity:**
 
-### HMAC Signature Validation
+- Test WordPress endpoint directly
+- Verify URL accessibility from external networks
+- Check WordPress webhook handler implementation
 
-- All webhook requests must include valid HMAC signatures
-- Signatures use SHA-256 algorithm
-- Shared secret must be at least 32 characters
+### Common Issues
 
-### CORS Configuration
+#### "Configuration not loaded" Error
 
-- GitHub Actions origins allowed
-- Specific headers and methods whitelisted
-- Preflight request handling
+**Cause**: Missing required environment variables  
+**Fix**: Verify all required variables are set in Netlify dashboard
+
+#### "Invalid webhook signature" Error
+
+**Cause**: HMAC signature mismatch  
+**Fix**: Ensure `WEBHOOK_SECRET` matches in all systems
+
+#### Function timeout
+
+**Cause**: WordPress endpoint slow/unresponsive  
+**Fix**: Optimize WordPress webhook handler, increase timeout if needed
+
+#### "Module not found" Error
+
+**Cause**: Build or import path issues  
+**Fix**: Check import paths use `.js` extensions, run build locally
+
+## 📊 Monitoring
+
+### Function Performance
+
+**Netlify Analytics:**
+
+- Function invocation count
+- Execution duration
+- Error rates
+- Memory usage
+
+**Built-in Monitoring:**
+
+```bash
+# View recent function logs
+netlify logs:function sync-jobs --since="1h"
+
+# Monitor specific function
+netlify logs:function health-check --tail
+```
+
+### Health Monitoring
+
+**Automated Health Checks:** Set up external monitoring (e.g., UptimeRobot) to
+check:
+
+```
+GET https://your-site.netlify.app/.netlify/functions/health-check
+```
+
+**Expected Response Time**: < 2 seconds  
+**Expected Uptime**: 99.9%
+
+## 🔄 Updates & Maintenance
+
+### Updating Code
+
+1. **Push Changes**: Commit and push to `main` branch
+2. **Auto-Deploy**: Netlify automatically builds and deploys
+3. **Verify**: Check health endpoint after deployment
+4. **Monitor**: Watch function logs for any issues
+
+### Environment Updates
+
+```bash
+# Update environment variables
+netlify env:set VARIABLE_NAME "new-value"
+
+# List current variables
+netlify env:list
+
+# Trigger redeploy with new variables
+netlify deploy --prod --build
+```
+
+### Rollback
+
+**Via Netlify Dashboard:**
+
+1. Go to **Deploys** tab
+2. Find previous successful deploy
+3. Click **Publish deploy**
+
+**Via CLI:**
+
+```bash
+# List recent deploys
+netlify api listSiteDeploys --site-id="your-site-id"
+
+# Rollback to specific deploy
+netlify api restoreSiteDeploy --site-id="your-site-id" --deploy-id="deploy-id"
+```
+
+## 🔐 Security Considerations
+
+### Webhook Security
+
+- Always use HTTPS endpoints
+- Implement proper HMAC validation in WordPress
+- Use strong, unique webhook secrets
+- Regularly rotate webhook secrets
 
 ### Environment Variables
 
-- Secrets stored securely in GitHub/Netlify
-- No secrets logged or exposed in outputs
-- Application passwords preferred over user passwords
+- Never commit secrets to version control
+- Use Netlify's encrypted environment variables
+- Limit access to production environment settings
+- Monitor for leaked credentials
+
+### Network Security
+
+- WordPress endpoints should validate signatures
+- Consider IP allowlisting if possible
+- Enable WordPress security plugins
+- Use CDN/WAF for additional protection
+
+## 📈 Scaling
+
+### Performance Optimization
+
+- Functions auto-scale based on demand
+- No infrastructure management required
+- Cold start optimization built-in
+
+### Cost Optimization
+
+- Netlify Free tier: 125,000 function calls/month
+- Pro tier: 2,000,000 function calls/month
+- Monitor usage in Netlify analytics
+
+### High Availability
+
+- Netlify provides 99.9% uptime SLA
+- Global CDN distribution
+- Automatic failover and redundancy
 
 ---
 
-**Deployment Version**: 2.0  
-**Last Updated**: January 2025  
-**Architecture**: GitHub Actions + Netlify Functions
+**Deployment is complete! Your DriveHR sync service is now live and ready to
+process job synchronization requests.**
+
+## 📞 Support
+
+- **Issues**:
+  [GitHub Issues](https://github.com/zachatkinson/drivehr-netlify-sync/issues)
+- **Documentation**: [Project Documentation](./README.md)
+- **Health Check**: Monitor `/.netlify/functions/health-check` endpoint
+- **Logs**: Use `netlify logs:function function-name` for troubleshooting

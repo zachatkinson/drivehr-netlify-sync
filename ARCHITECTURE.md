@@ -1,457 +1,699 @@
-# DriveHR Netlify Sync - Architecture Documentation
+# Architecture Documentation
 
-**Version 2.0 - GitHub Actions + Netlify Functions**
+> **DriveHR Netlify Sync - System Architecture & Design Principles**
 
 ## 📋 Table of Contents
 
-- [System Overview](#system-overview)
-- [Architecture Components](#architecture-components)
-- [Data Flow](#data-flow)
-- [Security Model](#security-model)
-- [Technology Stack](#technology-stack)
-- [Deployment Strategy](#deployment-strategy)
-- [Error Handling](#error-handling)
-- [Monitoring & Observability](#monitoring--observability)
-- [Performance Considerations](#performance-considerations)
-- [Migration from Legacy](#migration-from-legacy)
+- [System Overview](#-system-overview)
+- [Architecture Principles](#-architecture-principles)
+- [System Components](#-system-components)
+- [Data Flow](#-data-flow)
+- [Service Layer](#-service-layer)
+- [Security Architecture](#-security-architecture)
+- [Error Handling Strategy](#-error-handling-strategy)
+- [Performance & Scalability](#-performance--scalability)
+- [Monitoring & Observability](#-monitoring--observability)
+- [Type System](#-type-system)
+- [Testing Architecture](#-testing-architecture)
 
 ## 🎯 System Overview
 
-DriveHR Netlify Sync is a modernized job synchronization service that employs a
-distributed architecture with GitHub Actions for job scraping and Netlify
-Functions for webhook processing. This design separates concerns, improves
-reliability, and enables horizontal scaling.
+DriveHR Netlify Sync is a **serverless job synchronization service** built on
+Netlify Functions that provides secure, reliable job data synchronization
+between DriveHR's career portal and WordPress sites through webhook integration.
 
-### Core Principles
+### Core Architecture
 
-- **Separation of Concerns**: Scraping and processing are decoupled
-- **Event-Driven Architecture**: Webhook-based communication between components
-- **Security by Design**: HMAC signature validation and comprehensive security
+```mermaid
+graph TB
+    subgraph "External Systems"
+        EXT1[External Triggers]
+        DH[DriveHR Career Portal]
+        WP[WordPress Site]
+    end
+
+    subgraph "Netlify Functions Layer"
+        HF[health-check.mts]
+        SF[sync-jobs.mts]
+        MT[manual-trigger.mts]
+    end
+
+    subgraph "Service Layer"
+        JF[Job Fetcher Service]
+        HP[HTML Parser Service]
+        WC[WordPress Client]
+        HC[HTTP Client]
+    end
+
+    subgraph "Infrastructure Layer"
+        CFG[Config Service]
+        LOG[Logger Service]
+        TEL[Telemetry Service]
+        ENV[Environment Utilities]
+    end
+
+    EXT1 -->|HMAC Signed Request| SF
+    EXT1 -->|HMAC Signed Request| MT
+    EXT1 -->|Health Check| HF
+
+    SF --> JF
+    MT --> JF
+    JF --> HP
+    JF --> DH
+    SF --> WC
+    WC --> WP
+
+    SF --> CFG
+    SF --> LOG
+    SF --> TEL
+    HF --> CFG
+    HF --> LOG
+    MT --> CFG
+    MT --> LOG
+
+    JF --> HC
+    WC --> HC
+    HP --> ENV
+```
+
+### Key Characteristics
+
+- **Serverless Architecture**: Zero-infrastructure Netlify Functions
+- **Event-Driven**: Webhook-triggered job synchronization
+- **Secure by Design**: HMAC signature validation and enterprise security
   headers
-- **Observability First**: Request tracing and structured logging throughout
-- **Test-Driven Development**: 333+ tests ensuring reliability
+- **Type-Safe**: Full TypeScript with strict configuration
+- **Observable**: Comprehensive logging, health checks, and telemetry
+- **Testable**: 80%+ test coverage with comprehensive test suite
 
-## 🏗️ Architecture Components
+## 🏛️ Architecture Principles
 
-### 1. GitHub Actions Scraper
+### 1. **Separation of Concerns**
 
-**Purpose**: Automated job data extraction from DriveHR careers pages
+Each component has a single, well-defined responsibility:
 
-**Key Files**:
+- Functions handle HTTP requests and responses
+- Services encapsulate business logic
+- Utilities provide cross-cutting concerns
 
-- `.github/workflows/scrape-jobs.yml` - Workflow definition
-- `src/scripts/scrape-and-sync.ts` - Main scraping script
-- `src/services/playwright-scraper.ts` - Browser automation service
-- `playwright.config.ts` - Playwright configuration
+### 2. **Dependency Injection**
+
+Services receive dependencies through constructors, enabling:
+
+- Easy testing with mocks
+- Flexible configuration
+- Clear dependency relationships
+
+### 3. **Fail-Safe Design**
+
+- Graceful degradation under failure conditions
+- Comprehensive error handling and logging
+- Health checks for dependency validation
+
+### 4. **Security First**
+
+- All inputs validated and sanitized
+- HMAC signature validation for all webhooks
+- Comprehensive security headers
+- Principle of least privilege
+
+### 5. **Observability**
+
+- Structured logging with correlation IDs
+- Performance metrics and telemetry
+- Health monitoring and alerting
+- Distributed tracing support
+
+## 🏗️ System Components
+
+### Netlify Functions Layer
+
+#### `health-check.mts`
+
+**Purpose**: System health monitoring and configuration validation
+
+```typescript
+export const handler = async (
+  event: HandlerEvent
+): Promise<HandlerResponse> => {
+  // Validates all system dependencies
+  // Returns comprehensive health status
+  // Includes performance metrics
+};
+```
 
 **Responsibilities**:
 
-- Schedule-based job scraping (configurable intervals)
-- Browser automation with Playwright for SPA handling
-- Data normalization and validation
-- Secure webhook payload delivery to Netlify
-- Error reporting and retry logic
+- Environment configuration validation
+- External dependency connectivity checks
+- System performance metrics
+- Service availability status
 
-**Execution Environment**:
+#### `sync-jobs.mts`
 
-- **Runtime**: Node.js 18+ on GitHub-hosted runners
-- **Browser**: Chromium (headless mode)
-- **Trigger**: Cron schedule or manual workflow dispatch
-- **Secrets**: Repository secrets for sensitive configuration
+**Purpose**: Main job synchronization webhook processor
 
-### 2. Netlify Functions Layer
+```typescript
+export const handler = async (
+  event: HandlerEvent
+): Promise<HandlerResponse> => {
+  // Validates HMAC signatures
+  // Fetches jobs from DriveHR
+  // Synchronizes with WordPress
+  // Returns sync statistics
+};
+```
 
-**Purpose**: Lightweight webhook processing and WordPress integration
+**Responsibilities**:
 
-**Function Endpoints**:
+- Webhook signature validation
+- Job data retrieval and processing
+- WordPress integration
+- Sync result reporting
 
-#### `sync-jobs.mts` - Primary Webhook Receiver
+#### `manual-trigger.mts`
 
-- **Method**: POST
-- **Path**: `/.netlify/functions/sync-jobs`
-- **Purpose**: Receives job data from GitHub Actions and forwards to WordPress
-- **Features**: HMAC validation, CORS handling, comprehensive error responses
+**Purpose**: Administrative manual synchronization trigger
 
-#### `health-check.mts` - System Health Monitoring
+```typescript
+export const handler = async (
+  event: HandlerEvent
+): Promise<HandlerResponse> => {
+  // Validates admin privileges
+  // Triggers manual sync operations
+  // Provides detailed execution feedback
+};
+```
 
-- **Method**: GET
-- **Path**: `/.netlify/functions/health-check`
-- **Purpose**: System health validation and configuration verification
-- **Features**: Dependency checks, environment validation, monitoring metrics
+**Responsibilities**:
 
-#### `manual-trigger.mts` - On-Demand Workflow Triggers
+- Administrative access control
+- Manual sync triggering
+- Operation auditing and logging
+- Status reporting
 
-- **Method**: POST
-- **Path**: `/.netlify/functions/manual-trigger`
-- **Purpose**: Manually trigger GitHub Actions scraping workflow
-- **Features**: GitHub API integration, force sync options, authentication
+### Service Layer Architecture
 
-### 3. Service Layer
+#### Job Fetcher Service (`job-fetcher.ts`)
 
-**Core Services**:
+**Purpose**: DriveHR job data retrieval and normalization
 
-#### WordPress Client (`wordpress-client.ts`)
+```typescript
+class JobFetcher implements IJobFetcher {
+  constructor(
+    private readonly httpClient: IHttpClient,
+    private readonly htmlParser: IHtmlParser,
+    private readonly logger: ILogger
+  ) {}
 
-- WordPress webhook integration
+  async fetchJobs(companyId: string): Promise<NormalizedJob[]> {
+    // Fetch HTML content from DriveHR
+    // Parse job data using HTML parser
+    // Normalize and validate job structures
+    // Return type-safe job objects
+  }
+}
+```
+
+**Key Features**:
+
+- HTML content retrieval from DriveHR career pages
+- CSS selector-based job data extraction
+- Job data normalization and validation
+- Error handling and retry logic
+
+#### HTML Parser Service (`html-parser.ts`)
+
+**Purpose**: Job data extraction from HTML content
+
+```typescript
+class HtmlParser implements IHtmlParser {
+  parseJobs(html: string, selectors: JobSelectors): RawJob[] {
+    // Load HTML into DOM parser
+    // Extract job data using CSS selectors
+    // Clean and normalize extracted data
+    // Return structured job objects
+  }
+}
+```
+
+**Key Features**:
+
+- CSS selector-based data extraction
+- HTML sanitization and cleaning
+- URL resolution and validation
+- Data structure normalization
+
+#### WordPress Client Service (`wordpress-client.ts`)
+
+**Purpose**: WordPress webhook integration and job synchronization
+
+```typescript
+class WordPressClient implements IWordPressClient {
+  constructor(
+    private readonly httpClient: IHttpClient,
+    private readonly config: IConfig,
+    private readonly logger: ILogger
+  ) {}
+
+  async syncJobs(jobs: NormalizedJob[], source: string): Promise<SyncResult> {
+    // Generate HMAC signature for webhook
+    // Send job data to WordPress endpoint
+    // Handle response and error conditions
+    // Return sync statistics
+  }
+}
+```
+
+**Key Features**:
+
 - HMAC-authenticated webhook delivery
-- Job data synchronization
-- Health check capabilities
 - Comprehensive error handling
-
-#### HTML Parser (`html-parser.ts`)
-
-- Job data extraction from HTML content
-- Configurable CSS selectors
-- Data normalization and validation
-- URL resolution and sanitization
-
-#### HTTP Client (`http-client.ts`)
-
-- Centralized HTTP request handling
-- Retry logic and timeout management
-- Request/response logging
-- Error boundary implementation
-
-#### Logger (`logger.ts`)
-
-- Structured logging with multiple levels
-- Request ID correlation
-- Multiple output formats (JSON/plain text)
-- Context-aware error reporting
-
-### 4. Type System
-
-**Type Definitions**:
-
-- **Job Types** (`job.ts`): Comprehensive job data structures
-- **API Types** (`api.ts`): HTTP request/response interfaces
-- **Common Types** (`common.ts`): Shared utilities and base types
-- **Config Types** (`config.ts`): Environment and configuration schemas
+- Retry logic with exponential backoff
+- Sync result tracking and reporting
 
 ## 🔄 Data Flow
 
-### 1. Scheduled Execution Flow
+### Primary Sync Flow
 
 ```mermaid
-graph TD
-    A[GitHub Actions Cron] --> B[Start Workflow]
-    B --> C[Setup Environment]
-    C --> D[Install Dependencies]
-    D --> E[Launch Playwright]
-    E --> F[Navigate to Careers Page]
-    F --> G[Extract Job Data]
-    G --> H[Normalize & Validate]
-    H --> I[Generate HMAC Signature]
-    I --> J[Send Webhook to Netlify]
-    J --> K[Netlify Function Receives]
-    K --> L[Validate HMAC Signature]
-    L --> M[Forward to WordPress]
-    M --> N[WordPress Processes Jobs]
-    N --> O[Return Success Response]
+sequenceDiagram
+    participant EXT as External Trigger
+    participant SF as sync-jobs Function
+    participant JF as Job Fetcher
+    participant HP as HTML Parser
+    participant DH as DriveHR Portal
+    participant WC as WordPress Client
+    participant WP as WordPress Site
+    participant LOG as Logger
+    participant TEL as Telemetry
+
+    EXT->>SF: POST with HMAC signature
+    SF->>SF: Validate webhook signature
+    SF->>LOG: Log request received
+    SF->>TEL: Start telemetry span
+
+    SF->>JF: fetchJobs(companyId)
+    JF->>DH: GET career page HTML
+    DH-->>JF: HTML content
+    JF->>HP: parseJobs(html, selectors)
+    HP-->>JF: Parsed job data
+    JF->>JF: Normalize and validate
+    JF-->>SF: NormalizedJob[]
+
+    SF->>WC: syncJobs(jobs, source)
+    WC->>WC: Generate HMAC signature
+    WC->>WP: POST webhook with jobs
+    WP-->>WC: Sync response
+    WC-->>SF: SyncResult
+
+    SF->>LOG: Log sync completion
+    SF->>TEL: End telemetry span
+    SF-->>EXT: Success response with stats
 ```
 
-### 2. Manual Trigger Flow
+### Health Check Flow
 
 ```mermaid
-graph TD
-    A[External System] --> B[POST /manual-trigger]
-    B --> C[Validate HMAC Signature]
-    C --> D[Extract Parameters]
-    D --> E[GitHub API Call]
-    E --> F[Dispatch Workflow Event]
-    F --> G[Follow Scheduled Flow]
-    G --> H[Return Trigger Response]
+sequenceDiagram
+    participant CLIENT as Client
+    participant HF as health-check Function
+    participant CFG as Config Service
+    participant WC as WordPress Client
+    participant JF as Job Fetcher
+    participant LOG as Logger
+
+    CLIENT->>HF: GET /health-check
+    HF->>CFG: validateConfig()
+    CFG-->>HF: Configuration status
+
+    HF->>WC: checkHealth()
+    WC->>WC: Test WordPress connectivity
+    WC-->>HF: WordPress health status
+
+    HF->>JF: checkHealth()
+    JF->>JF: Test DriveHR connectivity
+    JF-->>HF: DriveHR health status
+
+    HF->>HF: Aggregate health metrics
+    HF->>LOG: Log health check results
+    HF-->>CLIENT: Comprehensive health report
 ```
 
-### 3. Health Check Flow
-
-```mermaid
-graph TD
-    A[Health Check Request] --> B[Validate Environment]
-    B --> C[Check WordPress Connectivity]
-    C --> D[Verify GitHub Configuration]
-    D --> E[Test Webhook Endpoints]
-    E --> F[Generate Health Report]
-    F --> G[Return Status Response]
-```
-
-## 🔐 Security Model
+## 🛡️ Security Architecture
 
 ### Authentication & Authorization
 
-1. **HMAC Signature Validation**
-   - SHA-256 HMAC signatures on all webhook payloads
-   - Shared secret configuration via environment variables
-   - Timing-safe signature comparison to prevent timing attacks
+```typescript
+// HMAC Signature Validation
+const validateWebhookSignature = (
+  payload: string,
+  signature: string,
+  secret: string
+): boolean => {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload, 'utf8')
+    .digest('hex');
 
-2. **GitHub Actions Security**
-   - Repository secrets for sensitive configuration
-   - Minimal permission scopes for API access
-   - Secure workflow triggers with authentication
+  const providedSignature = signature.replace('sha256=', '');
 
-3. **WordPress Integration Security**
-   - Application passwords for WordPress authentication
-   - HTTPS-only communication
-   - Request timeout and retry limits
+  return crypto.timingSafeEqual(
+    Buffer.from(expectedSignature, 'hex'),
+    Buffer.from(providedSignature, 'hex')
+  );
+};
+```
 
-### Network Security
+### Security Headers Implementation
 
-1. **CORS Configuration**
-   - Restricted origins (GitHub.com domains)
-   - Specific allowed methods and headers
-   - Preflight request handling
+```typescript
+const securityHeaders = {
+  'Content-Security-Policy': "default-src 'self'",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+  'X-XSS-Protection': '1; mode=block',
+};
+```
 
-2. **Security Headers**
-   - Content Security Policy (CSP)
-   - X-Frame-Options: DENY
-   - X-Content-Type-Options: nosniff
-   - Referrer-Policy restrictions
-   - Permissions-Policy limitations
+### Input Validation Strategy
 
-3. **Request Validation**
-   - Input sanitization and validation
-   - JSON payload size limits
-   - Rate limiting considerations
+- **Schema Validation**: All inputs validated against TypeScript interfaces
+- **Sanitization**: HTML content sanitized before processing
+- **Type Guards**: Runtime type checking for external data
+- **Bounds Checking**: Array and string length validation
 
-## 🛠️ Technology Stack
+## ⚠️ Error Handling Strategy
 
-### Runtime & Languages
+### Error Classification
 
-- **Node.js 18+**: Runtime environment with ES modules
-- **TypeScript 5.0+**: Strict typing with modern ECMAScript features
-- **ES Modules**: Modern module system (.mts extensions)
+```typescript
+enum ErrorCategory {
+  VALIDATION = 'validation',
+  AUTHENTICATION = 'authentication',
+  NETWORK = 'network',
+  EXTERNAL_SERVICE = 'external_service',
+  CONFIGURATION = 'configuration',
+  SYSTEM = 'system',
+}
 
-### Testing & Quality
+class ApplicationError extends Error {
+  constructor(
+    message: string,
+    public readonly category: ErrorCategory,
+    public readonly statusCode: number,
+    public readonly details?: Record<string, unknown>
+  ) {
+    super(message);
+  }
+}
+```
 
-- **Vitest**: Fast unit and integration testing
-- **ESLint**: Code quality and style enforcement
-- **Prettier**: Consistent code formatting
-- **TypeScript Compiler**: Strict type checking
+### Error Handling Patterns
 
-### Browser Automation
-
-- **Playwright**: Modern browser automation framework
-- **Chromium**: Headless browser for scraping
-
-### Deployment & Infrastructure
-
-- **Netlify Functions**: Serverless function hosting
-- **GitHub Actions**: CI/CD and scheduled automation
-- **pnpm**: Fast, efficient package management
-
-### Monitoring & Observability
-
-- **Structured Logging**: JSON and plain text output formats
-- **Request Tracing**: Unique request ID generation
-- **Health Checks**: Endpoint-based system monitoring
-
-## 🚀 Deployment Strategy
-
-### GitHub Actions Deployment
-
-1. **Workflow Configuration**
-   - Scheduled execution (configurable cron)
-   - Manual dispatch triggers
-   - Secure secret management
-   - Multi-step job execution
-
-2. **Environment Setup**
-   - Node.js 18+ runtime
-   - Playwright browser installation
-   - Dependency caching for performance
-
-3. **Execution Strategy**
-   - Headless browser automation
-   - Error capture and reporting
-   - Webhook delivery with retries
-
-### Netlify Functions Deployment
-
-1. **Function Configuration**
-   - Modern Netlify Functions format
-   - ES module support
-   - TypeScript compilation
-   - Automatic dependency bundling
-
-2. **Environment Management**
-   - Netlify environment variables
-   - Secret configuration
-   - Multi-environment support (dev/staging/prod)
-
-3. **Deployment Pipeline**
-   - Git-based deployments
-   - Automatic function discovery
-   - Zero-downtime deployments
-
-## ⚠️ Error Handling
-
-### Error Categories
-
-1. **Scraping Errors**
-   - Page load failures
-   - Element not found errors
-   - Data extraction failures
-   - Browser automation timeouts
-
-2. **Network Errors**
-   - HTTP request failures
-   - Timeout errors
-   - DNS resolution issues
-   - Rate limiting responses
-
-3. **Validation Errors**
-   - Invalid HMAC signatures
-   - Malformed JSON payloads
-   - Missing required fields
-   - Type validation failures
-
-4. **Integration Errors**
-   - WordPress API failures
-   - GitHub API errors
-   - Authentication failures
-   - Configuration errors
-
-### Error Handling Strategies
-
-1. **Retry Logic**
-   - Exponential backoff for transient failures
-   - Maximum retry limits
-   - Circuit breaker patterns for persistent failures
-
-2. **Graceful Degradation**
-   - Partial success handling
-   - Fallback mechanisms
-   - Error boundary implementation
-
-3. **Error Reporting**
-   - Structured error logging
-   - Context preservation
-   - Request correlation tracking
-   - External monitoring integration
-
-## 📊 Monitoring & Observability
+1. **Graceful Degradation**: Functions continue operating with reduced
+   functionality
+2. **Circuit Breaker**: Prevent cascading failures with external services
+3. **Retry Logic**: Exponential backoff for transient failures
+4. **Error Boundaries**: Isolated error handling for each service layer
 
 ### Logging Strategy
 
-1. **Request Correlation**
-   - Unique request ID generation
-   - Distributed tracing across services
-   - Context-aware logging
+```typescript
+interface LogContext {
+  requestId: string;
+  functionName: string;
+  timestamp: string;
+  level: LogLevel;
+  message: string;
+  metadata?: Record<string, unknown>;
+  error?: Error;
+}
+```
 
-2. **Log Levels**
-   - ERROR: Critical failures requiring attention
-   - WARN: Important but non-critical issues
-   - INFO: General operational information
-   - DEBUG: Detailed debugging information
-   - TRACE: Fine-grained execution details
+## ⚡ Performance & Scalability
 
-3. **Structured Logging**
-   - JSON format for machine processing
-   - Consistent field naming
-   - Contextual metadata inclusion
+### Function Optimization
 
-### Health Monitoring
+```typescript
+// Module-level caching to reduce cold start overhead
+let configInstance: AppConfig | null = null;
+let httpClientInstance: IHttpClient | null = null;
 
-1. **System Health Checks**
-   - Environment configuration validation
-   - External dependency connectivity
-   - Resource availability monitoring
+export const handler = async (event: HandlerEvent) => {
+  // Reuse cached instances across invocations
+  configInstance ??= await loadConfig();
+  httpClientInstance ??= createHttpClient(configInstance);
 
-2. **Performance Metrics**
-   - Function execution times
-   - Job processing rates
-   - Error frequencies
-   - Success/failure ratios
+  // Function logic
+};
+```
 
-3. **Alerting & Notifications**
-   - Threshold-based alerting
-   - Error rate monitoring
-   - Dependency failure detection
+### Memory Management
 
-## ⚡ Performance Considerations
+- **Object Pooling**: Reuse expensive objects across invocations
+- **Streaming**: Process large datasets without loading into memory
+- **Garbage Collection**: Explicit cleanup of large objects
+- **Memory Profiling**: Monitor and optimize memory usage patterns
 
-### Scraping Performance
+### Caching Strategy
 
-1. **Browser Optimization**
-   - Headless mode for reduced overhead
-   - Resource filtering (images, fonts)
-   - Network request caching
-   - Parallel processing where possible
+```typescript
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+}
 
-2. **Execution Efficiency**
-   - Minimal page load requirements
-   - Optimized selector strategies
-   - Batch processing of jobs
-   - Memory management
+class MemoryCache<T> {
+  private cache = new Map<string, CacheEntry<T>>();
 
-### Function Performance
+  get(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry || Date.now() - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+}
+```
 
-1. **Cold Start Optimization**
-   - Minimal dependency loading
-   - Efficient module imports
-   - Connection pooling where applicable
+## 📊 Monitoring & Observability
 
-2. **Processing Efficiency**
-   - Streaming JSON processing
-   - Minimal memory footprint
-   - Efficient data transformations
+### Telemetry Integration
 
-3. **Caching Strategies**
-   - Configuration caching
-   - HTTP response caching
-   - Browser state persistence
+```typescript
+// OpenTelemetry Integration
+import { trace, SpanKind } from '@opentelemetry/api';
 
-## 🔄 Migration from Legacy
+const tracer = trace.getTracer('drivehr-netlify-sync');
 
-### Legacy Architecture (v1.0)
+export const withSpan = async <T>(
+  name: string,
+  fn: (span: Span) => Promise<T>,
+  attributes?: Record<string, string>,
+  kind: SpanKind = SpanKind.INTERNAL
+): Promise<T> => {
+  return tracer.startActiveSpan(name, { kind, attributes }, async span => {
+    try {
+      const result = await fn(span);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (error) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+```
 
-The previous architecture used a monolithic Netlify Function approach:
+### Health Check Implementation
 
-- Direct job fetching from multiple sources (API, JSON, embedded)
-- Synchronous processing model
-- Limited error handling and monitoring
-- Basic authentication mechanisms
+```typescript
+interface HealthCheck {
+  name: string;
+  status: 'pass' | 'fail' | 'warn';
+  duration: number;
+  details?: Record<string, unknown>;
+  error?: string;
+}
 
-### Migration Benefits (v2.0)
+const performHealthChecks = async (): Promise<HealthCheck[]> => {
+  const checks = [
+    checkConfiguration,
+    checkWordPressConnectivity,
+    checkDriveHRConnectivity,
+    checkMemoryUsage,
+  ];
 
-1. **Improved Reliability**
-   - Distributed architecture reduces single points of failure
-   - Comprehensive error handling and retry logic
-   - Better resource isolation and management
+  return Promise.all(
+    checks.map(check =>
+      check().catch(error => ({
+        name: check.name,
+        status: 'fail' as const,
+        duration: 0,
+        error: error.message,
+      }))
+    )
+  );
+};
+```
 
-2. **Enhanced Security**
-   - HMAC signature validation for all communications
-   - Comprehensive security headers
-   - Principle of least privilege implementation
+## 📝 Type System
 
-3. **Better Observability**
-   - Request tracing and correlation
-   - Structured logging with multiple levels
-   - Health monitoring and alerting capabilities
+### Core Type Definitions
 
-4. **Increased Maintainability**
-   - Modular architecture with clear separation of concerns
-   - Comprehensive test coverage (333+ tests)
-   - Type-safe interfaces throughout
+```typescript
+// Job Data Types
+interface NormalizedJob {
+  id: string;
+  title: string;
+  description: string;
+  location: Location;
+  employmentType: EmploymentType;
+  department?: string;
+  salaryRange?: SalaryRange;
+  postedDate: Date;
+  externalUrl: string;
+  companyId: string;
+}
 
-### Backward Compatibility
+// Service Interfaces
+interface IJobFetcher {
+  fetchJobs(companyId: string): Promise<NormalizedJob[]>;
+  checkHealth(): Promise<HealthStatus>;
+}
 
-The migration maintains compatibility for:
+interface IWordPressClient {
+  syncJobs(jobs: NormalizedJob[], source: string): Promise<SyncResult>;
+  checkHealth(): Promise<HealthStatus>;
+}
 
-- Environment variable configuration
-- WordPress integration endpoints
-- Manual trigger functionality
-- Health check interfaces
+// Configuration Types
+interface AppConfig {
+  environment: Environment;
+  logging: LoggingConfig;
+  driveHr: DriveHrConfig;
+  wordPress: WordPressConfig;
+  webhook: WebhookConfig;
+  security: SecurityConfig;
+  performance: PerformanceConfig;
+}
+```
 
-### Breaking Changes
+### Type Safety Patterns
 
-- Removed direct API/JSON/embedded fetch strategies
-- Changed function signature for sync-jobs (now webhook-only)
-- Updated CORS configuration for GitHub Actions origins
-- Modified logging format and structure
+```typescript
+// Discriminated Unions for Result Types
+type Result<T, E = Error> =
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+// Type Guards for Runtime Validation
+const isNormalizedJob = (obj: unknown): obj is NormalizedJob => {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof (obj as NormalizedJob).id === 'string' &&
+    typeof (obj as NormalizedJob).title === 'string' &&
+    // ... additional validations
+  );
+};
+```
+
+## 🧪 Testing Architecture
+
+### Test Organization
+
+```
+test/
+├── fixtures/           # Shared test data
+│   ├── job-data.ts    # Mock job objects
+│   ├── html-content.ts # Sample HTML content
+│   └── responses.ts    # Mock HTTP responses
+├── utils/             # Test utilities
+│   ├── test-factories.ts  # Data factories
+│   └── mock-helpers.ts    # Mock creation helpers
+├── lib/               # Library tests
+├── services/          # Service layer tests
+└── functions/         # Function endpoint tests
+```
+
+### Test Patterns
+
+```typescript
+// Base Test Utilities
+export class BaseTestUtils {
+  static createMockLogger(): ILogger {
+    return {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+  }
+
+  static createMockConfig(overrides?: Partial<AppConfig>): AppConfig {
+    return {
+      environment: 'test',
+      logging: { level: 'error' },
+      // ... default test configuration
+      ...overrides,
+    };
+  }
+}
+
+// Service-Specific Test Utilities
+class JobFetcherTestUtils extends BaseTestUtils {
+  static createMockHtmlParser(): IHtmlParser {
+    return {
+      parseJobs: vi.fn().mockReturnValue([]),
+    };
+  }
+
+  static createMockHttpClient(): IHttpClient {
+    return {
+      get: vi.fn(),
+      post: vi.fn(),
+    };
+  }
+}
+```
+
+### Coverage Standards
+
+- **Line Coverage**: 80%+ (currently 80.46%)
+- **Function Coverage**: 90%+ (currently 92.6%)
+- **Branch Coverage**: 75%+
+- **Critical Path Coverage**: 100%
+
+## 📈 Scalability Considerations
+
+### Horizontal Scaling
+
+- **Stateless Design**: Functions maintain no state between invocations
+- **Auto-scaling**: Netlify automatically scales functions based on demand
+- **Load Distribution**: Traffic distributed across multiple function instances
+
+### Performance Optimization
+
+- **Cold Start Minimization**: Module-level caching and lazy loading
+- **Memory Efficiency**: Streaming processing and garbage collection
+- **Network Optimization**: Connection pooling and request batching
+
+### Resource Management
+
+- **Function Limits**: 10-second timeout, 1GB memory limit
+- **Rate Limiting**: Prevent abuse and ensure fair resource usage
+- **Circuit Breakers**: Prevent cascading failures to external services
 
 ---
 
-**Document Version**: 2.0  
+**Architecture Version**: 2.0  
 **Last Updated**: January 2025  
 **Next Review**: June 2025
