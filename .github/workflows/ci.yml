@@ -141,37 +141,14 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
-      - name: Prepare coverage for upload
-        if: always()
-        run: |
-          # Create unique directory structure for this test suite
-          mkdir -p coverage-upload/${{ matrix.test-suite.name }}
-
-          # Copy files if they exist, create empty ones if they don't
-          if [ -f "coverage/lcov.info" ]; then
-            cp coverage/lcov.info coverage-upload/${{ matrix.test-suite.name }}/lcov.info
-          else
-            echo "No LCOV file found for ${{ matrix.test-suite.name }}" > coverage-upload/${{ matrix.test-suite.name }}/lcov.info
-          fi
-
-          if [ -f "coverage/coverage-final.json" ]; then
-            cp coverage/coverage-final.json coverage-upload/${{ matrix.test-suite.name }}/coverage-final.json
-          else
-            echo "{}" > coverage-upload/${{ matrix.test-suite.name }}/coverage-final.json
-          fi
-
-          if [ -f "test-report.junit.xml" ]; then
-            cp test-report.junit.xml coverage-upload/${{ matrix.test-suite.name }}/test-report.junit.xml
-          else
-            echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><testsuites></testsuites>" > coverage-upload/${{ matrix.test-suite.name }}/test-report.junit.xml
-          fi
-
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report-${{ matrix.test-suite.name }}
-          path: coverage-upload/${{ matrix.test-suite.name }}/
+          name: coverage-${{ matrix.test-suite.name }}
+          path: |
+            coverage/
+            test-report.junit.xml
           retention-days: 30
 
       - name: Upload test results to Codecov
@@ -274,7 +251,7 @@ jobs:
       - name: Download all coverage artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: coverage-report-*
+          pattern: coverage-*
           path: ./coverage-reports
 
       - name: Install lcov for coverage merging
@@ -292,7 +269,7 @@ jobs:
           # Find all LCOV files from different test suites
           echo "### Individual Test Suite Coverage Files:" >> coverage-summary.md
           find ./coverage-reports -name "lcov.info" -type f | while read lcov_file; do
-            test_suite=$(echo "$lcov_file" | sed 's/.*coverage-report-\([^/]*\).*/\1/')
+            test_suite=$(echo "$lcov_file" | sed 's/.*coverage-\([^/]*\).*/\1/')
             echo "- $test_suite: $lcov_file" >> coverage-summary.md
           done
           echo "" >> coverage-summary.md
