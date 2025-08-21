@@ -329,6 +329,8 @@ jobs:
           name: aggregated-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+          disable_search: true
+          verbose: true
 
       - name: Upload aggregated coverage summary
         uses: actions/upload-artifact@v4
