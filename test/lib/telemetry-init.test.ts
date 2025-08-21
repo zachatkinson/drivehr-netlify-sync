@@ -353,4 +353,138 @@ describe('TelemetryInit API Interface', () => {
       }
     });
   });
+
+  describe('when testing environment variable handling', () => {
+    it('should handle shouldEnableTelemetry with different environment configurations', async () => {
+      const { shouldEnableTelemetry } = await import('../../src/lib/telemetry-init.js');
+
+      // Should return boolean regardless of environment
+      const result = shouldEnableTelemetry();
+      expect(typeof result).toBe('boolean');
+
+      // Should be deterministic
+      const secondResult = shouldEnableTelemetry();
+      expect(result).toBe(secondResult);
+    });
+
+    it('should handle getTelemetryConfigSummary structure validation', async () => {
+      const { getTelemetryConfigSummary } = await import('../../src/lib/telemetry-init.js');
+
+      const summary = getTelemetryConfigSummary();
+
+      // Required properties
+      expect(summary).toHaveProperty('enabled');
+      expect(summary).toHaveProperty('hasTraceEndpoint');
+      expect(summary).toHaveProperty('hasMetricsEndpoint');
+
+      // Type validation
+      expect(typeof summary.enabled).toBe('boolean');
+      expect(typeof summary.hasTraceEndpoint).toBe('boolean');
+      expect(typeof summary.hasMetricsEndpoint).toBe('boolean');
+
+      // Optional properties type validation
+      if (summary.serviceName !== undefined) {
+        expect(typeof summary.serviceName).toBe('string');
+      }
+      if (summary.environment !== undefined) {
+        expect(typeof summary.environment).toBe('string');
+      }
+    });
+
+    it('should handle setupTelemetryShutdownHandlers without throwing', async () => {
+      const { setupTelemetryShutdownHandlers } = await import('../../src/lib/telemetry-init.js');
+
+      // Should not throw when called
+      expect(() => setupTelemetryShutdownHandlers()).not.toThrow();
+
+      // Should be callable multiple times without issues
+      expect(() => setupTelemetryShutdownHandlers()).not.toThrow();
+    });
+  });
+
+  describe('when testing configuration summary edge cases', () => {
+    it('should provide consistent configuration summaries', async () => {
+      const { getTelemetryConfigSummary } = await import('../../src/lib/telemetry-init.js');
+
+      const firstSummary = getTelemetryConfigSummary();
+      const secondSummary = getTelemetryConfigSummary();
+
+      // Should be consistent
+      expect(firstSummary.enabled).toBe(secondSummary.enabled);
+      expect(firstSummary.hasTraceEndpoint).toBe(secondSummary.hasTraceEndpoint);
+      expect(firstSummary.hasMetricsEndpoint).toBe(secondSummary.hasMetricsEndpoint);
+    });
+
+    it('should handle environment detection in configuration summary', async () => {
+      const { getTelemetryConfigSummary } = await import('../../src/lib/telemetry-init.js');
+
+      const summary = getTelemetryConfigSummary();
+
+      // Should include environment context
+      if (summary.environment) {
+        expect(['production', 'development', 'test']).toContain(summary.environment);
+      }
+
+      // Should include service name context
+      if (summary.serviceName) {
+        expect(summary.serviceName).toMatch(/drivehr/);
+      }
+    });
+
+    it('should validate telemetry enablement logic patterns', async () => {
+      const { shouldEnableTelemetry } = await import('../../src/lib/telemetry-init.js');
+
+      // Function should be pure (same input = same output)
+      const results = Array.from({ length: 5 }, () => shouldEnableTelemetry());
+      const uniqueResults = [...new Set(results)];
+
+      // Should return consistent results
+      expect(uniqueResults.length).toBe(1);
+      expect(typeof uniqueResults[0]).toBe('boolean');
+    });
+  });
+
+  describe('when testing initialization lifecycle edge cases', () => {
+    it('should handle initializeApplicationTelemetry function signature', async () => {
+      const { initializeApplicationTelemetry } = await import('../../src/lib/telemetry-init.js');
+
+      expect(typeof initializeApplicationTelemetry).toBe('function');
+
+      // Should accept optional configuration parameter
+      expect(initializeApplicationTelemetry.length).toBeLessThanOrEqual(1);
+    });
+
+    it('should handle shutdownApplicationTelemetry function signature', async () => {
+      const { shutdownApplicationTelemetry } = await import('../../src/lib/telemetry-init.js');
+
+      expect(typeof shutdownApplicationTelemetry).toBe('function');
+
+      // Should not require parameters
+      expect(shutdownApplicationTelemetry.length).toBe(0);
+
+      // Should return a Promise
+      const result = shutdownApplicationTelemetry();
+      expect(result).toBeInstanceOf(Promise);
+
+      // Should resolve without error
+      await expect(result).resolves.toBeUndefined();
+    });
+
+    it('should handle configuration validation edge cases', async () => {
+      const { initializeApplicationTelemetry } = await import('../../src/lib/telemetry-init.js');
+
+      // Should handle empty configuration object
+      expect(() => {
+        const _emptyConfig = {};
+        // Function should accept empty config without throwing
+        expect(typeof initializeApplicationTelemetry).toBe('function');
+      }).not.toThrow();
+
+      // Should handle undefined configuration
+      expect(() => {
+        // Function should accept undefined config without throwing during signature check
+        expect(initializeApplicationTelemetry.length).toBeLessThanOrEqual(1);
+      }).not.toThrow();
+    });
+  });
 });

@@ -293,4 +293,114 @@ describe('Telemetry API Interface', () => {
       expect(() => config).not.toThrow();
     });
   });
+
+  describe('when testing telemetry state management', () => {
+    it('should export isTelemetryInitialized function', async () => {
+      const { isTelemetryInitialized } = await import('../../src/lib/telemetry.js');
+
+      expect(typeof isTelemetryInitialized).toBe('function');
+    });
+
+    it('should return false for isTelemetryInitialized when not initialized', async () => {
+      const { isTelemetryInitialized } = await import('../../src/lib/telemetry.js');
+
+      const isInitialized = isTelemetryInitialized();
+      expect(typeof isInitialized).toBe('boolean');
+      expect(isInitialized).toBe(false);
+    });
+
+    it('should handle state checks consistently', async () => {
+      const { isTelemetryInitialized } = await import('../../src/lib/telemetry.js');
+
+      // Multiple calls should return consistent results
+      const firstCheck = isTelemetryInitialized();
+      const secondCheck = isTelemetryInitialized();
+
+      expect(firstCheck).toBe(secondCheck);
+      expect(typeof firstCheck).toBe('boolean');
+    });
+  });
+
+  describe('when testing error conditions', () => {
+    it('should handle getTracer errors gracefully when not initialized', async () => {
+      const { getTracer, isTelemetryInitialized } = await import('../../src/lib/telemetry.js');
+
+      // Ensure telemetry is not initialized
+      expect(isTelemetryInitialized()).toBe(false);
+
+      // Should throw with helpful error message
+      expect(() => getTracer()).toThrow('Telemetry not initialized');
+    });
+
+    it('should handle getBusinessMetrics errors gracefully when not initialized', async () => {
+      const { getBusinessMetrics, isTelemetryInitialized } = await import(
+        '../../src/lib/telemetry.js'
+      );
+
+      // Ensure telemetry is not initialized
+      expect(isTelemetryInitialized()).toBe(false);
+
+      // Should throw with helpful error message
+      expect(() => getBusinessMetrics()).toThrow('Telemetry not initialized');
+    });
+
+    it('should handle record functions when not initialized', async () => {
+      const { recordHttpMetrics, recordJobMetrics, recordWebhookMetrics, isTelemetryInitialized } =
+        await import('../../src/lib/telemetry.js');
+
+      // Ensure telemetry is not initialized
+      expect(isTelemetryInitialized()).toBe(false);
+
+      // These functions should throw when telemetry is not initialized
+      expect(() => recordHttpMetrics('GET', '/test', 200, 100)).toThrow(
+        'Telemetry not initialized'
+      );
+
+      expect(() => recordJobMetrics('job-123', 'fetch', 'success', 1000)).toThrow(
+        'Telemetry not initialized'
+      );
+
+      expect(() => recordWebhookMetrics('job_created', 'success', 200, 50)).toThrow(
+        'Telemetry not initialized'
+      );
+    });
+  });
+
+  describe('when testing function signatures and types', () => {
+    it('should have correct function signatures for metric recording', async () => {
+      const telemetryModule = await import('../../src/lib/telemetry.js');
+
+      // Test recordHttpMetrics signature (method, url, statusCode, duration, attributes?)
+      const recordHttp = telemetryModule.recordHttpMetrics;
+      expect(recordHttp.length).toBeGreaterThanOrEqual(4); // Should accept multiple parameters
+
+      // Test recordJobMetrics signature
+      const recordJob = telemetryModule.recordJobMetrics;
+      expect(recordJob.length).toBeGreaterThanOrEqual(1); // Should accept parameters
+
+      // Test recordWebhookMetrics signature
+      const recordWebhook = telemetryModule.recordWebhookMetrics;
+      expect(recordWebhook.length).toBeGreaterThanOrEqual(1); // Should accept parameters
+    });
+
+    it('should have correct function signatures for telemetry management', async () => {
+      const telemetryModule = await import('../../src/lib/telemetry.js');
+
+      // Test initialization functions
+      expect(telemetryModule.initializeTelemetry.length).toBeGreaterThanOrEqual(1);
+      expect(telemetryModule.shutdownTelemetry.length).toBe(0);
+      expect(telemetryModule.isTelemetryInitialized.length).toBe(0);
+
+      // Test getter functions
+      expect(telemetryModule.getTracer.length).toBe(0);
+      expect(telemetryModule.getBusinessMetrics.length).toBe(0);
+    });
+
+    it('should support withSpan function signature', async () => {
+      const { withSpan } = await import('../../src/lib/telemetry.js');
+
+      expect(typeof withSpan).toBe('function');
+      expect(withSpan.length).toBeGreaterThanOrEqual(2); // Should accept at least spanName and operation
+    });
+  });
 });

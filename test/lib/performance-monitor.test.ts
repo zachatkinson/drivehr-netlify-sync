@@ -590,4 +590,131 @@ describe('PerformanceMonitor', () => {
       expect(report.totalMetrics).toBe(timerCount);
     });
   });
+
+  describe('when formatting metrics for export', () => {
+    it('should format metrics in Prometheus format', () => {
+      const monitor = PerformanceMonitor.getInstance();
+
+      // Add some test metrics
+      monitor.recordMetric('test-counter', 42, 'count', { service: 'test' });
+      monitor.recordMetric('test-gauge', 3.14, 'ratio');
+
+      // Use public API to export metrics in Prometheus format
+      const prometheusOutput = monitor.exportMetrics('prometheus');
+
+      expect(typeof prometheusOutput).toBe('string');
+      expect(prometheusOutput).toContain('test_counter');
+      expect(prometheusOutput).toContain('test_gauge');
+      expect(prometheusOutput).toContain('42');
+      expect(prometheusOutput).toContain('3.14');
+    });
+
+    it('should format metrics in InfluxDB format', () => {
+      const monitor = PerformanceMonitor.getInstance();
+
+      // Add test metrics with metadata
+      monitor.recordMetric('influx-test', 100, 'bytes', {
+        host: 'localhost',
+        service: 'test',
+      });
+
+      // Use public API to export metrics in InfluxDB format
+      const influxOutput = monitor.exportMetrics('influxdb');
+
+      expect(typeof influxOutput).toBe('string');
+      expect(influxOutput).toContain('influx_test');
+      expect(influxOutput).toContain('value=100');
+      expect(influxOutput).toContain('host=localhost');
+      expect(influxOutput).toContain('service=test');
+    });
+
+    it('should handle metrics without metadata in both formats', () => {
+      const monitor = PerformanceMonitor.getInstance();
+
+      monitor.recordMetric('simple-metric', 5, 'count');
+
+      // Use public API to export metrics in both formats
+      const prometheusOutput = monitor.exportMetrics('prometheus');
+      const influxOutput = monitor.exportMetrics('influxdb');
+
+      expect(prometheusOutput).toContain('simple_metric');
+      expect(prometheusOutput).toContain('5');
+
+      expect(influxOutput).toContain('simple_metric');
+      expect(influxOutput).toContain('value=5');
+    });
+  });
+
+  describe('when using performance decorator', () => {
+    it('should export performanceMonitor decorator function', async () => {
+      const { performanceMonitor } = await import('../../src/lib/performance-monitor.js');
+
+      expect(typeof performanceMonitor).toBe('function');
+
+      // Test decorator returns function
+      const decorator = performanceMonitor('test-operation');
+      expect(typeof decorator).toBe('function');
+    });
+
+    it('should create decorator with custom metric name', async () => {
+      const { performanceMonitor } = await import('../../src/lib/performance-monitor.js');
+
+      const customDecorator = performanceMonitor('custom-metric-name');
+      expect(typeof customDecorator).toBe('function');
+
+      // Decorator should return function that expects target, propertyKey, descriptor
+      const mockTarget = {};
+      const mockDescriptor = { value: () => 'test' };
+
+      const result = customDecorator(mockTarget, 'testMethod', mockDescriptor);
+      expect(result).toHaveProperty('value');
+      expect(typeof result.value).toBe('function');
+    });
+
+    it('should create decorator without custom metric name', async () => {
+      const { performanceMonitor } = await import('../../src/lib/performance-monitor.js');
+
+      const defaultDecorator = performanceMonitor();
+      expect(typeof defaultDecorator).toBe('function');
+    });
+  });
+
+  describe('when using performance middleware', () => {
+    it('should export createPerformanceMiddleware function', async () => {
+      const { createPerformanceMiddleware } = await import('../../src/lib/performance-monitor.js');
+
+      expect(typeof createPerformanceMiddleware).toBe('function');
+    });
+
+    it('should create Express middleware function', async () => {
+      const { createPerformanceMiddleware } = await import('../../src/lib/performance-monitor.js');
+
+      const middleware = createPerformanceMiddleware();
+      expect(typeof middleware).toBe('function');
+      expect(middleware.length).toBe(3); // Express middleware signature (req, res, next)
+    });
+
+    it('should handle middleware execution without throwing', async () => {
+      const { createPerformanceMiddleware } = await import('../../src/lib/performance-monitor.js');
+
+      const middleware = createPerformanceMiddleware();
+
+      // Mock Express req, res, next
+      const mockReq = {
+        method: 'GET',
+        path: '/test',
+        get: vi.fn().mockReturnValue('test-agent'),
+      };
+
+      const mockRes = {
+        on: vi.fn(),
+      };
+
+      const mockNext = vi.fn();
+
+      // Should not throw when called
+      expect(() => middleware(mockReq, mockRes, mockNext)).not.toThrow();
+      expect(mockNext).toHaveBeenCalled();
+    });
+  });
 });
