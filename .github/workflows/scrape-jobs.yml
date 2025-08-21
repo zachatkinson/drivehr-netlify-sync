@@ -22,14 +22,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: '20'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --no-frozen-lockfile
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
@@ -42,7 +45,7 @@ jobs:
           ENVIRONMENT: production
           LOG_LEVEL: info
           FORCE_SYNC: ${{ github.event.inputs.force_sync || 'false' }}
-        run: npm run scrape-and-sync
+        run: pnpm run scrape-and-sync
 
       - name: Upload job data artifact
         if: always()
