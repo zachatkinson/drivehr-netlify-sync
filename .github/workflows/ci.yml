@@ -141,14 +141,20 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
+      - name: Prepare coverage for upload
+        run: |
+          # Create unique directory structure for this test suite
+          mkdir -p coverage-upload/${{ matrix.test-suite.name }}
+          cp coverage/lcov.info coverage-upload/${{ matrix.test-suite.name }}/lcov.info
+          cp coverage/coverage-final.json coverage-upload/${{ matrix.test-suite.name }}/coverage-final.json
+          cp test-report.junit.xml coverage-upload/${{ matrix.test-suite.name }}/test-report.junit.xml
+
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage-report-${{ matrix.test-suite.name }}
-          path: |
-            coverage/
-            test-report.junit.xml
+          path: coverage-upload/${{ matrix.test-suite.name }}/
           retention-days: 30
 
       - name: Upload test results to Codecov
@@ -253,22 +259,67 @@ jobs:
         with:
           pattern: coverage-report-*
           path: ./coverage-reports
-          merge-multiple: true
 
-      - name: Create coverage summary
+      - name: Install lcov for coverage merging
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov
+
+      - name: Merge coverage data and create summary
         run: |
           echo "# Coverage Summary for Commit ${{ github.sha }}" > coverage-summary.md
           echo "" >> coverage-summary.md
-          echo "## Test Results by Module" >> coverage-summary.md
+          echo "## Aggregated Coverage Report" >> coverage-summary.md
           echo "" >> coverage-summary.md
 
-          # Find all coverage files and create summary
-          find ./coverage-reports -name "lcov.info" -exec echo "Found coverage file: {}" \;
-          find ./coverage-reports -name "coverage-final.json" -exec echo "Found JSON coverage: {}" \;
+          # Find all LCOV files from different test suites
+          echo "### Individual Test Suite Coverage Files:" >> coverage-summary.md
+          find ./coverage-reports -name "lcov.info" -type f | while read lcov_file; do
+            test_suite=$(echo "$lcov_file" | sed 's/.*coverage-report-\([^/]*\).*/\1/')
+            echo "- $test_suite: $lcov_file" >> coverage-summary.md
+          done
+          echo "" >> coverage-summary.md
 
-          echo "Coverage artifacts have been aggregated successfully" >> coverage-summary.md
-          echo "Date: $(date)" >> coverage-summary.md
-          echo "Trigger: Artifact vs UI comparison test" >> coverage-summary.md
+          # Create list of all LCOV files for merging  
+          echo "Searching for LCOV files..."
+          find ./coverage-reports -name "lcov.info" -type f > lcov_file_list.txt
+          echo "Found LCOV files:"
+          cat lcov_file_list.txt
+
+          # Merge all LCOV files into a single aggregated report
+          if [ -s lcov_file_list.txt ]; then
+            mkdir -p ./aggregated-coverage
+            echo "Merging coverage files..."
+            
+            # Build lcov command with proper --add-tracefile flags
+            lcov_cmd="lcov"
+            while IFS= read -r lcov_file; do
+              lcov_cmd="$lcov_cmd --add-tracefile \"$lcov_file\""
+            done < lcov_file_list.txt
+            lcov_cmd="$lcov_cmd --output-file ./aggregated-coverage/merged.info"
+            
+            echo "Executing: $lcov_cmd"
+            eval $lcov_cmd
+            
+            # Generate summary statistics
+            echo "### Overall Coverage Statistics:" >> coverage-summary.md
+            lcov --summary ./aggregated-coverage/merged.info 2>&1 | tee -a coverage-summary.md
+            
+            # Generate HTML report
+            genhtml ./aggregated-coverage/merged.info --output-directory ./aggregated-coverage/html-report
+            
+            echo "" >> coverage-summary.md
+            echo "### Coverage Report Generated:" >> coverage-summary.md
+            echo "- Merged LCOV file: \`./aggregated-coverage/merged.info\`" >> coverage-summary.md
+            echo "- HTML report: \`./aggregated-coverage/html-report/index.html\`" >> coverage-summary.md
+          else
+            echo "❌ No LCOV files found for aggregation" >> coverage-summary.md
+          fi
+
+          echo "" >> coverage-summary.md
+          echo "**Date:** $(date)" >> coverage-summary.md
+          echo "**Commit:** ${{ github.sha }}" >> coverage-summary.md
+
           cat coverage-summary.md
 
       - name: Upload aggregated coverage summary
@@ -277,6 +328,7 @@ jobs:
           name: coverage-summary-${{ github.sha }}
           path: |
             coverage-summary.md
+            aggregated-coverage/
             coverage-reports/
           retention-days: 90
 
