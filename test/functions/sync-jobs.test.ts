@@ -93,10 +93,8 @@ class SyncJobsTestUtils {
   static readonly WEBHOOK_SECRET = 'test-secret-key-at-least-32-characters-long';
 
   static readonly MOCK_ENV_CONFIG = {
-    wpApiUrl: 'https://test-wordpress.com',
+    wpApiUrl: 'https://test-wordpress.com/webhook/drivehr-sync',
     webhookSecret: this.WEBHOOK_SECRET,
-    wpUsername: 'test-user',
-    wpApplicationPassword: 'test-pass',
     driveHrCompanyId: 'test-company',
     environment: 'development' as const,
     logLevel: 'info' as const,

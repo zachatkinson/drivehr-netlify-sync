@@ -28,8 +28,8 @@
  *   driveHrCompanyId: process.env.DRIVEHR_COMPANY_ID!,
  *   wpApiUrl: process.env.WP_API_URL!,
  *   webhookSecret: process.env.WEBHOOK_SECRET!,
- *   environment: (process.env.NODE_ENV as any) || 'development',
- *   logLevel: (process.env.LOG_LEVEL as any) || 'info'
+ *   environment: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
+ *   logLevel: (process.env.LOG_LEVEL as 'error' | 'warn' | 'info' | 'debug' | 'trace') || 'info'
  * };
  *
  * // Validate required environment variables
@@ -43,14 +43,10 @@
 export interface EnvironmentConfig {
   /** DriveHR company UUID identifier from environment */
   readonly driveHrCompanyId: string;
-  /** WordPress API endpoint URL for job synchronization */
+  /** WordPress webhook endpoint URL for job synchronization */
   readonly wpApiUrl: string;
   /** Secret key for webhook signature verification (minimum 32 characters) */
   readonly webhookSecret: string;
-  /** WordPress username for REST API authentication (optional) */
-  readonly wpUsername?: string;
-  /** WordPress application password (optional) */
-  readonly wpApplicationPassword?: string;
   /** Current application environment */
   readonly environment: 'development' | 'staging' | 'production';
   /** Minimum log level for application logging */

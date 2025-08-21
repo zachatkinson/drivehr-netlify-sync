@@ -69,8 +69,6 @@ function initializeWebhookDependencies(): WebhookDependencies {
   const wordPressClient = createWordPressClient(
     {
       baseUrl: env.wpApiUrl,
-      username: env.wpUsername || '',
-      password: env.wpApplicationPassword || '',
     },
     httpClient,
     env.webhookSecret

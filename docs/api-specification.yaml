@@ -1,0 +1,803 @@
+openapi: 3.0.3
+info:
+  title: DriveHR Netlify Sync API
+  description: |
+    **Enterprise-grade job synchronization API for DriveHR integration**
+
+    This API provides secure, automated job posting synchronization between DriveHR's job management system and WordPress via custom webhook integration. Built with enterprise security standards, comprehensive error handling, and performance monitoring.
+
+    ## Key Features
+    - 🔒 **Secure webhook validation** with HMAC signatures
+    - 🚀 **High-performance job fetching** with multiple strategy patterns
+    - 📊 **Real-time monitoring** and performance metrics
+    - 🛡️ **Enterprise security** headers and validation
+    - 🔄 **Automatic retry logic** with exponential backoff
+    - 📝 **Comprehensive logging** and audit trails
+
+    ## Authentication
+    All endpoints use webhook signature validation for security. The `X-Webhook-Signature` header must contain a valid HMAC-SHA256 signature of the request body using the configured webhook secret.
+
+    ## Rate Limiting
+    API endpoints are rate-limited to prevent abuse:
+    - Manual triggers: 10 requests per minute
+    - Health checks: 60 requests per minute
+    - Sync operations: 5 requests per minute
+
+    ## Monitoring
+    All endpoints include performance monitoring and structured logging. Response times, error rates, and business metrics are automatically collected.
+
+  version: 1.0.0
+  contact:
+    name: DriveHR Sync API Support
+    url: https://github.com/zachatkinson/drivehr-netlify-sync
+    email: support@example.com
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+
+servers:
+  - url: https://drivehr-sync.netlify.app/.netlify/functions
+    description: Production Netlify Functions
+  - url: http://localhost:8888/.netlify/functions
+    description: Local Development Server
+
+tags:
+  - name: Job Synchronization
+    description: Core job data synchronization operations
+  - name: Health Monitoring
+    description: Health checks and system monitoring
+  - name: Manual Operations
+    description: Manual trigger and administrative functions
+
+paths:
+  /sync-jobs:
+    post:
+      tags:
+        - Job Synchronization
+      summary: Synchronize job postings
+      description: |
+        **Primary job synchronization endpoint**
+
+        Fetches job postings from DriveHR and synchronizes them with WordPress. 
+        Supports multiple fetching strategies (API, HTML scraping, JSON files) with 
+        automatic fallback mechanisms.
+
+        ### Process Flow
+        1. Validate webhook signature for security
+        2. Load and validate environment configuration
+        3. Attempt job fetching using configured strategies
+        4. Normalize and validate job data
+        5. Sync with WordPress via custom webhook
+        6. Return comprehensive sync results
+
+        ### Performance Monitoring
+        - Execution time tracking
+        - Memory usage monitoring
+        - Error rate metrics
+        - Business metrics (jobs processed, sync success rate)
+
+      operationId: syncJobs
+      security:
+        - WebhookSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncJobsRequest'
+            examples:
+              manualTrigger:
+                summary: Manual sync trigger
+                value:
+                  trigger: 'manual'
+                  force: false
+                  metadata:
+                    userId: 'admin-123'
+                    reason: 'content update'
+              scheduledSync:
+                summary: Scheduled sync (cron)
+                value:
+                  trigger: 'scheduled'
+                  force: false
+                  metadata:
+                    cronSchedule: '0 */6 * * *'
+              forcedSync:
+                summary: Force sync (ignore cache)
+                value:
+                  trigger: 'manual'
+                  force: true
+                  metadata:
+                    reason: 'data inconsistency detected'
+      responses:
+        '200':
+          description: Sync completed successfully
+          headers:
+            X-Sync-Duration:
+              description: Total sync operation duration in milliseconds
+              schema:
+                type: integer
+                example: 2847
+            X-Jobs-Processed:
+              description: Number of jobs processed in this sync
+              schema:
+                type: integer
+                example: 45
+            X-Rate-Limit-Remaining:
+              description: Remaining API calls in current window
+              schema:
+                type: integer
+                example: 7
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncSuccessResponse'
+              examples:
+                successfulSync:
+                  summary: Successful sync with updates
+                  value:
+                    success: true
+                    data:
+                      jobsProcessed: 45
+                      jobsCreated: 12
+                      jobsUpdated: 8
+                      jobsRemoved: 3
+                      syncDuration: 2847
+                      strategy: 'api'
+                      lastSyncTime: '2025-01-20T15:30:45.123Z'
+                    timestamp: '2025-01-20T15:30:47.970Z'
+                    performance:
+                      executionTime: 2847
+                      memoryUsage: 45.2
+                      apiCalls: 3
+                noChanges:
+                  summary: Sync completed with no changes
+                  value:
+                    success: true
+                    data:
+                      jobsProcessed: 45
+                      jobsCreated: 0
+                      jobsUpdated: 0
+                      jobsRemoved: 0
+                      syncDuration: 1234
+                      strategy: 'api'
+                      lastSyncTime: '2025-01-20T15:30:45.123Z'
+                    timestamp: '2025-01-20T15:30:46.204Z'
+                    performance:
+                      executionTime: 1234
+                      memoryUsage: 42.1
+                      apiCalls: 2
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /health-check:
+    get:
+      tags:
+        - Health Monitoring
+      summary: System health check
+      description: |
+        **Comprehensive system health monitoring**
+
+        Validates all critical system components and external dependencies.
+        Used by monitoring systems, load balancers, and CI/CD pipelines.
+
+        ### Health Checks Include
+        - Environment configuration validation
+        - WordPress API connectivity
+        - DriveHR API accessibility
+        - Memory and performance metrics
+        - Database connection status
+        - External service dependencies
+
+        ### Response Codes
+        - **200**: All systems operational
+        - **503**: One or more critical systems down
+        - **500**: Health check system failure
+
+      operationId: healthCheck
+      responses:
+        '200':
+          description: All systems healthy
+          headers:
+            X-Health-Check-Duration:
+              description: Health check execution time in milliseconds
+              schema:
+                type: integer
+                example: 324
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+              example:
+                status: 'healthy'
+                timestamp: '2025-01-20T15:30:45.123Z'
+                uptime: 3600
+                version: '1.0.0'
+                environment: 'production'
+                checks:
+                  config:
+                    status: 'pass'
+                    duration: 12
+                  wordpress:
+                    status: 'pass'
+                    duration: 234
+                    details:
+                      url: 'https://example.com/wp-json'
+                      version: '6.4.2'
+                  drivehr:
+                    status: 'pass'
+                    duration: 156
+                    details:
+                      companyId: '123e4567-...'
+                      accessible: true
+                  memory:
+                    status: 'pass'
+                    details:
+                      heapUsed: 45.2
+                      heapTotal: 78.4
+                      usage: '57.6%'
+                performance:
+                  totalDuration: 324
+                  checksCompleted: 4
+                  averageResponseTime: 81
+        '503':
+          description: Service degraded or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+              example:
+                status: 'unhealthy'
+                timestamp: '2025-01-20T15:30:45.123Z'
+                uptime: 3600
+                version: '1.0.0'
+                environment: 'production'
+                checks:
+                  config:
+                    status: 'pass'
+                    duration: 12
+                  wordpress:
+                    status: 'fail'
+                    duration: 5000
+                    error: 'Connection timeout after 5000ms'
+                    details:
+                      url: 'https://example.com/wp-json'
+                      lastSuccess: '2025-01-20T15:25:45.123Z'
+                  drivehr:
+                    status: 'pass'
+                    duration: 156
+                  memory:
+                    status: 'warn'
+                    details:
+                      heapUsed: 67.8
+                      heapTotal: 78.4
+                      usage: '86.5%'
+                performance:
+                  totalDuration: 5168
+                  checksCompleted: 4
+                  averageResponseTime: 1292
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /manual-trigger:
+    post:
+      tags:
+        - Manual Operations
+      summary: Manual sync trigger
+      description: |
+        **Administrative manual sync trigger**
+
+        Allows authorized users to manually trigger job synchronization
+        outside of the normal scheduled process. Useful for testing,
+        troubleshooting, and immediate updates.
+
+        ### Use Cases
+        - Content updates requiring immediate sync
+        - Testing and development workflows
+        - Recovery from failed scheduled syncs
+        - One-off data migration operations
+
+        ### Security
+        Requires elevated privileges and webhook signature validation.
+        All manual triggers are logged with user attribution.
+
+      operationId: manualTrigger
+      security:
+        - WebhookSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualTriggerRequest'
+            examples:
+              basicTrigger:
+                summary: Basic manual trigger
+                value:
+                  reason: 'Content update required'
+                  force: false
+                  dryRun: false
+              forcedTrigger:
+                summary: Force sync ignoring cache
+                value:
+                  reason: 'Data inconsistency detected'
+                  force: true
+                  dryRun: false
+              dryRunTrigger:
+                summary: Dry run for testing
+                value:
+                  reason: 'Testing new configuration'
+                  force: false
+                  dryRun: true
+      responses:
+        '200':
+          description: Manual trigger completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManualTriggerResponse'
+              example:
+                success: true
+                data:
+                  triggerId: 'mt-2025-01-20-1530-abc123'
+                  status: 'completed'
+                  reason: 'Content update required'
+                  executionTime: 2847
+                  jobsAffected: 12
+                  syncResults:
+                    jobsProcessed: 45
+                    jobsCreated: 8
+                    jobsUpdated: 4
+                    jobsRemoved: 0
+                timestamp: '2025-01-20T15:30:47.970Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    WebhookSignature:
+      type: apiKey
+      in: header
+      name: X-Webhook-Signature
+      description: |
+        HMAC-SHA256 signature of the request body using the configured webhook secret.
+        Format: `sha256=<hex_digest>`
+
+        Example: `sha256=a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1`
+
+  schemas:
+    SyncJobsRequest:
+      type: object
+      required:
+        - trigger
+      properties:
+        trigger:
+          type: string
+          enum: [manual, scheduled, webhook]
+          description: The source of the sync request
+          example: 'manual'
+        force:
+          type: boolean
+          description: Force sync ignoring cache and rate limits
+          default: false
+          example: false
+        metadata:
+          type: object
+          description: Additional context for the sync operation
+          additionalProperties: true
+          example:
+            userId: 'admin-123'
+            reason: 'content update'
+
+    SyncSuccessResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - jobsProcessed
+            - jobsCreated
+            - jobsUpdated
+            - jobsRemoved
+            - syncDuration
+            - strategy
+            - lastSyncTime
+          properties:
+            jobsProcessed:
+              type: integer
+              description: Total number of jobs processed
+              example: 45
+            jobsCreated:
+              type: integer
+              description: Number of new jobs created
+              example: 12
+            jobsUpdated:
+              type: integer
+              description: Number of existing jobs updated
+              example: 8
+            jobsRemoved:
+              type: integer
+              description: Number of jobs removed/expired
+              example: 3
+            syncDuration:
+              type: integer
+              description: Total sync duration in milliseconds
+              example: 2847
+            strategy:
+              type: string
+              enum: [api, html-scraping, json-file, embedded-data]
+              description: The successful fetching strategy used
+              example: 'api'
+            lastSyncTime:
+              type: string
+              format: date-time
+              description: ISO timestamp of sync completion
+              example: '2025-01-20T15:30:45.123Z'
+        timestamp:
+          type: string
+          format: date-time
+          description: Response generation timestamp
+          example: '2025-01-20T15:30:47.970Z'
+        performance:
+          type: object
+          description: Performance metrics for monitoring
+          properties:
+            executionTime:
+              type: integer
+              description: Total execution time in milliseconds
+              example: 2847
+            memoryUsage:
+              type: number
+              format: float
+              description: Peak memory usage in MB
+              example: 45.2
+            apiCalls:
+              type: integer
+              description: Number of external API calls made
+              example: 3
+
+    HealthCheckResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - uptime
+        - version
+        - environment
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall system health status
+          example: 'healthy'
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check execution timestamp
+          example: '2025-01-20T15:30:45.123Z'
+        uptime:
+          type: integer
+          description: System uptime in seconds
+          example: 3600
+        version:
+          type: string
+          description: Application version
+          example: '1.0.0'
+        environment:
+          type: string
+          enum: [development, staging, production]
+          description: Current environment
+          example: 'production'
+        checks:
+          type: object
+          description: Individual component health checks
+          additionalProperties:
+            $ref: '#/components/schemas/HealthCheck'
+        performance:
+          type: object
+          description: Health check performance metrics
+          properties:
+            totalDuration:
+              type: integer
+              description: Total health check duration in milliseconds
+              example: 324
+            checksCompleted:
+              type: integer
+              description: Number of health checks completed
+              example: 4
+            averageResponseTime:
+              type: integer
+              description: Average response time per check in milliseconds
+              example: 81
+
+    HealthCheck:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [pass, warn, fail]
+          description: Individual check status
+          example: 'pass'
+        duration:
+          type: integer
+          description: Check execution time in milliseconds
+          example: 234
+        error:
+          type: string
+          description: Error message if check failed
+          example: 'Connection timeout after 5000ms'
+        details:
+          type: object
+          description: Additional check-specific information
+          additionalProperties: true
+          example:
+            url: 'https://example.com/wp-json'
+            version: '6.4.2'
+
+    ManualTriggerRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 200
+          description: Reason for manual trigger (for audit logging)
+          example: 'Content update required'
+        force:
+          type: boolean
+          description: Force sync ignoring cache and rate limits
+          default: false
+          example: false
+        dryRun:
+          type: boolean
+          description: Perform validation only without actual sync
+          default: false
+          example: false
+        targetJobs:
+          type: array
+          description: Specific job IDs to sync (optional, syncs all if empty)
+          items:
+            type: string
+          example: ['job-123', 'job-456']
+
+    ManualTriggerResponse:
+      type: object
+      required:
+        - success
+        - data
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - triggerId
+            - status
+            - reason
+            - executionTime
+          properties:
+            triggerId:
+              type: string
+              description: Unique identifier for this trigger operation
+              example: 'mt-2025-01-20-1530-abc123'
+            status:
+              type: string
+              enum: [completed, failed, partial]
+              description: Trigger execution status
+              example: 'completed'
+            reason:
+              type: string
+              description: The provided reason for the trigger
+              example: 'Content update required'
+            executionTime:
+              type: integer
+              description: Total execution time in milliseconds
+              example: 2847
+            jobsAffected:
+              type: integer
+              description: Number of jobs affected by this trigger
+              example: 12
+            syncResults:
+              $ref: '#/components/schemas/SyncResults'
+        timestamp:
+          type: string
+          format: date-time
+          description: Response generation timestamp
+          example: '2025-01-20T15:30:47.970Z'
+
+    SyncResults:
+      type: object
+      description: Detailed sync operation results
+      properties:
+        jobsProcessed:
+          type: integer
+          description: Total jobs processed
+          example: 45
+        jobsCreated:
+          type: integer
+          description: New jobs created
+          example: 8
+        jobsUpdated:
+          type: integer
+          description: Existing jobs updated
+          example: 4
+        jobsRemoved:
+          type: integer
+          description: Jobs removed or expired
+          example: 0
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Human-readable error message
+          example: 'Invalid webhook signature'
+        errorCode:
+          type: string
+          description: Machine-readable error code
+          example: 'INVALID_SIGNATURE'
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error occurrence timestamp
+          example: '2025-01-20T15:30:45.123Z'
+        requestId:
+          type: string
+          description: Unique request identifier for debugging
+          example: 'req-abc123def456'
+
+  responses:
+    BadRequest:
+      description: Invalid request format or missing required fields
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "Invalid request body: missing required field 'trigger'"
+            errorCode: 'INVALID_REQUEST'
+            details:
+              field: 'trigger'
+              expectedType: 'string'
+              allowedValues: ['manual', 'scheduled', 'webhook']
+            timestamp: '2025-01-20T15:30:45.123Z'
+            requestId: 'req-abc123def456'
+
+    Unauthorized:
+      description: Missing or invalid webhook signature
+      headers:
+        WWW-Authenticate:
+          description: Authentication scheme required
+          schema:
+            type: string
+            example: 'Webhook signature required'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: 'Invalid webhook signature'
+            errorCode: 'INVALID_SIGNATURE'
+            details:
+              provided: 'sha256=invalid...'
+              expected: 'Valid HMAC-SHA256 signature required'
+            timestamp: '2025-01-20T15:30:45.123Z'
+            requestId: 'req-abc123def456'
+
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until next request allowed
+          schema:
+            type: integer
+            example: 60
+        X-RateLimit-Limit:
+          description: Request limit per window
+          schema:
+            type: integer
+            example: 10
+        X-RateLimit-Remaining:
+          description: Remaining requests in current window
+          schema:
+            type: integer
+            example: 0
+        X-RateLimit-Reset:
+          description: Unix timestamp when limit resets
+          schema:
+            type: integer
+            example: 1705751445
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: 'Rate limit exceeded: 10 requests per minute'
+            errorCode: 'RATE_LIMIT_EXCEEDED'
+            details:
+              limit: 10
+              window: '1 minute'
+              retryAfter: 60
+            timestamp: '2025-01-20T15:30:45.123Z'
+            requestId: 'req-abc123def456'
+
+    InternalServerError:
+      description: Internal server error or system failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: 'Internal server error occurred'
+            errorCode: 'INTERNAL_ERROR'
+            details:
+              component: 'job-fetcher'
+              operation: 'fetch-jobs'
+            timestamp: '2025-01-20T15:30:45.123Z'
+            requestId: 'req-abc123def456'
+
+    ServiceUnavailable:
+      description: Service temporarily unavailable
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying
+          schema:
+            type: integer
+            example: 300
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: 'Service temporarily unavailable: DriveHR API unreachable'
+            errorCode: 'SERVICE_UNAVAILABLE'
+            details:
+              service: 'drivehr-api'
+              lastSuccess: '2025-01-20T15:25:45.123Z'
+              retryAfter: 300
+            timestamp: '2025-01-20T15:30:45.123Z'
+            requestId: 'req-abc123def456'
