@@ -74,6 +74,16 @@ const TOOLS = {
       'pnpm tsx scripts/job-data-tools.mts validate --run-id 17103740786',
     ],
   },
+  'test-wordpress': {
+    script: './scripts/test-wordpress-payload.mts',
+    name: '🧪 WordPress Payload Tester',
+    description: 'Generate and test WordPress webhook payloads without sending',
+    examples: [
+      'pnpm tsx scripts/job-data-tools.mts test-wordpress --company-id abc123 --inspect',
+      'pnpm tsx scripts/job-data-tools.mts test-wordpress --use-test-data --save payload.json',
+      'pnpm tsx scripts/job-data-tools.mts test-wordpress --mock-wordpress --format table',
+    ],
+  },
 } as const;
 
 type ToolName = keyof typeof TOOLS;

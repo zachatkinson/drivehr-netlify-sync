@@ -30,6 +30,7 @@
     "scrape-live": "tsx scripts/live-scraper.mts",
     "compare-jobs": "tsx scripts/compare-job-data.mts",
     "validate-jobs": "tsx scripts/validate-job-data.mts",
+    "test-wordpress-payload": "tsx scripts/test-wordpress-payload.mts",
     "coverage-report": "tsx scripts/coverage-report.mts",
     "codecov": "tsx scripts/codecov-cli.mts",
     "netlify:watch": "netlify watch",
