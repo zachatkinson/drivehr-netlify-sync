@@ -49,10 +49,6 @@ import * as logger from '../../src/lib/logger.js';
  * @since 1.0.0
  */
 class JobFetchUtilsTestUtils extends BaseTestUtils {
-  /**
-   * Mock logger instance for testing error handling
-   * @since 1.0.0
-   */
   static mockLogger = {
     debug: vi.fn(),
     warn: vi.fn(),
@@ -61,22 +57,12 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
     trace: vi.fn(),
   };
 
-  /**
-   * Standard DriveHR API configuration for testing
-   * Provides consistent test data for URL building and configuration tests
-   * @since 1.0.0
-   */
   static readonly STANDARD_CONFIG: DriveHrApiConfig = {
     companyId: 'test-company',
     apiBaseUrl: 'https://api.test-company.com',
     careersUrl: 'https://drivehris.app/careers/test-company/list',
   };
 
-  /**
-   * Configuration variations for comprehensive URL testing
-   * Tests different scenarios and edge cases for URL construction
-   * @since 1.0.0
-   */
   static readonly CONFIG_VARIATIONS = [
     {
       name: 'standard config',
@@ -106,11 +92,6 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
     },
   ] as const;
 
-  /**
-   * Sample raw job data for testing data validation
-   * Provides realistic job data structures for validation testing
-   * @since 1.0.0
-   */
   static readonly SAMPLE_JOB_DATA: RawJobData[] = [
     {
       id: 'job-001',
@@ -143,7 +124,15 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
   ];
 
   /**
-   * Setup logger mocking before each test
+   * Setup mock logger instances for testing
+   *
+   * Configures Vitest mocks for the logger module to enable testing of
+   * logging functionality without actual log output during tests.
+   *
+   * @example
+   * ```typescript
+   * JobFetchUtilsTestUtils.setupLoggerMocks();
+   * ```
    * @since 1.0.0
    */
   static setupLoggerMocks(): void {
@@ -151,7 +140,15 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Restore logger mocks after each test
+   * Restore logger mocks to original state
+   *
+   * Cleans up all logger mocks and restores original logger functionality.
+   * Should be called in test teardown to prevent test interference.
+   *
+   * @example
+   * ```typescript
+   * JobFetchUtilsTestUtils.restoreLoggerMocks();
+   * ```
    * @since 1.0.0
    */
   static restoreLoggerMocks(): void {
@@ -160,10 +157,18 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Validate URL format and basic structure
+   * Validate URL structure and properties
    *
-   * @param url - URL to validate
-   * @param expectedProtocol - Expected protocol (default: https)
+   * Performs comprehensive validation of URL strings including format,
+   * protocol, and hostname checks. Used to ensure URL building utilities
+   * generate properly formatted URLs.
+   *
+   * @param url - URL string to validate
+   * @param expectedProtocol - Expected protocol (default: 'https:')
+   * @example
+   * ```typescript
+   * JobFetchUtilsTestUtils.validateUrl('https://example.com/path');
+   * ```
    * @since 1.0.0
    */
   static validateUrl(url: string, expectedProtocol = 'https:'): void {
@@ -179,10 +184,17 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create test error objects for error handling tests
+   * Create test errors for error handling scenarios
    *
-   * @param type - Type of error to create
-   * @returns Error object or unknown value for testing error handling
+   * Generates various types of test errors to validate error handling
+   * functionality across different error conditions and types.
+   *
+   * @param type - Type of error to create ('standard', 'network', 'unknown')
+   * @returns Error object or value for testing
+   * @example
+   * ```typescript
+   * const testError = JobFetchUtilsTestUtils.createTestErrorForHandling('network');
+   * ```
    * @since 1.0.0
    */
   static createTestErrorForHandling(type: 'standard' | 'network' | 'unknown'): unknown {

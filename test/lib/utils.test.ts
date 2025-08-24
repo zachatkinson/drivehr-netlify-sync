@@ -37,13 +37,21 @@ import { BaseTestUtils } from '../shared/base-test-utils.js';
  * cryptographic testing helpers, timing verification, and edge case validation.
  * Implements DRY principles to eliminate code duplication across utility tests.
  *
- * @extends BaseTestUtils
  * @since 1.0.0
  */
 class UtilsTestUtils extends BaseTestUtils {
   /**
    * Test data for string normalization scenarios
-   * Provides comprehensive test cases for identifier normalization
+   *
+   * Provides comprehensive test cases for identifier normalization testing
+   * with edge cases including special characters, spaces, and Unicode handling.
+   *
+   * @example
+   * ```typescript
+   * UtilsTestUtils.NORMALIZATION_TEST_CASES.forEach(({ input, expected }) => {
+   *   expect(StringUtils.normalizeForId(input)).toBe(expected);
+   * });
+   * ```
    * @since 1.0.0
    */
   static readonly NORMALIZATION_TEST_CASES = [
@@ -64,7 +72,16 @@ class UtilsTestUtils extends BaseTestUtils {
 
   /**
    * Test data for URL resolution scenarios
-   * Covers all URL resolution patterns and edge cases
+   *
+   * Provides comprehensive test cases for URL resolution testing covering
+   * absolute URLs, relative paths, protocol-relative URLs, and edge cases.
+   *
+   * @example
+   * ```typescript
+   * UtilsTestUtils.URL_RESOLUTION_TEST_CASES.forEach(({ url, baseUrl, expected }) => {
+   *   expect(UrlUtils.resolveUrl(url, baseUrl)).toBe(expected);
+   * });
+   * ```
    * @since 1.0.0
    */
   static readonly URL_RESOLUTION_TEST_CASES = [
@@ -114,7 +131,16 @@ class UtilsTestUtils extends BaseTestUtils {
 
   /**
    * Test data for date validation scenarios
-   * Comprehensive date format testing
+   *
+   * Provides comprehensive test cases for date validation testing covering
+   * valid ISO formats, US formats, international formats, and invalid dates.
+   *
+   * @example
+   * ```typescript
+   * UtilsTestUtils.DATE_TEST_CASES.forEach(({ input, valid }) => {
+   *   expect(DateUtils.isValidDate(input)).toBe(valid);
+   * });
+   * ```
    * @since 1.0.0
    */
   static readonly DATE_TEST_CASES = [
@@ -132,7 +158,16 @@ class UtilsTestUtils extends BaseTestUtils {
 
   /**
    * Domain extraction test cases
-   * Comprehensive domain extraction testing
+   *
+   * Provides comprehensive test cases for domain extraction testing covering
+   * standard URLs, subdomains, ports, and edge cases including invalid URLs.
+   *
+   * @example
+   * ```typescript
+   * UtilsTestUtils.DOMAIN_TEST_CASES.forEach(({ url, domain }) => {
+   *   expect(UrlUtils.extractDomain(url)).toBe(domain);
+   * });
+   * ```
    * @since 1.0.0
    */
   static readonly DOMAIN_TEST_CASES = [
@@ -217,11 +252,16 @@ class UtilsTestUtils extends BaseTestUtils {
    * Create test HMAC signature for validation testing
    *
    * Generates a known HMAC signature for testing signature validation
-   * and timing-safe comparison functionality.
+   * and timing-safe comparison functionality using SHA-256 algorithm.
    *
-   * @param data - Data to sign
-   * @param secret - Secret key
-   * @returns HMAC signature in sha256= format
+   * @param data - Data payload to sign for HMAC generation
+   * @param secret - Secret key for HMAC signature generation
+   * @returns HMAC signature in sha256=<hash> format
+   * @example
+   * ```typescript
+   * const signature = UtilsTestUtils.createTestHmacSignature('payload', 'secret');
+   * expect(signature).toMatch(/^sha256=[a-f0-9]{64}$/);
+   * ```
    * @since 1.0.0
    */
   static createTestHmacSignature(data: string, secret: string): string {
@@ -232,9 +272,16 @@ class UtilsTestUtils extends BaseTestUtils {
    * Generate test data for cryptographic functions
    *
    * Creates standardized test data for cryptographic testing including
-   * known payloads, secrets, and expected signatures.
+   * known payloads, secrets, valid signatures, and invalid signatures
+   * for comprehensive HMAC validation testing.
    *
-   * @returns Test data object with payload, secret, and signature
+   * @returns Test data object containing payload, secret, valid signature, and invalid signature
+   * @example
+   * ```typescript
+   * const { payload, secret, signature, invalidSignature } = UtilsTestUtils.generateCryptoTestData();
+   * expect(SecurityUtils.validateHmacSignature(payload, signature, secret)).toBe(true);
+   * expect(SecurityUtils.validateHmacSignature(payload, invalidSignature, secret)).toBe(false);
+   * ```
    * @since 1.0.0
    */
   static generateCryptoTestData(): {

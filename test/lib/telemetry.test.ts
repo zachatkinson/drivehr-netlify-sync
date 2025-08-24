@@ -1,24 +1,31 @@
 /**
- * Telemetry Simple Test Suite
+ * OpenTelemetry Integration Test Suite
  *
- * Comprehensive test coverage for OpenTelemetry telemetry module following
- * enterprise testing standards with simplified mocking strategy.
- * This test suite validates observable behaviors rather than implementation details.
+ * Comprehensive test coverage for OpenTelemetry telemetry service following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates telemetry initialization, data collection, span management,
+ * metrics recording, and graceful shutdown procedures across all business domains.
  *
  * Test Features:
- * - Telemetry API validation without complex SDK mocking
- * - Business metrics interface testing
- * - Configuration validation and error handling
- * - State management and initialization checks
- * - Error boundary testing and graceful degradation
+ * - Telemetry lifecycle management (initialization, configuration, shutdown)
+ * - Tracer and metrics provider access with proper error handling
+ * - Span creation and context management with automatic cleanup
+ * - Business metrics recording (HTTP, job processing, webhook events)
+ * - Error boundary testing for uninitialized state handling
+ * - Function signature validation and interface compliance
+ * - Performance metrics collection and export validation
+ * - Integration testing with OpenTelemetry SDK components
  *
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/lib/telemetry-simple.test.ts -- --grep "configuration"
+ * pnpm test test/lib/telemetry.test.ts -- --grep "metrics"
+ *
+ * // Example of running with coverage
+ * pnpm test test/lib/telemetry.test.ts --coverage
  * ```
  *
- * @module telemetry-simple-test-suite
+ * @module telemetry-test-suite
  * @since 1.0.0
  * @see {@link ../../src/lib/telemetry.ts} for the service being tested
  * @see {@link ../../CLAUDE.md} for testing standards and practices
@@ -29,20 +36,17 @@ import { BaseTestUtils } from '../shared/base-test-utils.js';
 import * as logger from '../../src/lib/logger.js';
 
 /**
- * Telemetry simple test utilities
+ * Telemetry-specific test utilities
  *
- * Extends BaseTestUtils with simplified telemetry testing patterns.
- * Focuses on observable behaviors rather than internal implementation.
+ * Extends BaseTestUtils with telemetry-specific testing patterns.
+ * Maintains DRY principles while providing specialized testing methods for
+ * OpenTelemetry integration, span validation, and metrics verification.
  *
  * @since 1.0.0
  */
 class TelemetrySimpleTestUtils extends BaseTestUtils {
   /**
-   * Mock logger instance for telemetry testing
-   *
-   * Provides comprehensive logging mock with all required methods
-   * for testing telemetry operations and error scenarios.
-   *
+   * Mock logger instance for telemetry tests
    * @since 1.0.0
    */
   static mockLogger = {
@@ -54,14 +58,16 @@ class TelemetrySimpleTestUtils extends BaseTestUtils {
   };
 
   /**
-   * Reset all mocks for clean test isolation
+   * Reset all Vitest mocks for telemetry test isolation
    *
-   * Ensures each test starts with clean mock state
-   * for consistent and reliable test execution.
+   * Clears all mock function call history and resets mock implementations
+   * to ensure test isolation and prevent data leakage between telemetry tests.
    *
    * @example
    * ```typescript
-   * TelemetrySimpleTestUtils.resetMocks();
+   * beforeEach(() => {
+   *   TelemetrySimpleTestUtils.resetMocks();
+   * });
    * ```
    * @since 1.0.0
    */

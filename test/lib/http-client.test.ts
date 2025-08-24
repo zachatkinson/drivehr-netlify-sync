@@ -16,9 +16,19 @@
  * - Comprehensive error handling scenarios
  * - Factory function validation
  *
- * @module http-client-tests
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/lib/http-client.test.ts -- --grep "HttpClient"
+ *
+ * // Example of running with coverage
+ * pnpm test test/lib/http-client.test.ts --coverage
+ * ```
+ *
+ * @module http-client-test-suite
  * @since 1.0.0
- * @see {@link ../src/lib/http-client.ts} for the implementation under test
+ * @see {@link ../../src/lib/http-client.ts} for the implementation under test
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -53,9 +63,6 @@ interface MockResponse {
   text: ReturnType<typeof vi.fn>;
 }
 
-/**
- * Mock node-fetch for controlled testing
- */
 vi.mock('node-fetch');
 
 describe('HttpClient', () => {

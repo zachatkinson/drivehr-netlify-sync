@@ -10,7 +10,7 @@
  * - Environment variable access with different modes (required, optional, default)
  * - Type safety and validation for environment configuration
  * - Error handling for missing required variables
- * - Overloaded function signature testing
+ * - Overloaded function signature testing (3 getEnvVar signatures)
  * - Environment configuration building and validation
  * - DRY test utilities for consistent testing patterns
  *
@@ -42,7 +42,8 @@ import { BaseTestUtils, TestFixtures } from '../shared/base-test-utils.js';
  * Environment-specific test utilities
  *
  * Extends BaseTestUtils with environment-specific testing patterns.
- * Maintains DRY principles while providing specialized environment testing methods.
+ * Maintains DRY principles while providing specialized environment testing methods
+ * for variable retrieval, configuration validation, and error testing scenarios.
  *
  * @since 1.0.0
  */
@@ -52,10 +53,11 @@ class EnvTestUtils extends BaseTestUtils {
    *
    * Validates that environment variable retrieval functions correctly
    * with different parameter combinations and returns expected values.
+   * Includes type checking and length validation for comprehensive testing.
    *
    * @param key - Environment variable key to test
-   * @param value - Expected value to be returned
-   * @param testDescription - Description for error messages
+   * @param value - Expected value to be returned (or undefined)
+   * @param _testDescription - Description for error messages (unused but maintained for consistency)
    * @example
    * ```typescript
    * EnvTestUtils.assertEnvVarRetrieval('TEST_VAR', 'expected-value', 'TEST_VAR retrieval');
@@ -83,9 +85,10 @@ class EnvTestUtils extends BaseTestUtils {
    *
    * Validates that attempting to access a required environment variable
    * that is not set throws an appropriate error with clear messaging.
+   * Essential for testing error handling scenarios.
    *
    * @param key - Environment variable key to test
-   * @param expectedErrorPattern - Expected error message pattern
+   * @param expectedErrorPattern - Expected error message pattern (string or regex)
    * @example
    * ```typescript
    * EnvTestUtils.assertRequiredEnvVarThrows('MISSING_VAR', /Required.*MISSING_VAR.*not set/);
@@ -101,9 +104,10 @@ class EnvTestUtils extends BaseTestUtils {
    *
    * Validates that the environment configuration object contains all required
    * properties and follows the expected EnvironmentConfig interface structure.
+   * Performs type checking and value validation for comprehensive configuration testing.
    *
    * @param config - Environment configuration object to validate
-   * @param expectedValues - Expected values for validation
+   * @param expectedValues - Expected values for validation (partial match)
    * @example
    * ```typescript
    * const config = getEnvironmentConfig();
@@ -144,7 +148,8 @@ class EnvTestUtils extends BaseTestUtils {
    * Create test environment with missing required variables
    *
    * Sets up test environment where specific required variables are missing
-   * to test error handling scenarios.
+   * to test error handling scenarios. Starts with a valid base environment
+   * and selectively removes specified variables for targeted testing.
    *
    * @param missingVars - Array of environment variable names to leave unset
    * @example

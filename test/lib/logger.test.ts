@@ -33,35 +33,20 @@ import type { LogLevel } from '../../src/types/config.js';
 import { BaseTestUtils } from '../shared/base-test-utils.js';
 
 /**
- * Specialized test utilities for logger service testing
+ * Logger-specific test utilities
  *
- * Extends BaseTestUtils with logger-specific testing capabilities including
- * console mocking, log level verification, and structured output validation.
- * Implements DRY principles to eliminate code duplication across logger tests.
+ * Extends BaseTestUtils with specialized logger testing capabilities including
+ * console mocking, output verification, and log level scenario generation.
+ * Maintains DRY principles while providing comprehensive testing support.
  *
  * @extends BaseTestUtils
  * @since 1.0.0
  */
 class LoggerTestUtils extends BaseTestUtils {
-  /**
-   * Console spy instances for intercepting log outputs
-   * Maps console methods to their respective spies for verification
-   * @since 1.0.0
-   */
   private static consoleMocks: Record<string, MockInstance> = {};
 
-  /**
-   * Standard test log levels with expected behavior
-   * Provides consistent test data for log level filtering tests
-   * @since 1.0.0
-   */
   static readonly LOG_LEVELS: LogLevel[] = ['error', 'warn', 'info', 'debug', 'trace'];
 
-  /**
-   * Log level priority mapping for filtering tests
-   * Lower numbers indicate higher priority (more important logs)
-   * @since 1.0.0
-   */
   static readonly LEVEL_PRIORITIES: Record<LogLevel, number> = {
     error: 0,
     warn: 1,
@@ -71,17 +56,14 @@ class LoggerTestUtils extends BaseTestUtils {
   };
 
   /**
-   * Setup console method mocking for log output verification
+   * Setup console method mocks for testing
    *
-   * Mocks all console methods used by the logger to capture and verify
-   * log outputs during testing. Essential for testing console integration
-   * without cluttering test output.
+   * Configures Vitest mocks for all console methods used by the logger
+   * to prevent actual console output during tests and enable output verification.
    *
    * @example
    * ```typescript
    * LoggerTestUtils.setupConsoleMocks();
-   * logger.info('test message');
-   * expect(console.info).toHaveBeenCalledWith(expect.stringContaining('test message'));
    * ```
    * @since 1.0.0
    */
@@ -94,10 +76,10 @@ class LoggerTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Restore original console methods after testing
+   * Restore all console mocks to original implementations
    *
-   * Restores all console methods to their original implementations
-   * and clears spy history. Essential cleanup to prevent test interference.
+   * Cleans up all Vitest console mocks and restores original console methods.
+   * Essential for proper test isolation and teardown procedures.
    *
    * @example
    * ```typescript
@@ -113,17 +95,18 @@ class LoggerTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Get console mock for specific log level
+   * Get console mock instance for a specific log level
    *
-   * Returns the appropriate console spy for the given log level,
-   * handling the trace->debug mapping used by the logger implementation.
+   * Retrieves the appropriate Vitest console mock for verification of logger output.
+   * Handles the mapping of 'trace' level to 'debug' console method for compatibility.
    *
-   * @param level - The log level to get console mock for
-   * @returns Console spy instance for verification
+   * @param level - Log level to get mock for
+   * @returns The Vitest mock instance for the console method
+   * @throws {Error} When mock for the specified level is not found
    * @example
    * ```typescript
-   * const consoleMock = LoggerTestUtils.getConsoleMock('info');
-   * expect(consoleMock).toHaveBeenCalledTimes(1);
+   * const debugMock = LoggerTestUtils.getConsoleMock('debug');
+   * expect(debugMock).toHaveBeenCalledWith(expectedOutput);
    * ```
    * @since 1.0.0
    */
@@ -138,17 +121,18 @@ class LoggerTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Verify console output format for plain text logging
+   * Verify plain text logger output format and content
    *
-   * Validates that console output matches expected plain text format
-   * with timestamp, log level, message, and optional context.
+   * Validates that logger output matches expected plain text format with proper
+   * timestamp, log level, message, and optional context data formatting.
    *
-   * @param level - Log level that was used
-   * @param message - Expected log message
-   * @param context - Optional context data
+   * @param level - Expected log level in the output
+   * @param message - Expected message content
+   * @param context - Optional context data to verify in output
+   * @throws {Error} When console calls are not found for the specified level
    * @example
    * ```typescript
-   * LoggerTestUtils.verifyPlainTextOutput('info', 'Test message', { key: 'value' });
+   * LoggerTestUtils.verifyPlainTextOutput('info', 'Test message', { userId: 123 });
    * ```
    * @since 1.0.0
    */
@@ -176,17 +160,18 @@ class LoggerTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Verify console output format for structured JSON logging
+   * Verify structured JSON logger output format and content
    *
-   * Validates that console output is properly formatted JSON with required
-   * fields including timestamp, level, message, and optional context.
+   * Validates that logger output matches expected structured JSON format with proper
+   * timestamp, log level, message, and optional context data structure.
    *
-   * @param level - Log level that was used
-   * @param message - Expected log message
-   * @param context - Optional context data
+   * @param level - Expected log level in the output
+   * @param message - Expected message content
+   * @param context - Optional context data to verify in output
+   * @throws {Error} When console calls are not found for the specified level
    * @example
    * ```typescript
-   * LoggerTestUtils.verifyStructuredOutput('error', 'Error occurred', { code: 500 });
+   * LoggerTestUtils.verifyStructuredOutput('error', 'API failed', { statusCode: 500 });
    * ```
    * @since 1.0.0
    */
@@ -215,13 +200,14 @@ class LoggerTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Verify that no console output was generated
+   * Verify no console output was generated
    *
-   * Ensures that no console methods were called, useful for testing
-   * log level filtering where messages should be suppressed.
+   * Validates that none of the console mock methods were called, useful for
+   * testing log level filtering where lower priority messages should be suppressed.
    *
    * @example
    * ```typescript
+   * // After logging below threshold
    * LoggerTestUtils.verifyNoConsoleOutput();
    * ```
    * @since 1.0.0
@@ -233,19 +219,17 @@ class LoggerTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create mock logger implementation for testing
+   * Create mock Logger implementation for testing
    *
-   * Creates a mock logger that implements the Logger interface with
-   * spy functions for all methods. Useful for testing singleton behavior
-   * and dependency injection scenarios.
+   * Generates a complete Logger interface implementation with Vitest mock functions
+   * for all log levels, useful for dependency injection testing scenarios.
    *
-   * @returns Mock logger with spy methods
+   * @returns Mock Logger instance with all methods as Vitest functions
    * @example
    * ```typescript
    * const mockLogger = LoggerTestUtils.createMockLogger();
    * setLogger(mockLogger);
-   * getLogger().info('test');
-   * expect(mockLogger.info).toHaveBeenCalledWith('test');
+   * expect(mockLogger.info).toHaveBeenCalledWith('Expected message');
    * ```
    * @since 1.0.0
    */
@@ -260,24 +244,17 @@ class LoggerTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Get test scenarios for log level filtering
+   * Generate comprehensive log level testing scenarios
    *
-   * Provides comprehensive test scenarios for verifying log level filtering
-   * behavior across all combinations of logger levels and message levels.
+   * Creates all combinations of logger levels and message levels to test
+   * hierarchical log level filtering behavior comprehensively.
    *
    * @returns Array of test scenarios with logger level, message level, and expected behavior
    * @example
    * ```typescript
-   * LoggerTestUtils.getLogLevelScenarios().forEach(({ loggerLevel, messageLevel, shouldLog }) => {
-   *   it(`should ${shouldLog ? '' : 'not '}log ${messageLevel} when level is ${loggerLevel}`, () => {
-   *     const logger = createLogger(loggerLevel);
-   *     logger[messageLevel]('test');
-   *     if (shouldLog) {
-   *       expect(console[messageLevel]).toHaveBeenCalled();
-   *     } else {
-   *       LoggerTestUtils.verifyNoConsoleOutput();
-   *     }
-   *   });
+   * const scenarios = LoggerTestUtils.getLogLevelScenarios();
+   * scenarios.forEach(({ loggerLevel, messageLevel, shouldLog }) => {
+   *   // Test each scenario
    * });
    * ```
    * @since 1.0.0

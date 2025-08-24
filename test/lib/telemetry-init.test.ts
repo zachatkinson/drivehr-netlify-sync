@@ -1,24 +1,31 @@
 /**
- * Telemetry Initialization Simple Test Suite
+ * Telemetry Initialization Service Test Suite
  *
- * Comprehensive test coverage for telemetry initialization module following
- * enterprise testing standards with simplified testing strategy.
- * This test suite validates observable behaviors rather than implementation details.
+ * Comprehensive test coverage for telemetry initialization service following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates telemetry lifecycle management, configuration
+ * handling, shutdown procedures, and environment-based enablement logic.
  *
  * Test Features:
- * - Telemetry initialization API validation without complex mocking
- * - Environment configuration logic testing
- * - Enablement detection and configuration summary validation
- * - Error boundary testing and graceful degradation
- * - Signal handling and shutdown lifecycle validation
+ * - Module import validation and API surface verification
+ * - Telemetry enablement logic with environment variable handling
+ * - Configuration summary generation and structure validation
+ * - Initialization lifecycle with graceful error handling
+ * - Signal handler setup for clean shutdown procedures
+ * - Error boundary testing for robust failure modes
+ * - Architecture compliance and interface consistency
+ * - Edge case handling for production reliability
  *
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/lib/telemetry-init.test.ts -- --grep "configuration"
+ * pnpm test test/lib/telemetry-init.test.ts -- --grep "enablement"
+ *
+ * // Example of running with coverage
+ * pnpm test test/lib/telemetry-init.test.ts --coverage
  * ```
  *
- * @module telemetry-init-simple-test-suite
+ * @module telemetry-init-test-suite
  * @since 1.0.0
  * @see {@link ../../src/lib/telemetry-init.ts} for the service being tested
  * @see {@link ../../CLAUDE.md} for testing standards and practices
@@ -29,20 +36,17 @@ import { BaseTestUtils } from '../shared/base-test-utils.js';
 import * as logger from '../../src/lib/logger.js';
 
 /**
- * Telemetry initialization simple test utilities
+ * Telemetry initialization specific test utilities
  *
- * Extends BaseTestUtils with simplified telemetry initialization testing patterns.
- * Focuses on observable behaviors rather than internal implementation.
+ * Extends BaseTestUtils with telemetry-specific testing patterns.
+ * Maintains DRY principles while providing specialized testing methods for
+ * telemetry initialization, environment configuration, and lifecycle management.
  *
  * @since 1.0.0
  */
 class TelemetryInitSimpleTestUtils extends BaseTestUtils {
   /**
-   * Mock logger instance for telemetry initialization testing
-   *
-   * Provides comprehensive logging mock with all required methods
-   * for testing telemetry initialization operations and error scenarios.
-   *
+   * Mock logger instance for telemetry initialization tests
    * @since 1.0.0
    */
   static mockLogger = {
@@ -54,14 +58,16 @@ class TelemetryInitSimpleTestUtils extends BaseTestUtils {
   };
 
   /**
-   * Reset all mocks for clean test isolation
+   * Reset all Vitest mocks for test isolation
    *
-   * Ensures each test starts with clean mock state
-   * for consistent and reliable test execution.
+   * Clears all mock function call history and resets mock implementations
+   * to ensure test isolation and prevent data leakage between tests.
    *
    * @example
    * ```typescript
-   * TelemetryInitSimpleTestUtils.resetMocks();
+   * beforeEach(() => {
+   *   TelemetryInitSimpleTestUtils.resetMocks();
+   * });
    * ```
    * @since 1.0.0
    */
@@ -75,17 +81,17 @@ class TelemetryInitSimpleTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create mock environment variables for testing
+   * Create mock environment variables for telemetry testing
    *
-   * Provides realistic environment variable setup for telemetry
-   * configuration testing with proper type safety.
+   * Generates a complete set of environment variables with telemetry-relevant
+   * defaults that can be customized via the overrides parameter.
    *
-   * @param overrides - Optional environment variable overrides
-   * @returns Mock environment variables object
+   * @param overrides - Environment variables to override defaults
+   * @returns Complete environment configuration for testing
    * @example
    * ```typescript
-   * const mockEnv = TelemetryInitSimpleTestUtils.createMockEnv({
-   *   NODE_ENV: 'production'
+   * const env = TelemetryInitSimpleTestUtils.createMockEnv({
+   *   DRIVEHR_TELEMETRY_ENABLED: 'true'
    * });
    * ```
    * @since 1.0.0

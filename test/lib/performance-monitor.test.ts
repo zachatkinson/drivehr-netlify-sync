@@ -1,23 +1,27 @@
 /**
- * Performance Monitor Test Suite
+ * PerformanceMonitor Service Test Suite
  *
- * Comprehensive test coverage for performance monitoring module following
+ * Comprehensive test coverage for PerformanceMonitor service following
  * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates performance metrics collection, timer functionality,
- * memory monitoring, and enterprise-grade performance tracking capabilities.
+ * This test suite validates performance metric collection, timing operations,
+ * memory management, and export functionality across all supported formats.
  *
  * Test Features:
- * - Singleton instance management and state isolation
- * - Performance metrics recording with metadata and timing
- * - Timer lifecycle management with accurate duration tracking
- * - Memory usage monitoring and performance report generation
- * - Edge case handling and error recovery scenarios
- * - Performance measurement accuracy and consistency validation
+ * - Singleton pattern verification and instance management
+ * - Metric collection and timer operations
+ * - Memory management and metric clearing
+ * - Multi-format export (JSON, Prometheus, InfluxDB)
+ * - Decorator function behavior and customization
+ * - Middleware creation and request performance tracking
+ * - Error handling and edge cases
  *
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/lib/performance-monitor.test.ts -- --grep "timer"
+ * pnpm test test/lib/performance-monitor.test.ts -- --grep "singleton"
+ *
+ * // Example of running with coverage
+ * pnpm test test/lib/performance-monitor.test.ts --coverage
  * ```
  *
  * @module performance-monitor-test-suite
@@ -36,21 +40,17 @@ import { BaseTestUtils } from '../shared/base-test-utils.js';
 import * as logger from '../../src/lib/logger.js';
 
 /**
- * Performance monitor test utilities
+ * Performance-specific test utilities
  *
- * Extends BaseTestUtils with performance monitoring specific testing patterns.
- * Maintains DRY principles while providing specialized testing methods
- * for metrics validation, timer testing, and performance measurement scenarios.
+ * Extends BaseTestUtils with performance monitoring testing patterns.
+ * Maintains DRY principles while providing specialized testing methods for
+ * metric validation, timer operations, and performance analysis.
  *
  * @since 1.0.0
  */
 class PerformanceMonitorTestUtils extends BaseTestUtils {
   /**
-   * Mock logger instance for performance testing
-   *
-   * Provides comprehensive logging mock with all required methods
-   * for testing performance monitoring operations and scenarios.
-   *
+   * Mock logger instance for performance monitoring tests
    * @since 1.0.0
    */
   static mockLogger = {
@@ -62,15 +62,16 @@ class PerformanceMonitorTestUtils extends BaseTestUtils {
   };
 
   /**
-   * Create mock timer for testing
+   * Create mock Timer implementation for testing
    *
-   * Generates a mock Timer instance with properly configured
-   * end and elapsed methods for testing timer functionality.
+   * Generates a complete Timer interface implementation with Vitest mock functions
+   * for testing timing operations without actual time delays.
    *
-   * @returns Mock timer instance
+   * @returns Mock Timer instance with mocked end and elapsed methods
    * @example
    * ```typescript
    * const mockTimer = PerformanceMonitorTestUtils.createMockTimer();
+   * expect(mockTimer.end).toHaveBeenCalled();
    * ```
    * @since 1.0.0
    */
@@ -82,18 +83,18 @@ class PerformanceMonitorTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create test performance metric
+   * Create test performance metric with customizable properties
    *
-   * Generates realistic performance metric objects with proper
-   * defaults and optional overrides for comprehensive testing scenarios.
+   * Generates a valid PerformanceMetric object with sensible defaults
+   * that can be customized via the overrides parameter for comprehensive testing.
    *
-   * @param overrides - Partial metric to override defaults
-   * @returns Complete performance metric object
+   * @param overrides - Partial properties to override defaults
+   * @returns Complete PerformanceMetric object for testing
    * @example
    * ```typescript
    * const metric = PerformanceMonitorTestUtils.createTestMetric({
    *   name: 'custom-metric',
-   *   value: 100
+   *   value: 123
    * });
    * ```
    * @since 1.0.0
@@ -110,18 +111,18 @@ class PerformanceMonitorTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Validate metric matches expected structure
+   * Assert performance metric matches expected properties
    *
-   * Comprehensive validation that ensures performance metrics
-   * contain all required fields with proper types and values.
+   * Validates that a performance metric contains the expected properties
+   * and has a valid timestamp format. Includes type guards for safety.
    *
-   * @param metric - Performance metric to validate
-   * @param expected - Expected metric properties
+   * @param metric - Performance metric to validate (may be undefined)
+   * @param expected - Partial properties to match against
    * @example
    * ```typescript
    * PerformanceMonitorTestUtils.expectMetricToMatch(metric, {
-   *   name: 'test-metric',
-   *   unit: 'milliseconds'
+   *   name: 'api-call',
+   *   unit: 'ms'
    * });
    * ```
    * @since 1.0.0
@@ -138,14 +139,15 @@ class PerformanceMonitorTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Validate timer instance is properly configured
+   * Assert timer object has valid interface implementation
    *
-   * Ensures timer instances have all required methods and
-   * are properly configured for performance measurement.
+   * Validates that a timer object implements the Timer interface correctly
+   * with proper method types and availability.
    *
-   * @param timer - Timer instance to validate
+   * @param timer - Timer object to validate
    * @example
    * ```typescript
+   * const timer = monitor.startTimer('test-operation');
    * PerformanceMonitorTestUtils.expectTimerToBeValid(timer);
    * ```
    * @since 1.0.0
@@ -157,16 +159,18 @@ class PerformanceMonitorTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Wait for specified time in tests
+   * Async delay utility for timing-sensitive tests
    *
-   * Utility for testing time-dependent code with proper
-   * async/await support for timer validation.
+   * Creates a Promise-based delay for testing timing-dependent functionality
+   * where actual time passage is required.
    *
-   * @param ms - Milliseconds to wait
-   * @returns Promise that resolves after the specified time
+   * @param ms - Number of milliseconds to wait
+   * @returns Promise that resolves after the specified delay
    * @example
    * ```typescript
-   * await PerformanceMonitorTestUtils.waitForMs(100);
+   * const timer = monitor.startTimer('async-operation');
+   * await PerformanceMonitorTestUtils.waitForMs(50);
+   * timer.end();
    * ```
    * @since 1.0.0
    */
@@ -175,14 +179,16 @@ class PerformanceMonitorTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Reset performance monitor state for test isolation
+   * Reset all metrics and timers for test isolation
    *
-   * Clears all metrics and timers from the performance monitor
-   * instance to ensure clean state between test cases.
+   * Clears all accumulated metrics and active timers from the PerformanceMonitor
+   * singleton to ensure test isolation and prevent data leakage between tests.
    *
    * @example
    * ```typescript
-   * PerformanceMonitorTestUtils.resetAllMetrics();
+   * beforeEach(() => {
+   *   PerformanceMonitorTestUtils.resetAllMetrics();
+   * });
    * ```
    * @since 1.0.0
    */
