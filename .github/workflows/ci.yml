@@ -133,6 +133,8 @@ jobs:
         run: pnpm exec vitest run ${{ matrix.test-suite.pattern }} --coverage
         env:
           NODE_ENV: test
+          WP_API_URL: 'https://mock-wordpress-site.example.com'
+          WEBHOOK_SECRET: 'mock-webhook-secret-for-ci-testing-12345'
 
       - name: Upload individual coverage to Codecov
         uses: codecov/codecov-action@v5.5.0
