@@ -1,26 +1,67 @@
 /**
  * DriveHR Manual Trigger - Netlify Function
  *
- * Netlify function that manually triggers the GitHub Actions job scraping
- * workflow via the GitHub API. This provides an on-demand way to
- * initiate job scraping outside of the scheduled runs.
+ * Enterprise-grade manual trigger endpoint providing authenticated on-demand activation
+ * of GitHub Actions job scraping workflows. This Netlify function serves as a secure
+ * webhook endpoint that allows authorized external systems to manually initiate DriveHR
+ * job synchronization processes outside of scheduled automated runs.
  *
- * **Features:**
- * - GitHub repository workflow dispatch
- * - Optional force sync parameter
- * - Authentication with GitHub API
- * - Webhook signature validation for security
- * - Comprehensive error handling and logging
+ * The function implements comprehensive security measures including HMAC webhook signature
+ * validation, GitHub API authentication, and structured error handling with detailed
+ * logging for operational monitoring and debugging. All requests are validated and
+ * tracked with unique request identifiers for correlation across distributed systems.
  *
- * **Security:**
- * - Requires valid webhook signature for authentication
- * - Uses GitHub API tokens for repository access
- * - Rate limiting to prevent abuse
+ * Key Security Features:
+ * - HMAC SHA-256 webhook signature validation for request authentication
+ * - GitHub Personal Access Token authentication for repository workflow dispatch
+ * - Comprehensive security headers enforcement (CSP, XFO, XCTO)
+ * - Request payload validation and sanitization
+ * - Structured error responses without sensitive information exposure
  *
- * **Usage:**
- * - POST /.netlify/functions/manual-trigger
- * - Requires X-Webhook-Signature header
- * - Optional force_sync parameter in request body
+ * GitHub Actions Integration:
+ * - Repository workflow dispatch via GitHub REST API v3
+ * - Support for force sync parameter to override caching behavior
+ * - Comprehensive error handling for GitHub API rate limits and failures
+ * - Detailed workflow trigger logging with response status tracking
+ *
+ * @example
+ * ```bash
+ * # Manual trigger with force sync
+ * curl -X POST https://your-site.netlify.app/.netlify/functions/manual-trigger \
+ *   -H "Content-Type: application/json" \
+ *   -H "X-Webhook-Signature: sha256=abc123..." \
+ *   -d '{
+ *     "force_sync": true,
+ *     "reason": "Emergency job update",
+ *     "source": "admin-dashboard"
+ *   }'
+ *
+ * # Successful response
+ * {
+ *   "success": true,
+ *   "message": "GitHub Actions workflow triggered successfully",
+ *   "github_response": {
+ *     "status": 204,
+ *     "statusText": "No Content"
+ *   },
+ *   "timestamp": "2025-08-24T19:30:00.000Z",
+ *   "requestId": "trigger_abc123def456"
+ * }
+ *
+ * # Error response (invalid signature)
+ * {
+ *   "success": false,
+ *   "error": "Invalid webhook signature",
+ *   "requestId": "trigger_xyz789",
+ *   "timestamp": "2025-08-24T19:30:00.000Z"
+ * }
+ * ```
+ *
+ * @module manual-trigger-function
+ * @since 2.0.0
+ * @see {@link ../../lib/utils.js} for HMAC signature validation utilities
+ * @see {@link ../../lib/http-client.js} for GitHub API communication
+ * @see {@link ../../lib/logger.js} for structured logging capabilities
  */
 
 import type { Context } from '@netlify/functions';
@@ -31,7 +72,13 @@ import { createHttpClient } from '../lib/http-client.js';
 import type { SecurityHeaders } from '../types/api.js';
 
 /**
- * Manual trigger request payload
+ * Manual trigger request payload structure
+ *
+ * Defines the optional parameters that can be included in manual trigger requests
+ * to control workflow execution behavior and provide operational context for
+ * logging and monitoring purposes.
+ *
+ * @since 2.0.0
  */
 interface ManualTriggerPayload {
   force_sync?: boolean;
@@ -40,7 +87,14 @@ interface ManualTriggerPayload {
 }
 
 /**
- * GitHub workflow dispatch payload
+ * GitHub workflow dispatch API payload structure
+ *
+ * Structured payload format required by GitHub Actions workflow dispatch API
+ * for triggering repository workflows programmatically. This interface ensures
+ * type-safe interaction with the GitHub REST API v3 workflow dispatch endpoint.
+ *
+ * @since 2.0.0
+ * @see {@link https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event}
  */
 interface GitHubWorkflowDispatch {
   ref: string;
@@ -50,7 +104,13 @@ interface GitHubWorkflowDispatch {
 }
 
 /**
- * Manual trigger result
+ * Manual trigger operation result structure
+ *
+ * Comprehensive result container providing detailed information about manual
+ * trigger execution including success status, GitHub API response details,
+ * error information, and operational metadata for monitoring and debugging.
+ *
+ * @since 2.0.0
  */
 interface ManualTriggerResult {
   success: boolean;
@@ -64,16 +124,63 @@ interface ManualTriggerResult {
   timestamp: string;
   requestId: string;
 }
-
 /**
- * Netlify manual trigger function
+ * Netlify manual trigger function handler
  *
- * Authenticates requests and triggers the GitHub Actions workflow for
- * job scraping. Provides manual control over the scraping process.
+ * Main entry point for the manual trigger endpoint providing secure, authenticated
+ * activation of GitHub Actions workflows. This function handles all aspects of
+ * request validation, authentication, payload processing, and GitHub API integration
+ * with comprehensive error handling and operational logging.
  *
- * @param req - Web standard Request object
- * @param context - Netlify function context
- * @returns Promise<Response> - Trigger result
+ * The function implements enterprise-grade security practices including HMAC signature
+ * validation, comprehensive input sanitization, and structured error responses. All
+ * operations are tracked with unique request identifiers and logged with appropriate
+ * detail levels for operational monitoring and incident response.
+ *
+ * Authentication Flow:
+ * 1. HTTP method validation (POST only)
+ * 2. HMAC webhook signature extraction and validation
+ * 3. Request payload parsing and validation
+ * 4. GitHub API authentication and workflow dispatch
+ * 5. Response formatting and logging
+ *
+ * @param req - Web standard Request object containing HTTP request details and payload
+ * @param context - Netlify function execution context with environment access
+ * @returns Promise resolving to HTTP Response with trigger results and status
+ * @throws {Error} When critical system failures prevent trigger execution
+ * @example
+ * ```typescript
+ * // Netlify function deployment
+ * const response = await manualTriggerFunction(request, context);
+ *
+ * // Success response (status 200)
+ * {
+ *   success: true,
+ *   message: "GitHub Actions workflow triggered successfully",
+ *   github_response: { status: 204, statusText: "No Content" },
+ *   timestamp: "2025-08-24T19:30:00.000Z",
+ *   requestId: "trigger_abc123def456"
+ * }
+ *
+ * // Authentication error (status 401)
+ * {
+ *   success: false,
+ *   error: "Invalid webhook signature",
+ *   requestId: "trigger_xyz789",
+ *   timestamp: "2025-08-24T19:30:00.000Z"
+ * }
+ *
+ * // GitHub API error (status 500)
+ * {
+ *   success: false,
+ *   message: "Failed to trigger GitHub Actions workflow",
+ *   error: "GitHub API error: 401 Unauthorized",
+ *   github_response: { status: 401, statusText: "Unauthorized" },
+ *   timestamp: "2025-08-24T19:30:00.000Z",
+ *   requestId: "trigger_def456ghi789"
+ * }
+ * ```
+ * @since 2.0.0
  */
 export default async (req: Request, context: Context): Promise<Response> => {
   const requestId = generateRequestId();
@@ -211,7 +318,56 @@ export default async (req: Request, context: Context): Promise<Response> => {
 };
 
 /**
- * Trigger GitHub Actions workflow via repository dispatch
+ * Trigger GitHub Actions workflow via repository dispatch API
+ *
+ * Orchestrates the GitHub Actions workflow dispatch process including environment
+ * validation, GitHub API authentication, request formatting, and comprehensive
+ * error handling. This function handles all aspects of GitHub API integration
+ * with proper retry logic, timeout management, and detailed response processing.
+ *
+ * The function validates all required GitHub configuration including repository
+ * identification, authentication tokens, and workflow file references. It formats
+ * requests according to GitHub API specifications and processes responses with
+ * appropriate error categorization and logging for operational monitoring.
+ *
+ * GitHub API Integration:
+ * - Repository workflow dispatch endpoint interaction
+ * - Bearer token authentication with GitHub Personal Access Token
+ * - Workflow input parameter processing and validation
+ * - HTTP status code interpretation and error handling
+ * - Response metadata extraction and logging
+ *
+ * @param payload - Manual trigger payload containing workflow execution parameters
+ * @param requestId - Unique request identifier for operation tracking and correlation
+ * @returns Promise resolving to comprehensive trigger result with status and metadata
+ * @throws {Error} When GitHub configuration validation or API communication fails
+ * @example
+ * ```typescript
+ * const result = await triggerGitHubWorkflow(
+ *   { force_sync: true, reason: "Emergency update" },
+ *   "trigger_abc123"
+ * );
+ *
+ * // Successful workflow trigger
+ * {
+ *   success: true,
+ *   message: "GitHub Actions workflow triggered successfully",
+ *   github_response: { status: 204, statusText: "No Content" },
+ *   timestamp: "2025-08-24T19:30:00.000Z",
+ *   requestId: "trigger_abc123"
+ * }
+ *
+ * // GitHub API authentication error
+ * {
+ *   success: false,
+ *   message: "Failed to trigger GitHub Actions workflow",
+ *   error: "GitHub API error: 401 Unauthorized",
+ *   github_response: { status: 401, statusText: "Unauthorized" },
+ *   timestamp: "2025-08-24T19:30:00.000Z",
+ *   requestId: "trigger_abc123"
+ * }
+ * ```
+ * @since 2.0.0
  */
 async function triggerGitHubWorkflow(
   payload: ManualTriggerPayload,
@@ -337,14 +493,66 @@ async function triggerGitHubWorkflow(
 }
 
 /**
- * Validate webhook HMAC signature for request authentication
+ * Validate HMAC webhook signature for request authentication
+ *
+ * Performs cryptographic validation of webhook request signatures using HMAC SHA-256
+ * to ensure request authenticity and prevent unauthorized access. This function
+ * provides the primary security mechanism for the manual trigger endpoint by
+ * validating that requests originate from authorized systems with access to the
+ * shared webhook secret.
+ *
+ * The validation process computes the expected HMAC signature using the request
+ * payload and shared secret, then performs constant-time comparison with the
+ * provided signature to prevent timing attacks. All signature validation failures
+ * are logged for security monitoring and incident response.
+ *
+ * @param payload - Raw request payload string used for signature computation
+ * @param signature - Provided HMAC signature from request headers (format: "sha256=hash")
+ * @param secret - Shared webhook secret for signature validation
+ * @returns True if signature is valid and request is authenticated, false otherwise
+ * @example
+ * ```typescript
+ * const isValid = validateWebhookSignature(
+ *   '{"force_sync": true}',
+ *   'sha256=a3b2c1d4e5f6...',
+ *   'your-webhook-secret'
+ * );
+ *
+ * if (isValid) {
+ *   console.log('Request authenticated successfully');
+ * } else {
+ *   console.warn('Invalid signature - unauthorized request');
+ * }
+ * ```
+ * @since 2.0.0
  */
 function validateWebhookSignature(payload: string, signature: string, secret: string): boolean {
   return SecurityUtils.validateHmacSignature(payload, signature, secret);
 }
 
 /**
- * Generate unique request ID for request tracing
+ * Generate unique request identifier for operation tracking
+ *
+ * Creates unique, traceable request identifiers for correlating operations
+ * across distributed systems, logs, and monitoring infrastructure. Request IDs
+ * enable end-to-end tracking of manual trigger operations from initial webhook
+ * receipt through GitHub workflow dispatch completion.
+ *
+ * Generated IDs follow a consistent format with "trigger_" prefix for easy
+ * identification in logs and monitoring systems, followed by cryptographically
+ * secure random identifiers to ensure uniqueness across concurrent requests.
+ *
+ * @returns Unique request identifier string with "trigger_" prefix
+ * @example
+ * ```typescript
+ * const requestId = generateRequestId();
+ * console.log(requestId); // "trigger_abc123def456ghi789"
+ *
+ * // Use in logging for request correlation
+ * logger.info('Processing manual trigger', { requestId });
+ * logger.info('GitHub workflow dispatched', { requestId, status: 204 });
+ * ```
+ * @since 2.0.0
  */
 function generateRequestId(): string {
   return `trigger_${StringUtils.generateRequestId()}`;
