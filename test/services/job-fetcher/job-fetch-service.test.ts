@@ -3,14 +3,16 @@
  *
  * Comprehensive test coverage for JobFetchService following
  * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates service orchestration and job normalization.
+ * This test suite validates service orchestration, strategy execution,
+ * job normalization, and error handling with telemetry integration.
  *
  * Test Features:
- * - Service initialization and configuration
- * - Strategy orchestration and fallback logic
- * - Job normalization and data transformation
- * - Error handling and telemetry integration
- * - Integration patterns and workflow testing
+ * - Service initialization and dependency injection validation
+ * - HTML strategy execution with proper URL building
+ * - Job data normalization from raw to structured format
+ * - Error handling for network failures and parsing errors
+ * - Source tracking and metadata enrichment
+ * - Strategy fallback behavior when configuration is invalid
  *
  * @example
  * ```typescript
@@ -35,33 +37,59 @@ import * as jobFetchUtils from '../../../src/lib/job-fetch-utils.js';
 /**
  * Job Fetch Service-specific test utilities
  *
- * Extends JobFetcherTestUtils with service-specific testing patterns.
- * Maintains DRY principles while providing specialized testing methods.
+ * Extends JobFetcherTestUtils with service-specific testing patterns for
+ * JobFetchService operations. Provides specialized mock setup for HTML parsing,
+ * HTTP client responses, and error handler utilities required for comprehensive
+ * service testing scenarios.
  *
  * @since 1.0.0
  */
 class JobFetchServiceTestUtils extends JobFetcherTestUtils {
   /**
-   * Setup comprehensive mocks for service testing
+   * Setup comprehensive mocks for JobFetchService testing
    *
+   * Configures all required mocks for testing JobFetchService operations including
+   * HTTP client responses, HTML parser behavior, and error handling utilities.
+   * This setup ensures proper isolation and predictable behavior during test execution.
+   *
+   * @example
+   * ```typescript
+   * beforeEach(() => {
+   *   JobFetchServiceTestUtils.setupServiceMocks();
+   * });
+   * ```
    * @since 1.0.0
    */
   static setupServiceMocks(): void {
     vi.mocked(this.mockHttpClient.get).mockResolvedValue(
-      this.createSuccessResponse('<html>Mock HTML content</html>')
+      this.createSuccessResponse('<html lang="en">Mock HTML content</html>')
     );
     vi.mocked(this.mockHtmlParser.parseJobsFromHtml).mockReturnValue(this.SAMPLE_RAW_JOBS);
     vi.spyOn(jobFetchUtils.JobFetchErrorHandler, 'logStrategyFailure').mockImplementation(() => {});
   }
 
   /**
-   * Create minimal config that cannot be handled by any strategy
+   * Create configuration that cannot be handled by any strategy
    *
-   * @returns Configuration that will cause all strategies to fail
+   * Generates a minimal configuration that will cause all job fetch strategies
+   * to reject handling, used for testing fallback behavior when no suitable
+   * strategy is available for the provided configuration.
+   *
+   * @returns Configuration with empty URLs that HTML strategy cannot handle
+   * @example
+   * ```typescript
+   * const invalidConfig = JobFetchServiceTestUtils.createUnhandleableConfig();
+   * const result = await service.fetchJobs(invalidConfig, 'test');
+   * expect(result.success).toBe(false);
+   * ```
    * @since 1.0.0
    */
   static createUnhandleableConfig(): DriveHrApiConfig {
-    return { companyId: 'test' } as DriveHrApiConfig;
+    return {
+      companyId: 'test',
+      apiBaseUrl: '',
+      careersUrl: '',
+    };
   }
 }
 
@@ -88,7 +116,6 @@ describe('JobFetchService', () => {
   describe('constructor', () => {
     it('should initialize with HTML strategy only', () => {
       expect(service).toBeInstanceOf(JobFetchService);
-      // We can't directly access strategies, but can test through behavior
     });
 
     it('should accept HTTP client and HTML parser dependencies', () => {
@@ -143,7 +170,6 @@ describe('JobFetchService', () => {
       expect(result.success).toBe(true);
       expect(result.jobs).toHaveLength(3);
 
-      // Verify normalization happened
       const firstJob = result.jobs[0] as NormalizedJob;
       expect(firstJob).toHaveProperty('id');
       expect(firstJob).toHaveProperty('title');
@@ -165,7 +191,7 @@ describe('JobFetchService', () => {
       const result = await service.fetchJobs(JobFetchServiceTestUtils.STANDARD_CONFIG, 'webhook');
 
       expect(result.success).toBe(true);
-      expect(result.jobs).toHaveLength(1); // Only the job with a valid title
+      expect(result.jobs).toHaveLength(1);
       expect((result.jobs[0] as NormalizedJob).title).toBe('Valid Job');
     });
 
@@ -173,7 +199,7 @@ describe('JobFetchService', () => {
       const result = await service.fetchJobs(JobFetchServiceTestUtils.STANDARD_CONFIG);
 
       expect(result.success).toBe(true);
-      expect((result.jobs[0] as NormalizedJob).source).toBe('drivehr'); // Default source
+      expect((result.jobs[0] as NormalizedJob).source).toBe('drivehr');
     });
 
     it('should handle HTTP client errors gracefully', async () => {
@@ -236,7 +262,6 @@ describe('JobFetchService', () => {
       expect(result.success).toBe(true);
       expect(result.jobs).toHaveLength(2);
 
-      // Verify both jobs were normalized despite different field names
       expect((result.jobs[0] as NormalizedJob).title).toBe('Engineer');
       expect((result.jobs[1] as NormalizedJob).title).toBe('Designer');
     });

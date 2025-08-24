@@ -1,25 +1,30 @@
 /**
- * Job Fetcher Module Test Suite Entry Point
+ * Job Fetcher Module Export Test Suite
  *
- * Main test entry point that validates the barrel exports and module integration.
- * This test file ensures that all components are properly exported and accessible
- * through the main module interface, supporting the modular architecture.
+ * Comprehensive test coverage for the job fetcher barrel module export validation following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates that all critical components, strategies, and type definitions
+ * are properly exported from the centralized job fetcher module entry point.
  *
  * Test Features:
- * - Barrel export validation
- * - Module interface verification
- * - Component availability testing
- * - Integration point validation
+ * - Main service class export validation (JobFetchService)
+ * - Core component export verification (normalizer, strategies, telemetry)
+ * - Template and operation class availability testing
+ * - TypeScript interface import validation (compile-time verification)
+ * - Export structure consistency and naming validation
+ * - Constructor function type verification for all exports
+ * - Comprehensive module integrity checking
+ * - Barrel export pattern compliance testing
  *
  * @example
  * ```typescript
- * // Example of running module export tests
- * pnpm test test/services/job-fetcher/index.test.ts
+ * // Example of running specific test group
+ * pnpm test test/services/job-fetcher/index.test.ts -- --grep "exports"
  * ```
  *
- * @module job-fetcher-module-test-suite
+ * @module job-fetcher-index-test-suite
  * @since 1.0.0
- * @see {@link ../../../src/services/job-fetcher/index.ts} for the barrel exports being tested
+ * @see {@link ../../../src/services/job-fetcher/index.ts} for the module being tested
  * @see {@link ../../../CLAUDE.md} for testing standards and practices
  */
 

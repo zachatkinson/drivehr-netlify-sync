@@ -1,26 +1,30 @@
 /**
  * Job Fetcher Integration Test Suite
  *
- * Comprehensive integration test coverage for the complete job fetcher workflow
- * following enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates end-to-end functionality and cross-component integration.
+ * Comprehensive end-to-end test coverage for job fetcher service integration following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates complete job fetching workflows from HTTP requests through
+ * HTML parsing, data normalization, error handling, and strategy fallback mechanisms.
  *
  * Test Features:
- * - Complete workflow integration testing
- * - Multi-strategy coordination and fallback
- * - Configuration variation handling
- * - Error propagation and recovery patterns
- * - Performance and reliability validation
+ * - Complete job fetching workflow validation (HTTP → parsing → normalization)
+ * - Strategy pattern fallback mechanism testing
+ * - Error handling and comprehensive logging verification
+ * - Configuration variation compatibility testing
+ * - Empty result handling and edge case validation
+ * - Data integrity maintenance throughout the pipeline
+ * - Concurrent operation safety and isolation testing
+ * - Telemetry integration pattern validation
  *
  * @example
  * ```typescript
- * // Example of running integration tests only
- * pnpm test test/services/job-fetcher/integration.test.ts
+ * // Example of running specific test group
+ * pnpm test test/services/job-fetcher/integration.test.ts -- --grep "workflow"
  * ```
  *
  * @module job-fetcher-integration-test-suite
  * @since 1.0.0
- * @see {@link ../../../src/services/job-fetcher/index.ts} for the module being tested
+ * @see {@link ../../../src/services/job-fetcher/job-fetch-service.ts} for the service being tested
  * @see {@link ../../../CLAUDE.md} for testing standards and practices
  */
 
@@ -33,17 +37,28 @@ import * as logger from '../../../src/lib/logger.js';
 import * as jobFetchUtils from '../../../src/lib/job-fetch-utils.js';
 
 /**
- * Integration Test-specific utilities
+ * Specialized test utilities for job fetcher integration testing
  *
- * Extends JobFetcherTestUtils with integration-specific testing patterns.
- * Maintains DRY principles while providing specialized integration testing methods.
+ * Extends JobFetcherTestUtils with integration-specific testing capabilities
+ * including complete workflow mock setup, end-to-end verification patterns,
+ * and comprehensive validation for job fetching service integration scenarios.
  *
  * @since 1.0.0
  */
 class IntegrationTestUtils extends JobFetcherTestUtils {
   /**
-   * Setup comprehensive integration test mocks
+   * Configure comprehensive mocks for integration testing workflows
    *
+   * Sets up HTTP client, HTML parser, and error handler mocks to simulate
+   * realistic end-to-end job fetching scenarios with proper response chains
+   * and error handling patterns for integration testing.
+   *
+   * @example
+   * ```typescript
+   * IntegrationTestUtils.setupIntegrationMocks();
+   * const result = await service.fetchJobs(config, 'webhook');
+   * expect(result.success).toBe(true);
+   * ```
    * @since 1.0.0
    */
   static setupIntegrationMocks(): void {
@@ -55,9 +70,18 @@ class IntegrationTestUtils extends JobFetcherTestUtils {
   }
 
   /**
-   * Verify complete workflow execution
+   * Verify complete end-to-end job fetching workflow results
+   *
+   * Performs comprehensive validation of job fetching workflow results
+   * including success status, job count, fetch method, and normalized
+   * job structure validation for integration testing scenarios.
    *
    * @param result - Job fetch result to verify
+   * @example
+   * ```typescript
+   * const result = await service.fetchJobs(config, 'manual');
+   * IntegrationTestUtils.verifyCompleteWorkflow(result);
+   * ```
    * @since 1.0.0
    */
   static verifyCompleteWorkflow(result: JobFetchResult): void {
@@ -144,7 +168,7 @@ describe('Job Fetcher Integration Tests', () => {
         IntegrationTestUtils.mockHtmlParser
       );
 
-      if (name === 'HTML only config' || name === 'Complete config') {
+      if (name === 'HTML config' || name === 'Complete config') {
         // These configs should work with HTML strategy
         vi.mocked(IntegrationTestUtils.mockHttpClient.get).mockResolvedValue(
           IntegrationTestUtils.createSuccessResponse('<html>Mock HTML</html>')

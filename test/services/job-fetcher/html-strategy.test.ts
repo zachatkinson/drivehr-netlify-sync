@@ -1,21 +1,25 @@
 /**
  * HTML Job Fetch Strategy Test Suite
  *
- * Comprehensive test coverage for HtmlJobFetchStrategy following
+ * Comprehensive test coverage for the HTML-based job fetching strategy following
  * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates HTML scraping functionality and error handling.
+ * This test suite validates HTML parsing job extraction, URL capability validation,
+ * error handling for network failures, and intelligent "no jobs available" detection.
  *
  * Test Features:
- * - Strategy interface compliance verification
- * - Configuration handling and validation
- * - HTML scraping and parsing integration
- * - Error handling and edge cases
- * - Mock integration patterns
+ * - HTML job fetch strategy implementation testing
+ * - Configuration capability validation (canHandle method)
+ * - HTTP request handling and response processing
+ * - HTML parser integration and error scenarios
+ * - "No jobs available" indicator detection algorithms
+ * - Network timeout and error handling validation
+ * - DriveHR URL builder integration testing
+ * - Comprehensive mock strategies for external dependencies
  *
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/services/job-fetcher/html-strategy.test.ts -- --grep "canHandle"
+ * pnpm test test/services/job-fetcher/html-strategy.test.ts -- --grep "fetchJobs"
  * ```
  *
  * @module html-strategy-test-suite
@@ -32,18 +36,28 @@ import * as logger from '../../../src/lib/logger.js';
 import * as jobFetchUtils from '../../../src/lib/job-fetch-utils.js';
 
 /**
- * HTML Strategy-specific test utilities
+ * Specialized test utilities for HTML job fetch strategy testing
  *
- * Extends JobFetcherTestUtils with HTML strategy-specific testing patterns.
- * Maintains DRY principles while providing specialized testing methods.
+ * Extends JobFetcherTestUtils with HTML strategy-specific testing capabilities
+ * including invalid configuration creation, HTML parsing mock setup, and
+ * specialized assertion patterns for HTML job fetching scenarios.
  *
  * @since 1.0.0
  */
 class HtmlStrategyTestUtils extends JobFetcherTestUtils {
   /**
-   * Create minimal config without careersUrl for testing canHandle rejection
+   * Create invalid DriveHR configuration for testing canHandle scenarios
    *
-   * @returns Configuration that cannot be handled by HTML strategy
+   * Generates a configuration that lacks the careersUrl property required
+   * for HTML strategy compatibility testing. Used to validate strategy
+   * capability detection and rejection of incompatible configurations.
+   *
+   * @returns Invalid configuration missing careersUrl for HTML strategy
+   * @example
+   * ```typescript
+   * const invalidConfig = HtmlStrategyTestUtils.createInvalidConfig();
+   * expect(strategy.canHandle(invalidConfig)).toBe(false);
+   * ```
    * @since 1.0.0
    */
   static createInvalidConfig(): DriveHrApiConfig {
@@ -54,8 +68,18 @@ class HtmlStrategyTestUtils extends JobFetcherTestUtils {
   }
 
   /**
-   * Setup HTML strategy test mocks with realistic responses
+   * Configure comprehensive mocks for HTML strategy testing
    *
+   * Sets up HTTP client and HTML parser mocks with realistic responses
+   * for testing HTML job fetching workflows. Configures successful HTTP
+   * responses and mock job data parsing for consistent test execution.
+   *
+   * @example
+   * ```typescript
+   * HtmlStrategyTestUtils.setupHtmlStrategyMocks();
+   * const jobs = await strategy.fetchJobs(config, httpClient);
+   * expect(jobs).toEqual(HtmlStrategyTestUtils.SAMPLE_RAW_JOBS);
+   * ```
    * @since 1.0.0
    */
   static setupHtmlStrategyMocks(): void {

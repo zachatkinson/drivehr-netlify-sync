@@ -77,27 +77,10 @@ export class JobFetcherTestUtils extends BaseTestUtils {
    */
   static readonly CONFIG_VARIATIONS = [
     {
-      name: 'API only config',
+      name: 'HTML config',
       config: {
-        companyId: 'api-only',
-        apiBaseUrl: 'https://api.api-only.com',
-        careersUrl: '', // Empty to test HTML strategy rejection
-      } as DriveHrApiConfig,
-    },
-    {
-      name: 'JSON only config',
-      config: {
-        companyId: 'json-only',
-        apiBaseUrl: 'https://json-only.com',
-        careersUrl: '', // Empty to test HTML strategy rejection
-        jsonUrl: 'https://json-only.com/jobs.json',
-      } as DriveHrApiConfig,
-    },
-    {
-      name: 'HTML only config',
-      config: {
-        companyId: 'html-only',
-        careersUrl: 'https://html-only.com/careers',
+        companyId: 'html-test',
+        careersUrl: 'https://html-test.com/careers',
       } as DriveHrApiConfig,
     },
     {
@@ -105,7 +88,6 @@ export class JobFetcherTestUtils extends BaseTestUtils {
       config: {
         companyId: 'complete',
         apiBaseUrl: 'https://api.complete.com',
-        jsonUrl: 'https://complete.com/jobs.json',
         careersUrl: 'https://complete.com/careers',
         timeout: 60000,
         retries: 5,
@@ -357,7 +339,7 @@ export class JobFetcherTestUtils extends BaseTestUtils {
    */
   static setupDefaultMocks(): void {
     vi.mocked(this.mockHttpClient.get).mockResolvedValue(
-      this.createSuccessResponse('<html><div class="job-listing">Test Job</div></html>')
+      this.createSuccessResponse('<html lang="en"><div class="job-listing">Test Job</div></html>')
     );
     vi.mocked(this.mockHtmlParser.parseJobsFromHtml).mockReturnValue([this.createMockRawJob()]);
   }
