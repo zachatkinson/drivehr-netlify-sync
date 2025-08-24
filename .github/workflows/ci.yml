@@ -133,6 +133,7 @@ jobs:
         run: pnpm exec vitest run ${{ matrix.test-suite.pattern }} --coverage
         env:
           NODE_ENV: test
+          DRIVEHR_COMPANY_ID: 'test-company-123'
           WP_API_URL: 'https://mock-wordpress-site.example.com'
           WEBHOOK_SECRET: 'mock-webhook-secret-for-ci-testing-12345'
 
