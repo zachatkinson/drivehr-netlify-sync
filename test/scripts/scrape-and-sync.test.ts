@@ -1,25 +1,25 @@
 /**
- * Scrape and Sync Script Test Suite
+ * GitHub Actions Scrape and Sync Script Test Suite
  *
- * Comprehensive test coverage for scrape-and-sync script following
- * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates the complete GitHub Actions workflow script that
- * orchestrates job scraping with Playwright and WordPress synchronization,
- * including configuration loading, environment validation, scraping orchestration,
- * webhook integration, artifact generation, and error handling.
+ * Comprehensive test coverage for the DriveHR job scraper and WordPress sync script
+ * following enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the complete GitHub Actions automation workflow including
+ * browser automation, WordPress webhook integration, error handling, and artifact generation.
  *
  * Test Features:
- * - Configuration loading and validation
- * - Environment variable management
- * - Playwright scraping orchestration
- * - WordPress webhook integration
- * - Artifact generation and file operations
- * - Error handling and recovery mechanisms
+ * - Playwright scraper integration with SPA job extraction
+ * - HMAC-SHA256 authenticated WordPress webhook validation
+ * - GitHub Actions environment simulation and optimization
+ * - Error boundary testing with comprehensive failure scenarios
+ * - Artifact generation for debugging and monitoring
+ * - Environment configuration validation and security
+ * - Performance metrics tracking and structured logging
+ * - Retry mechanisms and resilience patterns
  *
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/scripts/scrape-and-sync.test.ts -- --grep "orchestration"
+ * pnpm test test/scripts/scrape-and-sync.test.ts -- --grep "webhook"
  * ```
  *
  * @module scrape-and-sync-test-suite
@@ -53,7 +53,12 @@ import type { DriveHrApiConfig } from '../../src/types/api.js';
 import { executeScrapeAndSync } from '../../src/scripts/scrape-and-sync.js';
 
 /**
- * Mock environment configuration type
+ * Mock environment configuration interface
+ *
+ * Defines the structure for mocking environment configuration
+ * during scrape and sync script testing.
+ *
+ * @since 2.0.0
  */
 interface MockEnvironmentConfig {
   driveHrCompanyId: string;
@@ -64,11 +69,23 @@ interface MockEnvironmentConfig {
 }
 
 /**
- * Test utilities for scrape-and-sync script testing
+ * Specialized test utilities for scrape and sync script testing
+ *
+ * Extends enterprise testing patterns with GitHub Actions automation-specific
+ * testing capabilities including browser automation mocking, WordPress webhook
+ * simulation, and artifact generation validation. Implements comprehensive
+ * DRY principles for complex integration testing scenarios.
+ *
+ * @since 2.0.0
  */
 class ScrapeAndSyncTestUtils {
   /**
-   * Mock logger instance for testing
+   * Mock logger instance for GitHub Actions script testing
+   *
+   * Provides comprehensive logging mock with all required methods
+   * for testing structured logging in GitHub Actions environment.
+   *
+   * @since 2.0.0
    */
   static mockLogger = {
     info: vi.fn(),
@@ -79,7 +96,12 @@ class ScrapeAndSyncTestUtils {
   };
 
   /**
-   * Mock environment configuration
+   * Mock environment configuration for testing
+   *
+   * Provides realistic test data for environment configuration
+   * including all required GitHub Actions and WordPress variables.
+   *
+   * @since 2.0.0
    */
   static mockEnvConfig: MockEnvironmentConfig = {
     driveHrCompanyId: 'test-company-uuid',
@@ -89,9 +111,6 @@ class ScrapeAndSyncTestUtils {
     environment: 'development',
   };
 
-  /**
-   * Mock successful scrape result
-   */
   static mockScrapeResult: PlaywrightScrapeResult = {
     success: true,
     jobs: [
@@ -139,9 +158,6 @@ class ScrapeAndSyncTestUtils {
     scrapedAt: '2024-01-15T12:00:00.000Z',
   };
 
-  /**
-   * Mock empty scrape result
-   */
   static mockEmptyScrapeResult: PlaywrightScrapeResult = {
     success: true,
     jobs: [],
@@ -152,9 +168,6 @@ class ScrapeAndSyncTestUtils {
     scrapedAt: '2024-01-15T12:00:00.000Z',
   };
 
-  /**
-   * Mock failed scrape result
-   */
   static mockFailedScrapeResult: PlaywrightScrapeResult = {
     success: false,
     jobs: [],
@@ -166,7 +179,19 @@ class ScrapeAndSyncTestUtils {
   };
 
   /**
-   * Setup successful mocks for the scrape and sync workflow
+   * Setup successful execution mocks
+   *
+   * Configures all mocks for successful scrape and sync workflow testing
+   * including Playwright scraper, WordPress webhook, and GitHub Actions
+   * environment simulation.
+   *
+   * @example
+   * ```typescript
+   * ScrapeAndSyncTestUtils.setupSuccessfulMocks();
+   * const result = await executeScrapeAndSync();
+   * expect(result.success).toBe(true);
+   * ```
+   * @since 2.0.0
    */
   static setupSuccessfulMocks(): void {
     // Mock environment configuration
@@ -226,7 +251,18 @@ class ScrapeAndSyncTestUtils {
   }
 
   /**
-   * Setup mocks for empty scrape result scenario
+   * Setup empty scrape result mocks
+   *
+   * Configures mocks to simulate successful scraper execution but with
+   * no jobs found, useful for testing edge cases and empty result handling.
+   *
+   * @example
+   * ```typescript
+   * ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
+   * const result = await executeScrapeAndSync();
+   * expect(result.jobs).toHaveLength(0);
+   * ```
+   * @since 2.0.0
    */
   static setupEmptyScrapeMocks(): void {
     this.setupSuccessfulMocks();
@@ -241,7 +277,18 @@ class ScrapeAndSyncTestUtils {
   }
 
   /**
-   * Setup mocks for scraping failure scenario
+   * Setup failed scrape execution mocks
+   *
+   * Configures mocks to simulate Playwright scraper failures for testing
+   * error handling and resilience patterns in the automation script.
+   *
+   * @example
+   * ```typescript
+   * ScrapeAndSyncTestUtils.setupFailedScrapeMocks();
+   * const result = await executeScrapeAndSync();
+   * expect(result.success).toBe(false);
+   * ```
+   * @since 2.0.0
    */
   static setupFailedScrapeMocks(): void {
     this.setupSuccessfulMocks();
@@ -256,7 +303,18 @@ class ScrapeAndSyncTestUtils {
   }
 
   /**
-   * Setup mocks for WordPress sync failure scenario
+   * Setup failed WordPress sync mocks
+   *
+   * Configures mocks to simulate WordPress webhook failures for testing
+   * error handling and retry mechanisms in the sync workflow.
+   *
+   * @example
+   * ```typescript
+   * ScrapeAndSyncTestUtils.setupFailedSyncMocks();
+   * const result = await executeScrapeAndSync();
+   * expect(result.syncSuccess).toBe(false);
+   * ```
+   * @since 2.0.0
    */
   static setupFailedSyncMocks(): void {
     this.setupSuccessfulMocks();
@@ -283,7 +341,17 @@ class ScrapeAndSyncTestUtils {
   }
 
   /**
-   * Setup mocks for missing environment configuration
+   * Setup missing configuration mocks
+   *
+   * Configures mocks to simulate missing environment variables for testing
+   * configuration validation and error handling in GitHub Actions.
+   *
+   * @example
+   * ```typescript
+   * ScrapeAndSyncTestUtils.setupMissingConfigMocks();
+   * await expect(executeScrapeAndSync()).rejects.toThrow('DRIVEHR_COMPANY_ID');
+   * ```
+   * @since 2.0.0
    */
   static setupMissingConfigMocks(): void {
     vi.mocked(getEnvironmentConfig).mockImplementation(() => {
@@ -293,7 +361,18 @@ class ScrapeAndSyncTestUtils {
   }
 
   /**
-   * Cleanup test environment
+   * Clean up test environment variables and mocks
+   *
+   * Removes GitHub Actions environment variables and resets all mocks
+   * to ensure clean test isolation between test runs.
+   *
+   * @example
+   * ```typescript
+   * afterEach(() => {
+   *   ScrapeAndSyncTestUtils.cleanup();
+   * });
+   * ```
+   * @since 2.0.0
    */
   static cleanup(): void {
     delete process.env['GITHUB_RUN_ID'];

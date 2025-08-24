@@ -1,25 +1,21 @@
 /**
  * WordPress Payload Testing Tool Test Suite
  *
- * Comprehensive test coverage for the WordPress payload testing utility following
+ * Comprehensive test coverage for the WordPress payload testing tool following
  * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates the enterprise testing tool for WordPress webhook
- * payloads, HMAC signature generation, payload inspection, and mock endpoint testing.
+ * Tests business logic directly instead of CLI execution for better reliability.
  *
  * Test Features:
- * - Mock job data generation with realistic enterprise structures
- * - WordPress payload validation and structure verification
- * - HMAC signature generation and validation testing
- * - File export and payload persistence capabilities
- * - Mock WordPress endpoint response testing
- * - Environment configuration testing and validation
- * - Error handling and edge case validation
- * - Company ID override and multi-tenant testing
+ * - Business logic testing for payload generation
+ * - Mock job data creation and validation
+ * - Payload structure and signature validation
+ * - Error handling and edge cases
+ * - Utility function testing
  *
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/scripts/test-wordpress-payload.test.ts -- --grep "payload"
+ * pnpm test test/scripts/test-wordpress-payload.test.ts -- --grep "payload generation"
  * ```
  *
  * @module test-wordpress-payload-test-suite
@@ -69,29 +65,28 @@ vi.mock('../../src/services/playwright-scraper.js', () => ({
 }));
 
 /**
- * Specialized test utilities for WordPress payload testing
+ * WordPress payload testing utilities
  *
- * Extends BaseTestUtils with WordPress payload testing-specific capabilities
- * including mock job generation, payload validation, and test data creation.
- * Implements enterprise testing patterns for webhook payload validation
- * and HMAC signature testing.
+ * Extends BaseTestUtils with WordPress payload testing specific methods.
+ * Maintains DRY principles while providing specialized testing functionality.
  *
  * @since 1.0.0
  */
 class WordPressPayloadTestUtils extends BaseTestUtils {
   /**
-   * Create a mock normalized job for testing
+   * Create mock normalized job for testing
    *
-   * Generates realistic job data with all required fields for comprehensive
-   * WordPress payload testing including proper DriveHR structure compliance.
+   * Generates a realistic normalized job object for use in payload testing.
+   * Includes all required fields with sensible defaults.
    *
-   * @param id - Unique job identifier, defaults to timestamped ID
-   * @param title - Job title for the mock position
-   * @returns Complete normalized job object with realistic data
+   * @param id - Job ID (defaults to generated ID)
+   * @param title - Job title (defaults to 'Test Job')
+   * @returns Mock normalized job object
    * @example
    * ```typescript
-   * const job = WordPressPayloadTestUtils.createMockJob('eng-123', 'Senior Developer');
-   * expect(job.title).toBe('Senior Developer');
+   * const job = WordPressPayloadTestUtils.createMockJob('job-001', 'Senior Engineer');
+   * expect(job.id).toBe('job-001');
+   * expect(job.title).toBe('Senior Engineer');
    * ```
    * @since 1.0.0
    */
@@ -115,19 +110,18 @@ class WordPressPayloadTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create multiple mock jobs for bulk testing
+   * Create multiple mock jobs with unique IDs
    *
-   * Generates specified number of mock jobs with diverse titles and
-   * realistic data structures for testing payload generation and
-   * WordPress webhook processing at scale.
+   * Generates an array of mock jobs with different titles and unique IDs.
+   * Useful for testing scenarios that require multiple job entries.
    *
-   * @param count - Number of mock jobs to generate
-   * @returns Array of normalized job objects with varied titles
+   * @param count - Number of jobs to create
+   * @returns Array of mock normalized jobs
    * @example
    * ```typescript
-   * const jobs = WordPressPayloadTestUtils.createMultipleMockJobs(5);
-   * expect(jobs).toHaveLength(5);
-   * expect(jobs[0].title).toBe('Senior Software Engineer');
+   * const jobs = WordPressPayloadTestUtils.createMultipleMockJobs(3);
+   * expect(jobs).toHaveLength(3);
+   * expect(new Set(jobs.map(j => j.id)).size).toBe(3); // All unique IDs
    * ```
    * @since 1.0.0
    */
@@ -146,20 +140,17 @@ class WordPressPayloadTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Validate WordPress payload structure
+   * Validate payload structure
    *
-   * Performs comprehensive validation of WordPress webhook payload structure
-   * ensuring all required fields are present and properly typed for
-   * reliable webhook processing.
+   * Validates that a job sync request has the correct structure and required fields.
+   * Ensures payload meets WordPress webhook expectations.
    *
-   * @param payload - Unknown payload to validate
-   * @returns Type guard indicating if payload is valid JobSyncRequest
+   * @param payload - Job sync request to validate
+   * @returns True if payload is valid
    * @example
    * ```typescript
-   * const isValid = WordPressPayloadTestUtils.validatePayloadStructure(payload);
-   * if (isValid) {
-   *   expect(payload.jobs).toBeDefined();
-   * }
+   * const payload = { source: 'webhook', jobs: [mockJob], timestamp: '...', requestId: '...' };
+   * expect(WordPressPayloadTestUtils.validatePayloadStructure(payload)).toBe(true);
    * ```
    * @since 1.0.0
    */
@@ -178,14 +169,14 @@ class WordPressPayloadTestUtils extends BaseTestUtils {
   /**
    * Create temporary file path for testing
    *
-   * Generates unique temporary file path with timestamp and random suffix
-   * for safe file system testing without conflicts or cleanup issues.
+   * Generates a unique temporary file path for file I/O testing.
+   * Files created with this path should be cleaned up after tests.
    *
-   * @returns Unique temporary file path with .json extension
+   * @returns Temporary file path
    * @example
    * ```typescript
-   * const filePath = WordPressPayloadTestUtils.createTempFilePath();
-   * expect(filePath).toMatch(/temp-test-\d+-[a-z0-9]+\.json/);
+   * const tempFile = WordPressPayloadTestUtils.createTempFilePath();
+   * // Use tempFile for testing, clean up afterward
    * ```
    * @since 1.0.0
    */
