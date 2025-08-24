@@ -129,6 +129,7 @@ class WordPressPayloadTestUtils extends BaseTestUtils {
       const child = spawn('tsx', ['scripts/test-wordpress-payload.mts', ...args], {
         cwd: process.cwd(),
         stdio: 'pipe',
+        env: { ...process.env },
       });
 
       let stdout = '';
