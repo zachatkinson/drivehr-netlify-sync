@@ -332,8 +332,8 @@ describe('Config Service', () => {
         // Arrange
         ConfigTestUtils.clearEnvironment();
         // Explicitly unset CI environment variables
-        delete process.env['WP_API_URL'];
-        delete process.env['WEBHOOK_SECRET'];
+        vi.stubEnv('WP_API_URL', '');
+        vi.stubEnv('WEBHOOK_SECRET', '');
         ConfigTestUtils.setupMockEnvironment({
           ...TEST_FIXTURES.validEnvironment,
           wpApiUrl: undefined as never,
@@ -349,8 +349,8 @@ describe('Config Service', () => {
         // Arrange
         ConfigTestUtils.clearEnvironment();
         // Explicitly unset CI environment variables
-        delete process.env['WP_API_URL'];
-        delete process.env['WEBHOOK_SECRET'];
+        vi.stubEnv('WP_API_URL', '');
+        vi.stubEnv('WEBHOOK_SECRET', '');
         ConfigTestUtils.setupMockEnvironment({
           ...TEST_FIXTURES.validEnvironment,
           webhookSecret: undefined as never,
@@ -899,8 +899,8 @@ describe('Config Service', () => {
       // Clear all environment variables to ensure missing required vars
       ConfigTestUtils.clearEnvironment();
       // Explicitly unset CI environment variables
-      delete process.env['WP_API_URL'];
-      delete process.env['WEBHOOK_SECRET'];
+      vi.stubEnv('WP_API_URL', '');
+      vi.stubEnv('WEBHOOK_SECRET', '');
       // Setup environment missing required vars
       ConfigTestUtils.setupMockEnvironment({
         // Missing required DRIVEHR_COMPANY_ID, WP_API_URL, WEBHOOK_SECRET

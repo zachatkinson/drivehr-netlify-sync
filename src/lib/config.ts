@@ -336,7 +336,7 @@ export class ConfigService {
     for (const envVar of ENV_VARIABLES) {
       if (envVar.required) {
         const value = getEnvVar(envVar.name);
-        if (value === undefined) {
+        if (!value) {
           errors.push(`${envVar.name} is required`);
         }
       }
