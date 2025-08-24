@@ -330,6 +330,7 @@ describe('Config Service', () => {
 
       it('should throw an error for missing WP_API_URL', () => {
         // Arrange
+        ConfigTestUtils.clearEnvironment();
         ConfigTestUtils.setupMockEnvironment({
           ...TEST_FIXTURES.validEnvironment,
           wpApiUrl: undefined as never,
@@ -343,6 +344,7 @@ describe('Config Service', () => {
 
       it('should throw an error for missing WEBHOOK_SECRET', () => {
         // Arrange
+        ConfigTestUtils.clearEnvironment();
         ConfigTestUtils.setupMockEnvironment({
           ...TEST_FIXTURES.validEnvironment,
           webhookSecret: undefined as never,
@@ -888,6 +890,8 @@ describe('Config Service', () => {
     });
 
     it('should test validateEnvironment public method', async () => {
+      // Clear all environment variables to ensure missing required vars
+      ConfigTestUtils.clearEnvironment();
       // Setup environment missing required vars
       ConfigTestUtils.setupMockEnvironment({
         // Missing required DRIVEHR_COMPANY_ID, WP_API_URL, WEBHOOK_SECRET
