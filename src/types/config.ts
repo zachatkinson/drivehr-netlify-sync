@@ -5,16 +5,35 @@
  * using Zod schemas. Ensures type safety and proper configuration management across
  * all application components including logging, security, performance, and API settings.
  *
- * Features include:
- * - Type-safe configuration interfaces
- * - Runtime validation with Zod schemas
- * - Environment-specific configuration
- * - Security and performance tuning options
- * - Comprehensive validation error handling
+ * Features:
+ * - Type-safe configuration interfaces with readonly properties
+ * - Runtime validation using Zod schemas with detailed error reporting
+ * - Environment-specific configuration support (development, staging, production, test)
+ * - Security configuration with CORS, rate limiting, and validation controls
+ * - Performance tuning parameters for HTTP timeouts, retries, and concurrency
+ * - Comprehensive validation error handling with structured error messages
  *
+ * @example
+ * ```typescript
+ * import { AppConfigSchema, type AppConfig } from './config.js';
+ *
+ * const rawConfig = {
+ *   environment: 'production',
+ *   logging: { level: 'info', enableConsole: true, enableStructured: true, redactSensitive: true },
+ *   driveHr: { careersUrl: 'https://example.com', companyId: 'uuid', apiBaseUrl: 'https://api.example.com' },
+ *   // ... other configurations
+ * };
+ *
+ * const result = AppConfigSchema.safeParse(rawConfig);
+ * if (result.success) {
+ *   const config: AppConfig = result.data;
+ *   console.log(`Environment: ${config.environment}`);
+ * }
+ * ```
  * @module config-types
  * @since 1.0.0
  * @see {@link https://zod.dev/} for Zod validation library documentation
+ * @see {@link ../lib/config.ts} for configuration loading implementation
  */
 
 import { z } from 'zod';
@@ -23,83 +42,84 @@ import type { WordPressApiConfig, DriveHrApiConfig, WebhookConfig } from './api.
 /**
  * Main application configuration interface
  *
- * Root configuration object that aggregates all application settings
- * including environment, logging, API configurations, security, and
- * performance tuning parameters.
+ * Root configuration object that aggregates all application settings including
+ * environment, logging, API configurations, security, and performance tuning parameters.
+ * All properties are readonly to prevent accidental modification after initialization.
+ *
+ * This interface represents the complete application configuration structure that is
+ * validated against the AppConfigSchema during application startup. It ensures type
+ * safety across all application components that consume configuration data.
  *
  * @example
  * ```typescript
- * const appConfig: AppConfig = {
- *   environment: 'production',
- *   logging: {
- *     level: 'info',
- *     enableConsole: true,
- *     enableStructured: true,
- *     redactSensitive: true
- *   },
- *   driveHr: {
- *     careersUrl: 'https://drivehris.app/careers/company/list',
- *     companyId: 'company-uuid',
- *     apiBaseUrl: 'https://drivehris.app/careers/company'
- *   },
- *   // ... other configurations
- * };
+ * import { getAppConfig } from '../lib/config.js';
+ *
+ * const config: AppConfig = getAppConfig();
+ * console.log(`Running in ${config.environment} mode`);
+ * console.log(`Log level: ${config.logging.level}`);
+ * console.log(`DriveHR Company ID: ${config.driveHr.companyId}`);
  * ```
  * @since 1.0.0
- * @see {@link AppConfigSchema} for runtime validation
+ * @see {@link AppConfigSchema} for runtime validation schema
+ * @see {@link ../lib/config.ts} for configuration loading implementation
  */
 export interface AppConfig {
-  /** Application environment (development, staging, production, test) */
+  /** Application deployment environment (development, staging, production, test) */
   readonly environment: Environment;
-  /** Logging configuration and settings */
+  /** Logging configuration including level, format, and security settings */
   readonly logging: LoggingConfig;
-  /** DriveHR API integration configuration */
+  /** DriveHR API integration configuration with URLs and authentication */
   readonly driveHr: DriveHrApiConfig;
-  /** WordPress API integration configuration */
+  /** WordPress API integration configuration with webhook endpoints */
   readonly wordPress: WordPressApiConfig;
-  /** Webhook security configuration */
+  /** Webhook security configuration with HMAC signature validation */
   readonly webhook: WebhookConfig;
-  /** Security policies and settings */
+  /** Security policies including CORS, rate limiting, and input validation */
   readonly security: SecurityConfig;
-  /** Performance tuning parameters */
-  readonly performance: PerformanceConfig;
+  /** Performance tuning parameters for HTTP timeouts, retries, and concurrency */
+  readonly performance: ApplicationPerformanceConfig;
 }
 
 /**
  * Logging configuration interface
  *
- * Controls application logging behavior including log levels,
- * output formats, and security considerations.
+ * Controls application logging behavior including log levels, output formats,
+ * and security considerations. Supports both human-readable text format for
+ * development and structured JSON format for production log aggregation.
+ *
+ * Log levels follow standard severity hierarchy: error (highest) > warn > info >
+ * debug > trace (lowest). Setting a minimum level filters out less severe messages.
  *
  * @example
  * ```typescript
- * // Development logging
+ * // Development logging configuration
  * const devLogging: LoggingConfig = {
  *   level: 'debug',
  *   enableConsole: true,
- *   enableStructured: false, // Human-readable logs
- *   redactSensitive: false // Show all data for debugging
+ *   enableStructured: false, // Human-readable format
+ *   redactSensitive: false   // Show all data for debugging
  * };
  *
- * // Production logging
+ * // Production logging configuration
  * const prodLogging: LoggingConfig = {
  *   level: 'info',
  *   enableConsole: true,
- *   enableStructured: true, // JSON format for log aggregation
- *   redactSensitive: true // Hide sensitive data
+ *   enableStructured: true,  // JSON format for log aggregation
+ *   redactSensitive: true    // Hide sensitive data
  * };
  * ```
  * @since 1.0.0
  * @see {@link LogLevel} for available log levels
+ * @see {@link LoggingConfigSchema} for runtime validation
  */
 export interface LoggingConfig {
-  /** Minimum log level to output */
+  /** Minimum log level to output (error, warn, info, debug, trace) */
   readonly level: LogLevel;
-  /** Whether to enable console output */
+  /** Whether to enable console output for log messages */
   readonly enableConsole: boolean;
-  /** Whether to use structured JSON logging */
+  /** Whether to use structured JSON logging format */
   readonly enableStructured: boolean;
-  /** Whether to redact sensitive information from logs */
+  /** Whether to redact sensitive information from log output */
   readonly redactSensitive: boolean;
 }
 
@@ -110,16 +130,19 @@ export interface LoggingConfig {
  * and protection against common web vulnerabilities. Includes CORS policies,
  * rate limiting, and input/output sanitization controls.
  *
+ * These settings provide multiple layers of security protection including
+ * Cross-Origin Resource Sharing (CORS) controls, request rate limiting to
+ * prevent abuse, and comprehensive input/output validation and sanitization.
+ *
  * @example
  * ```typescript
- * // Production security configuration
+ * // Production security configuration (strict)
  * const prodSecurity: SecurityConfig = {
  *   enableCors: true,
  *   corsOrigins: ['https://myapp.com', 'https://admin.myapp.com'],
  *   enableRateLimit: true,
- *   maxRequestsPerMinute: 60,
  *   rateLimitMaxRequests: 100,
- *   rateLimitWindowMs: 60000, // 1 minute
+ *   rateLimitWindowMs: 60000, // 1 minute window
  *   enableInputValidation: true,
  *   enableRequestValidation: true,
  *   enableOutputSanitization: true
@@ -129,8 +152,7 @@ export interface LoggingConfig {
  * const devSecurity: SecurityConfig = {
  *   enableCors: true,
  *   corsOrigins: ['http://localhost:3000', 'http://localhost:8080'],
- *   enableRateLimit: false, // Disabled for development
- *   maxRequestsPerMinute: 1000,
+ *   enableRateLimit: false, // Disabled for development convenience
  *   rateLimitMaxRequests: 1000,
  *   rateLimitWindowMs: 60000,
  *   enableInputValidation: true,
@@ -140,183 +162,44 @@ export interface LoggingConfig {
  * ```
  * @since 1.0.0
  * @see {@link SecurityConfigSchema} for runtime validation
- * @see {@link CorsConfig} for detailed CORS configuration options
  */
 export interface SecurityConfig {
-  /** Whether to enable Cross-Origin Resource Sharing (CORS) */
+  /** Whether to enable Cross-Origin Resource Sharing (CORS) protection */
   readonly enableCors: boolean;
-  /** List of allowed origins for CORS requests */
+  /** List of allowed origins for CORS requests (must be valid URLs) */
   readonly corsOrigins: string[];
-  /** Whether to enable rate limiting protection */
+  /** Whether to enable request rate limiting protection */
   readonly enableRateLimit: boolean;
-  /** Maximum requests allowed within the rate limit window */
+  /** Maximum requests allowed within the rate limit time window */
   readonly rateLimitMaxRequests: number;
-  /** Rate limit time window in milliseconds */
+  /** Rate limit time window duration in milliseconds */
   readonly rateLimitWindowMs: number;
-  /** Whether to enable input data validation */
+  /** Whether to enable comprehensive input data validation */
   readonly enableInputValidation: boolean;
-  /** Whether to enable request structure validation */
+  /** Whether to enable request structure and format validation */
   readonly enableRequestValidation: boolean;
-  /** Whether to enable output data sanitization */
+  /** Whether to enable output data sanitization for security */
   readonly enableOutputSanitization: boolean;
 }
 
-/**
- * Performance tuning configuration interface
- *
- * Configuration settings for optimizing application performance including
- * HTTP timeouts, retry logic, caching, and concurrency controls. These
- * settings can significantly impact application responsiveness and reliability.
- *
- * @example
- * ```typescript
- * // High-performance configuration for production
- * const perfConfig: PerformanceConfig = {
- *   httpTimeout: 30000, // 30 seconds
- *   maxRetries: 3,
- *   retryDelay: 1000, // 1 second base delay
- *   batchSize: 50, // Process 50 jobs at a time
- *   cacheEnabled: true,
- *   cacheTtl: 300000, // 5 minutes cache
- *   maxConcurrentRequests: 10
- * };
- *
- * // Conservative configuration for limited resources
- * const conservativeConfig: PerformanceConfig = {
- *   httpTimeout: 60000, // Longer timeout for slow networks
- *   maxRetries: 5, // More retries for reliability
- *   retryDelay: 2000, // Longer delay between retries
- *   batchSize: 10, // Smaller batches to reduce memory usage
- *   cacheEnabled: false, // Disable caching to save memory
- *   cacheTtl: 60000, // 1 minute cache if enabled
- *   maxConcurrentRequests: 3 // Limit concurrency
- * };
- * ```
- * @since 1.0.0
- * @see {@link PerformanceConfigSchema} for runtime validation
- * @see {@link RetryConfig} for detailed retry configuration options
- */
-export interface PerformanceConfig {
-  /** HTTP request timeout in milliseconds */
+export interface ApplicationPerformanceConfig {
   readonly httpTimeout: number;
-  /** Maximum number of retry attempts for failed operations */
   readonly maxRetries: number;
-  /** Base delay between retry attempts in milliseconds */
   readonly retryDelay: number;
-  /** Number of items to process in each batch operation */
   readonly batchSize: number;
-  /** Whether to enable response caching */
   readonly cacheEnabled: boolean;
-  /** Cache time-to-live in milliseconds */
   readonly cacheTtl: number;
-  /** Maximum number of concurrent HTTP requests */
   readonly maxConcurrentRequests: number;
 }
 
-/**
- * Application environment type
- *
- * Defines the allowed environment values for application deployment.
- * Each environment has specific configuration defaults and behaviors.
- *
- * @example
- * ```typescript
- * const env: Environment = 'production';
- * if (env === 'production') {
- *   enableStructuredLogging();
- * }
- * ```
- * @since 1.0.0
- * @see {@link EnvironmentSchema} for runtime validation
- */
 export type Environment = 'development' | 'staging' | 'production' | 'test';
 
-/**
- * Logging level type
- *
- * Defines the allowed log levels in order of severity from error (highest)
- * to trace (lowest). Controls which log messages are output based on
- * the configured minimum level.
- *
- * @example
- * ```typescript
- * const level: LogLevel = 'debug';
- * logger.setLevel(level); // Shows debug, info, warn, error logs
- * ```
- * @since 1.0.0
- * @see {@link LogLevelSchema} for runtime validation
- */
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace';
 
-/**
- * Runtime validation schemas using Zod
- *
- * These schemas provide runtime type checking and validation for configuration
- * objects, ensuring data integrity and proper error handling during application
- * startup and configuration loading.
- *
- * @since 1.0.0
- * @see {@link https://zod.dev/} for Zod validation library documentation
- */
-
-/**
- * Environment validation schema
- *
- * Validates that the application environment is one of the supported values.
- * Used during configuration loading to ensure proper environment setup.
- *
- * @example
- * ```typescript
- * const result = EnvironmentSchema.safeParse('production');
- * if (result.success) {
- *   console.log('Valid environment:', result.data);
- * } else {
- *   console.error('Invalid environment:', result.error.message);
- * }
- * ```
- * @since 1.0.0
- */
 export const EnvironmentSchema = z.enum(['development', 'staging', 'production', 'test']);
 
-/**
- * Log level validation schema
- *
- * Validates that the log level is one of the supported logging levels.
- * Ensures proper logging configuration and prevents invalid log levels.
- *
- * @example
- * ```typescript
- * const result = LogLevelSchema.safeParse('debug');
- * if (result.success) {
- *   logger.setLevel(result.data);
- * }
- * ```
- * @since 1.0.0
- */
 export const LogLevelSchema = z.enum(['error', 'warn', 'info', 'debug', 'trace']);
 
-/**
- * Logging configuration validation schema
- *
- * Validates the structure and values of logging configuration objects.
- * Ensures all required logging settings are present and properly typed.
- *
- * @example
- * ```typescript
- * const config = {
- *   level: 'info',
- *   enableConsole: true,
- *   enableStructured: true,
- *   redactSensitive: true
- * };
- *
- * const result = LoggingConfigSchema.safeParse(config);
- * if (result.success) {
- *   initializeLogger(result.data);
- * }
- * ```
- * @since 1.0.0
- */
 export const LoggingConfigSchema = z.object({
   level: LogLevelSchema,
   enableConsole: z.boolean(),
@@ -324,34 +207,6 @@ export const LoggingConfigSchema = z.object({
   redactSensitive: z.boolean(),
 });
 
-/**
- * Security configuration validation schema
- *
- * Validates security configuration settings including CORS origins,
- * rate limiting parameters, and validation flags. Ensures all security
- * settings are properly configured and within safe limits.
- *
- * @example
- * ```typescript
- * const securityConfig = {
- *   enableCors: true,
- *   corsOrigins: ['https://myapp.com'],
- *   enableRateLimit: true,
- *   maxRequestsPerMinute: 60,
- *   rateLimitMaxRequests: 100,
- *   rateLimitWindowMs: 60000,
- *   enableInputValidation: true,
- *   enableRequestValidation: true,
- *   enableOutputSanitization: true
- * };
- *
- * const result = SecurityConfigSchema.safeParse(securityConfig);
- * if (result.success) {
- *   applySecurity(result.data);
- * }
- * ```
- * @since 1.0.0
- */
 export const SecurityConfigSchema = z.object({
   enableCors: z.boolean(),
   corsOrigins: z.array(z.string().url()),
@@ -363,33 +218,7 @@ export const SecurityConfigSchema = z.object({
   enableOutputSanitization: z.boolean(),
 });
 
-/**
- * Performance configuration validation schema
- *
- * Validates performance tuning parameters including timeouts, retry limits,
- * and concurrency settings. Ensures all performance settings are within
- * reasonable bounds and properly configured.
- *
- * @example
- * ```typescript
- * const perfConfig = {
- *   httpTimeout: 30000,
- *   maxRetries: 3,
- *   retryDelay: 1000,
- *   batchSize: 50,
- *   cacheEnabled: true,
- *   cacheTtl: 300000,
- *   maxConcurrentRequests: 10
- * };
- *
- * const result = PerformanceConfigSchema.safeParse(perfConfig);
- * if (result.success) {
- *   applyPerformanceSettings(result.data);
- * }
- * ```
- * @since 1.0.0
- */
-export const PerformanceConfigSchema = z.object({
+export const ApplicationPerformanceConfigSchema = z.object({
   httpTimeout: z.number().positive(),
   maxRetries: z.number().min(0).max(10),
   retryDelay: z.number().positive(),
@@ -399,29 +228,6 @@ export const PerformanceConfigSchema = z.object({
   maxConcurrentRequests: z.number().positive(),
 });
 
-/**
- * DriveHR API configuration validation schema
- *
- * Validates DriveHR-specific configuration including URLs, company identifiers,
- * and connection settings. Ensures proper format for UUIDs and URLs.
- *
- * @example
- * ```typescript
- * const driveHrConfig = {
- *   careersUrl: 'https://drivehris.app/careers/company/list',
- *   companyId: '123e4567-e89b-12d3-a456-426614174000',
- *   apiBaseUrl: 'https://drivehris.app/careers/company',
- *   timeout: 30000,
- *   retries: 3
- * };
- *
- * const result = DriveHrConfigSchema.safeParse(driveHrConfig);
- * if (result.success) {
- *   initializeDriveHrClient(result.data);
- * }
- * ```
- * @since 1.0.0
- */
 export const DriveHrConfigSchema = z.object({
   careersUrl: z.string().url(),
   companyId: z.string().uuid(),
@@ -430,28 +236,6 @@ export const DriveHrConfigSchema = z.object({
   retries: z.number().min(0).max(5).optional(),
 });
 
-/**
- * WordPress API configuration validation schema
- *
- * Validates WordPress API configuration including authentication credentials
- * and connection settings. Supports multiple authentication methods.
- *
- * @example
- * ```typescript
- * const wpConfig = {
- *   baseUrl: 'https://mysite.com/webhook/drivehr-sync',
- *   token: 'wp_auth_token_here',
- *   timeout: 30000,
- *   retries: 3
- * };
- *
- * const result = WordPressConfigSchema.safeParse(wpConfig);
- * if (result.success) {
- *   initializeWordPressClient(result.data);
- * }
- * ```
- * @since 1.0.0
- */
 export const WordPressConfigSchema = z.object({
   baseUrl: z.string().url(),
   token: z.string().min(1).optional(),
@@ -461,61 +245,12 @@ export const WordPressConfigSchema = z.object({
   retries: z.number().min(0).max(5).optional(),
 });
 
-/**
- * Webhook configuration validation schema
- *
- * Validates webhook security configuration including secret keys and
- * HMAC algorithm settings. Ensures minimum security requirements are met.
- *
- * @example
- * ```typescript
- * const webhookConfig = {
- *   secret: 'super-secret-webhook-key-min-16-chars',
- *   algorithm: 'sha256',
- *   headerName: 'x-webhook-signature'
- * };
- *
- * const result = WebhookConfigSchema.safeParse(webhookConfig);
- * if (result.success) {
- *   setupWebhookSecurity(result.data);
- * }
- * ```
- * @since 1.0.0
- */
 export const WebhookConfigSchema = z.object({
   secret: z.string().min(16),
   algorithm: z.enum(['sha256', 'sha1']),
   headerName: z.string().min(1),
 });
 
-/**
- * Complete application configuration validation schema
- *
- * Top-level schema that validates the entire application configuration
- * by combining all individual configuration schemas. This is the main
- * schema used for validating configuration during application startup.
- *
- * @example
- * ```typescript
- * const fullConfig = {
- *   environment: 'production',
- *   logging: { level: 'info', enableConsole: true, enableStructured: true, redactSensitive: true },
- *   driveHr: { careersUrl: '...', companyId: '...', apiBaseUrl: '...' },
- *   wordPress: { baseUrl: '...', token: '...' },
- *   webhook: { secret: '...', algorithm: 'sha256', headerName: 'x-webhook-signature' },
- *   security: { enableCors: true, corsOrigins: ['...'] },
- *   performance: { httpTimeout: 30000, maxRetries: 3 }
- * };
- *
- * const result = AppConfigSchema.safeParse(fullConfig);
- * if (result.success) {
- *   initializeApplication(result.data);
- * } else {
- *   console.error('Configuration validation failed:', result.error.errors);
- * }
- * ```
- * @since 1.0.0
- */
 export const AppConfigSchema = z.object({
   environment: EnvironmentSchema,
   logging: LoggingConfigSchema,
@@ -523,95 +258,19 @@ export const AppConfigSchema = z.object({
   wordPress: WordPressConfigSchema,
   webhook: WebhookConfigSchema,
   security: SecurityConfigSchema,
-  performance: PerformanceConfigSchema,
+  performance: ApplicationPerformanceConfigSchema,
 });
 
-/**
- * Configuration validation result interface
- *
- * Contains the results of configuration validation including the parsed
- * configuration object (if valid) and any validation errors encountered.
- * Used for comprehensive error reporting during configuration loading.
- *
- * @example
- * ```typescript
- * function validateConfig(rawConfig: unknown): ConfigValidationResult {
- *   const result = AppConfigSchema.safeParse(rawConfig);
- *
- *   if (result.success) {
- *     return {
- *       isValid: true,
- *       config: result.data,
- *       errors: []
- *     };
- *   } else {
- *     return {
- *       isValid: false,
- *       config: undefined,
- *       errors: result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
- *     };
- *   }
- * }
- * ```
- * @since 1.0.0
- * @see {@link AppConfigSchema} for the validation schema
- */
 export interface ConfigValidationResult {
-  /** Whether the configuration passed validation */
   readonly isValid: boolean;
-  /** The parsed and validated configuration object (if validation succeeded) */
   readonly config?: AppConfig;
-  /** Array of validation error messages (if validation failed) */
   readonly errors: readonly string[];
 }
 
-/**
- * Environment variable metadata interface
- *
- * Describes the structure and metadata for environment variables used
- * in configuration. Useful for documentation, validation, and providing
- * helpful error messages when required environment variables are missing.
- *
- * @example
- * ```typescript
- * import { getEnvVar } from '../lib/env.js';
- *
- * const envVars: EnvironmentVariable[] = [
- *   {
- *     name: 'DRIVEHR_COMPANY_ID',
- *     value: getEnvVar('DRIVEHR_COMPANY_ID'),
- *     required: true,
- *     description: 'UUID of the company in DriveHR system'
- *   },
- *   {
- *     name: 'LOG_LEVEL',
- *     value: getEnvVar('LOG_LEVEL'),
- *     required: false,
- *     defaultValue: 'info',
- *     description: 'Minimum log level (error, warn, info, debug, trace)'
- *   }
- * ];
- *
- * // Validate required environment variables
- * const missing = envVars
- *   .filter(env => env.required && !env.value)
- *   .map(env => `${env.name}: ${env.description}`);
- *
- * if (missing.length > 0) {
- *   throw new Error(`Missing required environment variables:\n${missing.join('\n')}`);
- * }
- * ```
- * @since 1.0.0
- */
 export interface EnvironmentVariable {
-  /** Name of the environment variable */
   readonly name: string;
-  /** Current value of the environment variable (if set) */
   readonly value?: string;
-  /** Whether this environment variable is required for application startup */
   readonly required: boolean;
-  /** Default value to use if the environment variable is not set */
   readonly defaultValue?: string;
-  /** Human-readable description of the environment variable's purpose */
   readonly description: string;
 }

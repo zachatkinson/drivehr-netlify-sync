@@ -608,98 +608,111 @@ export class PlaywrightScraper {
       // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for Element UI component expansion validation. Console logging provides critical diagnostic information for verifying collapse animations completed successfully.
       console.log(`Found ${allCollapseContents.length} expanded content areas`);
 
-      // Helper function to process individual button data items
+      // Helper functions for job data extraction (broken down for complexity reduction)
+      function validateJobContent(
+        buttonIndex: number,
+        allCollapseContents: NodeListOf<Element>
+      ): Element | null {
+        if (buttonIndex >= allCollapseContents.length) {
+          return null;
+        }
+        const specificContent = allCollapseContents[buttonIndex];
+        if (!specificContent) {
+          return null;
+        }
+        const elementText = specificContent.textContent ?? '';
+        if (elementText.length < 10) {
+          return null;
+        }
+        return specificContent;
+      }
+
+      function extractJobMetadata(elementText: string): {
+        location: string;
+        posted_date: string;
+        type: string;
+        payType: string;
+      } {
+        const locationMatch = elementText.match(/([A-Za-z\s]+,\s*[A-Z]{2})/);
+        const dateMatch = elementText.match(/\d{2}\/\d{2}\/\d{4}/);
+        const workTypeMatch = elementText.match(/Full-Time|Part-Time|Contract/i);
+        const payTypeMatch = elementText.match(/Hourly|Salary|Salary yearly/i);
+
+        return {
+          location: locationMatch?.[1]?.trim() ?? 'Truro, NS',
+          posted_date: dateMatch?.[0] ?? '',
+          type: workTypeMatch?.[0] ?? 'Full-Time',
+          payType: payTypeMatch?.[0] ?? '',
+        };
+      }
+
+      function extractDepartment(fullButtonText: string): string {
+        const deptMatch = fullButtonText.match(/Pye Chevrolet|[A-Za-z\s]+(?=\s*\||\s*,|\s*-)/);
+        return deptMatch?.[0]?.trim() ?? '';
+      }
+
+      function extractApplyUrl(specificContent: Element): string {
+        try {
+          const linkEl = specificContent.querySelector('a[href]') as HTMLAnchorElement;
+          return linkEl?.href ?? '';
+        } catch {
+          return '';
+        }
+      }
+
+      function createJobDescription(buttonText: string, contentText: string): string {
+        const cleanButtonText = buttonText.replace(/\s+/g, ' ').trim();
+        const cleanContentText = contentText.replace(/\s+/g, ' ').trim();
+
+        if (cleanButtonText && cleanContentText) {
+          return cleanContentText.toLowerCase().includes(cleanButtonText.toLowerCase())
+            ? cleanContentText
+            : `${cleanButtonText}. ${cleanContentText}`;
+        }
+        return cleanButtonText || cleanContentText || '';
+      }
+
+      function generateJobId(title: string, buttonIndex: number): string {
+        const normalizedTitle = title
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .replace(/\s+/g, '-')
+          .substring(0, 30);
+        const timestamp = Date.now();
+        const fullId = `scraped-${normalizedTitle}-${buttonIndex}-${timestamp}`;
+        return fullId.length > 70 ? fullId.substring(0, 67) + '...' : fullId;
+      }
+
       function processButtonDataItem(
         buttonInfo: (typeof buttonData)[0],
         buttonIndex: number,
         allCollapseContents: NodeListOf<Element>
       ): RawJobData | null {
         try {
-          // Get the specific content area for this job (by index)
-          if (buttonIndex >= allCollapseContents.length) {
-            return null; // Skip if no corresponding content area
-          }
-
-          const specificContent = allCollapseContents[buttonIndex];
+          const specificContent = validateJobContent(buttonIndex, allCollapseContents);
           if (!specificContent) {
-            return null; // Skip if content not found
+            return null;
           }
 
           const elementText = specificContent.textContent ?? '';
+          const metadata = extractJobMetadata(elementText);
+          const department = extractDepartment(buttonInfo.fullButtonText);
+          const apply_url = extractApplyUrl(specificContent);
+          const description = createJobDescription(buttonInfo.fullButtonText, elementText);
+          const jobId = generateJobId(buttonInfo.title, buttonIndex);
 
-          if (elementText.length < 10) {
-            return null; // Skip if content too short
-          }
-
-          // Extract location from specific content
-          const locationMatch = elementText.match(/([A-Za-z\s]+,\s*[A-Z]{2})/);
-          const location = locationMatch?.[1]?.trim() ?? 'Truro, NS';
-
-          // Extract date from specific content
-          const dateMatch = elementText.match(/\d{2}\/\d{2}\/\d{4}/);
-          const posted_date = dateMatch?.[0] ?? '';
-
-          // Extract work type from specific content
-          const workTypeMatch = elementText.match(/Full-Time|Part-Time|Contract/i);
-          const type = workTypeMatch?.[0] ?? 'Full-Time';
-
-          // Extract pay type from specific content
-          const payTypeMatch = elementText.match(/Hourly|Salary|Salary yearly/i);
-          const payType = payTypeMatch?.[0] ?? '';
-
-          // Extract department from button text
-          const deptMatch = buttonInfo.fullButtonText.match(
-            /Pye Chevrolet|[A-Za-z\s]+(?=\s*\||\s*,|\s*-)/
-          );
-          const department = deptMatch?.[0]?.trim() ?? '';
-
-          // Extract apply URL
-          let apply_url = '';
-          try {
-            const linkEl = specificContent.querySelector('a[href]') as HTMLAnchorElement;
-            apply_url = linkEl?.href ?? '';
-          } catch {
-            apply_url = '';
-          }
-
-          // Create comprehensive description
-          const buttonText = buttonInfo.fullButtonText.replace(/\s+/g, ' ').trim();
-          const contentText = elementText.replace(/\s+/g, ' ').trim();
-          let description = '';
-          if (buttonText && contentText) {
-            if (contentText.toLowerCase().includes(buttonText.toLowerCase())) {
-              description = contentText;
-            } else {
-              description = `${buttonText}. ${contentText}`;
-            }
-          } else {
-            description = buttonText || contentText || '';
-          }
-
-          // Generate ID
-          const normalizedTitle = buttonInfo.title
-            .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, '')
-            .replace(/\s+/g, '-')
-            .substring(0, 30);
-          const timestamp = Date.now();
-          const fullId = `scraped-${normalizedTitle}-${buttonIndex}-${timestamp}`;
-          const jobId = fullId.length > 70 ? fullId.substring(0, 67) + '...' : fullId;
-
-          // Return complete job object
           return {
             id: jobId,
             title: buttonInfo.title,
-            location,
+            location: metadata.location,
             department,
             description,
-            type,
-            posted_date,
+            type: metadata.type,
+            posted_date: metadata.posted_date,
             apply_url,
-            payType,
+            payType: metadata.payType,
           };
         } catch {
-          // Skip problematic elements
           return null;
         }
       }

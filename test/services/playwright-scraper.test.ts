@@ -574,14 +574,16 @@ describe('PlaywrightScraper', () => {
 
       // Custom mock setup for timeout fallback test (don't use standard mocks)
       // Setup successful page navigation
-      vi.mocked(mocks.mockPage.goto).mockResolvedValue(null as unknown as import('playwright').Response);
+      vi.mocked(mocks.mockPage.goto).mockResolvedValue(
+        null as unknown as import('playwright').Response
+      );
       vi.mocked(mocks.mockPage.url).mockReturnValue('https://example.com/careers');
       vi.mocked(mocks.mockPage.setDefaultTimeout).mockResolvedValue();
       vi.mocked(mocks.mockPage.setDefaultNavigationTimeout).mockResolvedValue();
       vi.mocked(mocks.mockPage.route).mockResolvedValue();
       vi.mocked(mocks.mockPage.on).mockReturnValue(mocks.mockPage as unknown as Page);
       vi.mocked(mocks.mockPage.close).mockResolvedValue();
-      
+
       // Mock locator for no jobs indicator check
       const mockLocator = {
         first: vi.fn().mockReturnValue({
