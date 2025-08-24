@@ -107,6 +107,8 @@ jobs:
           # Script Tests
           - name: 'Scrape-and-Sync-Script'
             pattern: 'test/scripts/scrape-and-sync.test.ts'
+          - name: 'WordPress-Payload-Testing'
+            pattern: 'test/scripts/test-wordpress-payload.test.ts'
 
     steps:
       - name: Checkout code
