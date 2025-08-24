@@ -777,7 +777,15 @@ async function main(): Promise<void> {
 
   } catch (error: unknown) {
     console.error('❌ WordPress payload testing failed:');
-    console.error(error instanceof Error ? error.message : String(error));
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Environment debug:', {
+      NODE_ENV: process.env.NODE_ENV,
+      DRIVEHR_COMPANY_ID: process.env.DRIVEHR_COMPANY_ID ? '[SET]' : '[MISSING]',
+      WP_API_URL: process.env.WP_API_URL ? '[SET]' : '[MISSING]',
+      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '[SET]' : '[MISSING]',
+      useTestData: args.useTestData,
+    });
     process.exit(1);
   }
 }
