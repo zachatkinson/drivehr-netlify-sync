@@ -899,6 +899,7 @@ describe('Config Service', () => {
       // Clear all environment variables to ensure missing required vars
       ConfigTestUtils.clearEnvironment();
       // Explicitly unset CI environment variables
+      vi.stubEnv('DRIVEHR_COMPANY_ID', '');
       vi.stubEnv('WP_API_URL', '');
       vi.stubEnv('WEBHOOK_SECRET', '');
       // Setup environment missing required vars
