@@ -1,19 +1,45 @@
 /**
- * Playwright-based job scraper for DriveHR Single Page Applications
+ * Playwright-based Web Scraper for DriveHR Job Listings
  *
- * Enterprise-grade web scraper that uses Playwright browser automation to handle
- * JavaScript-heavy Single Page Applications that require dynamic content rendering.
- * This scraper addresses the limitation of traditional HTTP-based scrapers that
- * cannot access content rendered by client-side JavaScript.
+ * Enterprise-grade browser automation system using Playwright for dynamic job data extraction
+ * from DriveHR Single Page Applications. Built specifically for Element UI components with
+ * comprehensive fallback strategies, retry mechanisms, and detailed diagnostic logging.
  *
- * The scraper follows the same patterns as the existing job fetching strategies
- * but uses browser automation instead of HTTP requests to handle SPAs properly.
- * It includes comprehensive error handling, retry logic, and debugging capabilities.
+ * This scraper handles complex SPA interactions, JavaScript-heavy content, and provides
+ * multiple extraction strategies (Element UI, JSON-LD) with extensive error recovery.
+ * Designed for reliability in CI/CD environments and production job synchronization workflows.
+ *
+ * Key Features:
+ * - Element UI collapse component interaction and expansion
+ * - JSON-LD structured data extraction for fallback scenarios
+ * - Configurable retry logic with exponential backoff
+ * - Debug screenshot capture for troubleshooting
+ * - Browser resource optimization for faster scraping
+ * - Comprehensive job data normalization
+ *
+ * @example
+ * ```typescript
+ * import { PlaywrightScraper } from './playwright-scraper.js';
+ *
+ * const scraper = new PlaywrightScraper({
+ *   headless: true,
+ *   timeout: 30000,
+ *   retries: 3,
+ *   debug: false
+ * });
+ *
+ * const result = await scraper.scrapeJobs(apiConfig, 'github-actions');
+ * if (result.success) {
+ *   console.log(`Scraped ${result.jobs.length} jobs`);
+ * }
+ *
+ * await scraper.dispose();
+ * ```
  *
  * @module playwright-scraper
- * @since 2.0.0
- * @see {@link IJobFetchStrategy} for the strategy interface this implements
- * @see {@link DriveHrApiConfig} for configuration structure
+ * @since 1.0.0
+ * @see {@link ../lib/job-fetch-utils.js} for URL building utilities
+ * @see {@link ../types/job.js} for job data type definitions
  */
 
 import { chromium, type Browser, type Page, type BrowserContext } from 'playwright';
@@ -24,103 +50,168 @@ import type { DriveHrApiConfig } from '../types/api.js';
 import type { RawJobData, NormalizedJob, JobSource } from '../types/job.js';
 
 /**
- * Configuration options for Playwright scraper
+ * Configuration interface for Playwright browser automation
  *
- * Provides fine-grained control over browser behavior, timeouts, and
- * scraping parameters for optimal performance in different environments
- * (local development, CI/CD, production).
+ * Defines all configurable options for browser behavior, scraping strategy,
+ * and debugging capabilities. Provides sensible defaults optimized for
+ * DriveHR job scraping while allowing customization for different environments.
  *
- * @example
- * ```typescript
- * const config: PlaywrightScraperConfig = {
- *   headless: true,
- *   timeout: 30000,
- *   waitForSelector: '.el-collapse-item',
- *   retries: 3,
- *   debug: false
- * };
- * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 export interface PlaywrightScraperConfig {
-  /** Run browser in headless mode (default: true) */
+  /**
+   * Whether to run browser in headless mode
+   *
+   * @default true
+   * @since 1.0.0
+   */
   headless?: boolean;
-  /** Navigation timeout in milliseconds (default: 30000) */
+
+  /**
+   * Timeout in milliseconds for page operations
+   *
+   * @default 30000
+   * @since 1.0.0
+   */
   timeout?: number;
-  /** Selector to wait for before scraping (default: Element UI components) */
+
+  /**
+   * CSS selector to wait for indicating page load completion
+   *
+   * @default '.el-collapse-item'
+   * @since 1.0.0
+   */
   waitForSelector?: string;
-  /** Number of retry attempts on failure (default: 3) */
+
+  /**
+   * Number of retry attempts for failed scraping operations
+   *
+   * @default 3
+   * @since 1.0.0
+   */
   retries?: number;
-  /** Enable debug mode with screenshots and verbose logging (default: false) */
+
+  /**
+   * Enable debug mode with verbose logging and screenshots
+   *
+   * @default false
+   * @since 1.0.0
+   */
   debug?: boolean;
-  /** Custom user agent string */
+
+  /**
+   * Custom user agent string for HTTP requests
+   *
+   * @default 'DriveHR-Scraper/2.0 (GitHub Actions)'
+   * @since 1.0.0
+   */
   userAgent?: string;
-  /** Additional browser launch arguments */
+
+  /**
+   * Additional command line arguments for Chromium browser
+   *
+   * @default ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+   * @since 1.0.0
+   */
   browserArgs?: string[];
 }
 
 /**
- * Result from a Playwright scraping operation
+ * Result interface for Playwright scraping operations
  *
- * Contains the scraped job data along with metadata about the scraping
- * process for debugging and monitoring purposes.
+ * Contains the complete results of a job scraping operation including
+ * extracted job data, success status, error information, and metadata.
+ * Used for comprehensive reporting and debugging of scraping operations.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 export interface PlaywrightScrapeResult {
-  /** Successfully scraped normalized jobs */
+  /**
+   * Array of successfully extracted and normalized jobs
+   *
+   * @since 1.0.0
+   */
   jobs: NormalizedJob[];
-  /** Number of jobs found */
+
+  /**
+   * Total number of jobs found during scraping
+   *
+   * @since 1.0.0
+   */
   totalCount: number;
-  /** Whether scraping was successful */
+
+  /**
+   * Whether the scraping operation was successful
+   *
+   * @since 1.0.0
+   */
   success: boolean;
-  /** Error message if scraping failed */
+
+  /**
+   * Error message if the operation failed
+   *
+   * @since 1.0.0
+   */
   error?: string;
-  /** URL that was scraped */
+
+  /**
+   * URL that was scraped
+   *
+   * @since 1.0.0
+   */
   url: string;
-  /** Timestamp when scraping occurred */
+
+  /**
+   * ISO timestamp when scraping was performed
+   *
+   * @since 1.0.0
+   */
   scrapedAt: string;
-  /** Screenshot path if debug mode enabled */
+
+  /**
+   * Path to debug screenshot if debug mode was enabled
+   *
+   * @since 1.0.0
+   */
   screenshotPath?: string;
 }
 
 /**
- * Playwright-based web scraper for DriveHR job listings
+ * Advanced web scraper using Playwright browser automation
  *
- * Advanced web scraper that uses browser automation to handle JavaScript-heavy
- * Single Page Applications that traditional HTTP scrapers cannot process.
- * Designed specifically for DriveHR's SPA architecture where job listings
- * are dynamically rendered by client-side JavaScript.
+ * High-performance browser automation system designed specifically for DriveHR
+ * Single Page Applications with Element UI components. Provides comprehensive
+ * job data extraction with multiple fallback strategies, retry mechanisms,
+ * and extensive error handling.
  *
- * Features:
- * - Full browser automation with Playwright
- * - Intelligent waiting for dynamic content
- * - Comprehensive error handling and retries
- * - Debug mode with screenshots
- * - Memory and resource management
- * - Consistent job data normalization
+ * The scraper handles complex JavaScript interactions, dynamic content loading,
+ * and provides detailed diagnostic information for troubleshooting extraction
+ * issues in production environments.
  *
  * @example
  * ```typescript
- * import { getEnvVar } from '../lib/env.js';
- *
  * const scraper = new PlaywrightScraper({
  *   headless: true,
  *   timeout: 30000,
- *   debug: getEnvVar('NODE_ENV') === 'development'
+ *   retries: 3,
+ *   debug: process.env.NODE_ENV !== 'production'
  * });
  *
- * const config = {
- *   companyId: 'acme-corp',
- *   careersUrl: 'https://drivehris.app/careers/acme-corp/list'
- * };
+ * try {
+ *   const result = await scraper.scrapeJobs(config, 'github-actions');
  *
- * const result = await scraper.scrapeJobs(config, 'github-actions');
- * if (result.success) {
- *   console.log(`Scraped ${result.totalCount} jobs`);
+ *   if (result.success) {
+ *     console.log(`Successfully scraped ${result.jobs.length} jobs`);
+ *     return result.jobs;
+ *   } else {
+ *     console.error(`Scraping failed: ${result.error}`);
+ *   }
+ * } finally {
+ *   await scraper.dispose();
  * }
  * ```
- * @since 2.0.0
+ *
+ * @since 1.0.0
  * @see {@link PlaywrightScraperConfig} for configuration options
  * @see {@link PlaywrightScrapeResult} for result structure
  */
@@ -130,10 +221,23 @@ export class PlaywrightScraper {
   private context: BrowserContext | null = null;
 
   /**
-   * Create Playwright scraper with configuration
+   * Creates a new Playwright scraper instance
    *
-   * @param config - Scraper configuration options
-   * @since 2.0.0
+   * Initializes the scraper with configuration options and sets up
+   * browser arguments optimized for job scraping performance and
+   * reliability in CI/CD environments.
+   *
+   * @param config - Configuration options for browser automation
+   * @example
+   * ```typescript
+   * const scraper = new PlaywrightScraper({
+   *   headless: false,  // For debugging
+   *   debug: true,      // Enable screenshots
+   *   timeout: 45000,   // Longer timeout for slow networks
+   *   retries: 5        // More retries for unstable environments
+   * });
+   * ```
+   * @since 1.0.0
    */
   constructor(config: PlaywrightScraperConfig = {}) {
     this.config = {
@@ -155,29 +259,39 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Scrape jobs from DriveHR careers page using browser automation
+   * Main job scraping method using browser automation
    *
-   * Main entry point for job scraping that handles the full lifecycle:
-   * browser launch, page navigation, content waiting, data extraction,
-   * normalization, and cleanup. Includes comprehensive error handling
-   * and retry logic for robust operation in production environments.
+   * Performs comprehensive job data extraction from DriveHR career pages
+   * using Playwright browser automation. Implements retry logic, multiple
+   * extraction strategies, and extensive error handling for production reliability.
    *
-   * @param apiConfig - DriveHR API configuration with careers URL
-   * @param source - Source identifier for job tracking
-   * @returns Promise resolving to scrape result with job data
+   * The method handles SPA loading, Element UI interactions, and provides
+   * detailed diagnostic information for troubleshooting extraction issues.
+   *
+   * @param apiConfig - DriveHR API configuration including company ID
+   * @param source - Source identifier for tracking and analytics
+   * @returns Promise resolving to scraping results with jobs and metadata
+   * @throws {Error} When browser initialization fails repeatedly
    * @example
    * ```typescript
-   * const scraper = new PlaywrightScraper({ debug: true });
-   * const config = { companyId: 'tech-startup', careersUrl: 'https://...' };
+   * const config = {
+   *   companyId: 'example-company',
+   *   baseUrl: 'https://careers.example.com'
+   * };
    *
    * const result = await scraper.scrapeJobs(config, 'manual');
+   *
    * if (result.success) {
-   *   result.jobs.forEach(job => console.log(`${job.title} - ${job.location}`));
+   *   console.log(`Found ${result.jobs.length} jobs:`);
+   *   result.jobs.forEach(job => {
+   *     console.log(`- ${job.title} in ${job.department}`);
+   *   });
    * } else {
-   *   console.error('Scraping failed:', result.error);
+   *   console.error(`Scraping failed: ${result.error}`);
    * }
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
+   * @see {@link PlaywrightScrapeResult} for result structure details
    */
   public async scrapeJobs(
     apiConfig: DriveHrApiConfig,
@@ -269,15 +383,19 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Initialize browser and context with optimized settings
+   * Initializes Playwright browser and context
    *
-   * Sets up the Playwright browser instance with configuration optimized
-   * for job scraping including performance settings, user agent, and
-   * security considerations for CI/CD environments.
+   * Sets up Chromium browser with optimized settings for job scraping,
+   * including custom headers, viewport settings, and TSX compatibility.
+   * Only initializes once per scraper instance for performance optimization.
    *
-   * @private
-   * @returns Promise that resolves when browser is ready
-   * @since 2.0.0
+   * @throws {Error} When browser launch fails
+   * @example
+   * ```typescript
+   * // Called automatically by scrapeJobs, but can be called manually:
+   * await scraper.initializeBrowser();
+   * ```
+   * @since 1.0.0
    */
   private async initializeBrowser(): Promise<void> {
     if (this.browser) {
@@ -321,15 +439,20 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Setup page with performance and security settings
+   * Configures page settings for optimal scraping performance
    *
-   * Configures the page instance with settings optimized for job scraping
-   * including timeouts, request interception, and error handling.
+   * Sets up timeouts, resource blocking, and debug logging for the page.
+   * Blocks unnecessary resources (images, fonts, media) to improve loading
+   * speed while preserving stylesheets needed for Element UI rendering.
    *
-   * @private
    * @param page - Playwright page instance to configure
-   * @returns Promise that resolves when page is configured
-   * @since 2.0.0
+   * @throws {Error} When page setup fails
+   * @example
+   * ```typescript
+   * const page = await context.newPage();
+   * await scraper.setupPage(page);
+   * ```
+   * @since 1.0.0
    */
   private async setupPage(page: Page): Promise<void> {
     // Set timeouts
@@ -356,16 +479,23 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Wait for job listings to load dynamically
+   * Waits for job listings to load using multiple strategies
    *
-   * Implements intelligent waiting logic that handles the dynamic nature
-   * of SPA job listings. Uses multiple strategies to detect when job
-   * content has finished loading.
+   * Implements a multi-strategy approach to detect when job content is ready:
+   * 1. Wait for Element UI collapse components
+   * 2. Fallback to network idle state
+   * 3. Additional timeout for SPA rendering
+   * 4. Check for "no jobs" indicators
    *
-   * @private
-   * @param page - Playwright page instance
-   * @returns Promise that resolves when job listings are ready
-   * @since 2.0.0
+   * @param page - Playwright page instance to monitor
+   * @throws {Error} When page becomes unresponsive
+   * @example
+   * ```typescript
+   * await page.goto(url);
+   * await scraper.waitForJobListings(page);
+   * // Jobs are now ready for extraction
+   * ```
+   * @since 1.0.0
    */
   private async waitForJobListings(page: Page): Promise<void> {
     const logger = getLogger();
@@ -405,17 +535,25 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Extract job data from the loaded page
+   * Orchestrates job data extraction using multiple strategies
    *
-   * Implements comprehensive job data extraction that handles various
-   * HTML structures and data formats used by DriveHR careers pages.
-   * Uses multiple extraction strategies for maximum compatibility.
+   * Implements a hierarchical extraction approach with fallback mechanisms:
+   * 1. Primary: Extract from Element UI structured components
+   * 2. Fallback: Extract from JSON-LD structured data
    *
-   * @private
-   * @param page - Playwright page instance with loaded content
+   * Returns the first successful extraction method results.
+   *
+   * @param page - Playwright page instance containing job data
    * @param baseUrl - Base URL for resolving relative links
-   * @returns Promise resolving to array of raw job data
-   * @since 2.0.0
+   * @returns Promise resolving to array of raw job data objects
+   * @example
+   * ```typescript
+   * const jobs = await scraper.extractJobData(page, 'https://careers.example.com');
+   * console.log(`Extracted ${jobs.length} jobs`);
+   * ```
+   * @since 1.0.0
+   * @see {@link extractFromStructuredElements} for Element UI extraction
+   * @see {@link extractFromJsonLd} for JSON-LD extraction
    */
   private async extractJobData(page: Page, baseUrl: string): Promise<RawJobData[]> {
     const logger = getLogger();
@@ -440,13 +578,17 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Extract jobs from structured HTML elements
+   * Extracts job data from structured HTML elements
    *
-   * @private
+   * Delegates to Element UI specific extraction logic since DriveHR
+   * uses Element UI exclusively. This method provides a clear separation
+   * between different extraction strategies.
+   *
    * @param page - Playwright page instance
-   * @param baseUrl - Base URL for resolving relative links
-   * @returns Promise resolving to array of raw job data
-   * @since 2.0.0
+   * @param baseUrl - Base URL for link resolution
+   * @returns Promise resolving to extracted job data array
+   * @since 1.0.0
+   * @see {@link extractFromElementUICollapse} for implementation details
    */
   private async extractFromStructuredElements(page: Page, baseUrl: string): Promise<RawJobData[]> {
     // DriveHR uses Element UI exclusively - no fallback needed
@@ -456,17 +598,31 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Extract jobs from Element UI collapse components (DriveHR specific)
+   * Extracts job data from Element UI collapse components
    *
-   * Uses a two-part extraction strategy:
-   * 1. Extract basic job info from always-visible headers
-   * 2. Expand each job dropdown to extract full descriptions from iframes
+   * Comprehensive extraction system specifically designed for DriveHR's Element UI
+   * implementation. Uses an expand-all-first approach to ensure all job content
+   * is available for extraction.
    *
-   * @private
+   * Process:
+   * 1. Wait for SPA content loading
+   * 2. Diagnostic analysis of page state
+   * 3. Expand all collapse components
+   * 4. Extract job data from expanded content
+   * 5. Validate and process results
+   *
    * @param page - Playwright page instance
    * @param baseUrl - Base URL for resolving relative links
-   * @returns Promise resolving to array of raw job data
-   * @since 2.0.0
+   * @returns Promise resolving to array of extracted job data
+   * @throws {Error} When critical page elements are missing
+   * @example
+   * ```typescript
+   * const jobs = await scraper.extractFromElementUICollapse(page, baseUrl);
+   * jobs.forEach(job => {
+   *   console.log(`${job.title} - ${job.department} (${job.location})`);
+   * });
+   * ```
+   * @since 1.0.0
    */
   private async extractFromElementUICollapse(page: Page, baseUrl: string): Promise<RawJobData[]> {
     const logger = getLogger();
@@ -749,12 +905,23 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Extract jobs from JSON-LD structured data
+   * Extracts job data from JSON-LD structured data
    *
-   * @private
-   * @param page - Playwright page instance
-   * @returns Promise resolving to array of raw job data
-   * @since 2.0.0
+   * Fallback extraction method that searches for JSON-LD script tags
+   * containing JobPosting schema data. Handles both single job postings
+   * and arrays of job postings with comprehensive error handling.
+   *
+   * @param page - Playwright page instance to search
+   * @returns Promise resolving to array of jobs from JSON-LD data
+   * @example
+   * ```typescript
+   * const jsonLdJobs = await scraper.extractFromJsonLd(page);
+   * if (jsonLdJobs.length > 0) {
+   *   console.log(`Found ${jsonLdJobs.length} jobs in JSON-LD`);
+   * }
+   * ```
+   * @since 1.0.0
+   * @see {@link https://schema.org/JobPosting} for JSON-LD JobPosting schema
    */
   private async extractFromJsonLd(page: Page): Promise<RawJobData[]> {
     return await page.evaluate(() => {
@@ -835,13 +1002,24 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Take debug screenshot for troubleshooting
+   * Captures debug screenshot for troubleshooting
    *
-   * @private
-   * @param page - Playwright page instance
-   * @param companyId - Company identifier for filename
+   * Creates a full-page screenshot with timestamp and company identifier
+   * for debugging scraping issues. Screenshots are saved to temp directory
+   * with standardized naming convention.
+   *
+   * @param page - Playwright page instance to capture
+   * @param companyId - Company identifier for file naming
    * @returns Promise resolving to screenshot file path
-   * @since 2.0.0
+   * @throws {Error} When screenshot capture fails
+   * @example
+   * ```typescript
+   * if (config.debug) {
+   *   const path = await scraper.takeDebugScreenshot(page, 'company-123');
+   *   console.log(`Debug screenshot saved: ${path}`);
+   * }
+   * ```
+   * @since 1.0.0
    */
   private async takeDebugScreenshot(page: Page, companyId: string): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -853,13 +1031,22 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Normalize raw job data into consistent format
+   * Normalizes raw job data into consistent format
    *
-   * @private
+   * Processes array of raw job data objects, filters out invalid entries,
+   * and converts them to normalized job format with consistent field names
+   * and data types. Adds processing metadata and source tracking.
+   *
    * @param rawJobs - Array of raw job data from extraction
-   * @param source - Source identifier for job tracking
-   * @returns Promise resolving to normalized job data
-   * @since 2.0.0
+   * @param source - Source identifier for tracking purposes
+   * @returns Promise resolving to array of normalized jobs
+   * @example
+   * ```typescript
+   * const rawJobs = await extractJobData(page, baseUrl);
+   * const normalizedJobs = await scraper.normalizeJobs(rawJobs, 'github-actions');
+   * ```
+   * @since 1.0.0
+   * @see {@link normalizeJobData} for individual job normalization
    */
   private async normalizeJobs(rawJobs: RawJobData[], source: JobSource): Promise<NormalizedJob[]> {
     const processedAt = DateUtils.getCurrentIsoTimestamp();
@@ -870,14 +1057,17 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Normalize a single raw job into consistent format
+   * Normalizes a single job data object
    *
-   * @private
-   * @param rawJob - Raw job data to normalize
-   * @param source - Source identifier for job tracking
+   * Converts raw job data into standardized NormalizedJob format with
+   * consistent field mapping, data validation, and metadata addition.
+   * Handles missing fields with appropriate defaults.
+   *
+   * @param rawJob - Raw job data object to normalize
+   * @param source - Source identifier for tracking
    * @param processedAt - Processing timestamp
-   * @returns Normalized job data
-   * @since 2.0.0
+   * @returns Normalized job object with consistent structure
+   * @since 1.0.0
    */
   private normalizeJobData(
     rawJob: RawJobData,
@@ -900,32 +1090,56 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Normalize job ID
-   * @private
+   * Normalizes job ID with fallback generation
+   *
+   * Uses existing job ID or generates one from job title if missing.
+   * Ensures every job has a unique identifier.
+   *
+   * @param rawJob - Raw job data containing potential ID
+   * @returns Normalized job ID string
+   * @since 1.0.0
    */
   private normalizeJobId(rawJob: RawJobData): string {
     return rawJob.id ?? StringUtils.generateIdFromTitle(rawJob.title ?? 'unknown');
   }
 
   /**
-   * Normalize job department
-   * @private
+   * Normalizes job department with field fallbacks
+   *
+   * Tries multiple field names to find department information,
+   * handling variations in data source field naming.
+   *
+   * @param rawJob - Raw job data with potential department fields
+   * @returns Normalized department string
+   * @since 1.0.0
    */
   private normalizeJobDepartment(rawJob: RawJobData): string {
     return rawJob.department ?? rawJob.category ?? '';
   }
 
   /**
-   * Normalize job type
-   * @private
+   * Normalizes employment type with sensible default
+   *
+   * Extracts employment type from various field names with
+   * fallback to 'Full-time' when not specified.
+   *
+   * @param rawJob - Raw job data with potential type fields
+   * @returns Normalized employment type string
+   * @since 1.0.0
    */
   private normalizeJobType(rawJob: RawJobData): string {
     return rawJob.type ?? rawJob.employment_type ?? 'Full-time';
   }
 
   /**
-   * Normalize job posted date
-   * @private
+   * Normalizes job posted date to ISO format
+   *
+   * Converts posted date to ISO string format or uses current
+   * timestamp if no date is provided. Ensures consistent date formatting.
+   *
+   * @param rawJob - Raw job data with potential date field
+   * @returns ISO formatted date string
+   * @since 1.0.0
    */
   private normalizeJobPostedDate(rawJob: RawJobData): string {
     return rawJob.posted_date
@@ -934,19 +1148,27 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Normalize job apply URL
-   * @private
+   * Normalizes application URL with field fallbacks
+   *
+   * Tries multiple field names to find application URL,
+   * handling variations in data source field naming.
+   *
+   * @param rawJob - Raw job data with potential URL fields
+   * @returns Normalized application URL string
+   * @since 1.0.0
    */
   private normalizeJobApplyUrl(rawJob: RawJobData): string {
     return rawJob.apply_url ?? rawJob.application_url ?? '';
   }
 
   /**
-   * Close browser and clean up resources
+   * Safely closes browser context and browser instance
    *
-   * @private
-   * @returns Promise that resolves when cleanup is complete
-   * @since 2.0.0
+   * Performs cleanup of Playwright resources with error handling.
+   * Ensures proper resource disposal even when errors occur during cleanup.
+   *
+   * @throws {Error} Logs but doesn't throw when cleanup fails
+   * @since 1.0.0
    */
   private async closeBrowser(): Promise<void> {
     try {
@@ -967,10 +1189,21 @@ export class PlaywrightScraper {
   }
 
   /**
-   * Cleanup resources when scraper is no longer needed
+   * Disposes of scraper resources
    *
-   * @returns Promise that resolves when cleanup is complete
-   * @since 2.0.0
+   * Public cleanup method that ensures proper disposal of browser resources.
+   * Should be called when scraper is no longer needed to prevent memory leaks.
+   *
+   * @example
+   * ```typescript
+   * const scraper = new PlaywrightScraper();
+   * try {
+   *   await scraper.scrapeJobs(config);
+   * } finally {
+   *   await scraper.dispose();
+   * }
+   * ```
+   * @since 1.0.0
    */
   public async dispose(): Promise<void> {
     await this.closeBrowser();
