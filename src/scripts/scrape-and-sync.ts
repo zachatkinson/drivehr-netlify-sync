@@ -2,26 +2,46 @@
 /**
  * DriveHR Job Scraper and WordPress Sync Script
  *
- * GitHub Actions script that orchestrates the complete job scraping and
- * WordPress synchronization workflow. This script replaces the complex
- * API-based fetching with browser automation for SPA handling, then
- * sends the results directly to WordPress via webhook.
+ * Enterprise GitHub Actions automation script that orchestrates the complete
+ * job scraping and WordPress synchronization workflow. This script replaces
+ * complex API-based fetching with browser automation for SPA handling, then
+ * sends the results directly to WordPress via secure webhook integration.
  *
- * Workflow:
- * 1. Load environment configuration and validate settings
- * 2. Initialize Playwright scraper with appropriate settings
- * 3. Scrape job data from DriveHR careers page
+ * Key Features:
+ * - Playwright-powered browser automation for SPA job scraping
+ * - HMAC-SHA256 authenticated WordPress webhook integration
+ * - Comprehensive error handling and retry mechanisms
+ * - Artifact generation for debugging and monitoring
+ * - GitHub Actions optimized with structured logging
+ * - Environment-based configuration with runtime validation
+ * - Performance metrics tracking and reporting
+ * - Secure secret management and credential handling
+ *
+ * Workflow Process:
+ * 1. Load and validate environment configuration
+ * 2. Initialize Playwright scraper with GitHub Actions optimization
+ * 3. Scrape job data from DriveHR careers page using browser automation
  * 4. Send scraped data to WordPress via authenticated webhook
- * 5. Handle errors and provide comprehensive logging
- * 6. Save artifacts for debugging and monitoring
+ * 5. Handle errors with comprehensive logging and artifact generation
+ * 6. Save debugging artifacts for monitoring and troubleshooting
  *
- * This script is designed to run in GitHub Actions but can also be
- * executed locally for development and testing purposes.
+ * This script is designed for GitHub Actions but supports local execution
+ * for development and testing purposes with proper environment setup.
+ *
+ * @example
+ * ```bash
+ * # GitHub Actions execution
+ * DRIVEHR_COMPANY_ID=123 WP_API_URL=https://site.com/webhook/drivehr-sync WEBHOOK_SECRET=secret node scrape-and-sync.ts
+ *
+ * # Local development
+ * ENVIRONMENT=development FORCE_SYNC=true node scrape-and-sync.ts
+ * ```
  *
  * @module scrape-and-sync
  * @since 2.0.0
- * @see {@link PlaywrightScraper} for the scraping implementation
- * @see {@link WordPressWebhookClient} for WordPress integration
+ * @see {@link ../services/playwright-scraper.ts} for browser automation implementation
+ * @see {@link ../services/wordpress-client.ts} for WordPress integration patterns
+ * @see {@link ../../CLAUDE.md} for development standards and security requirements
  */
 
 import { writeFile, mkdir } from 'fs/promises';
@@ -41,7 +61,8 @@ const __dirname = dirname(__filename);
  * Configuration for the scrape and sync operation
  *
  * Combines environment configuration with script-specific settings
- * for optimal performance in GitHub Actions environment.
+ * optimized for GitHub Actions CI/CD pipeline execution with
+ * comprehensive security and performance controls.
  *
  * @since 2.0.0
  */
@@ -66,6 +87,10 @@ interface ScrapeAndSyncConfig {
 /**
  * Result from WordPress webhook call
  *
+ * Comprehensive response structure for tracking webhook
+ * communication success, failure scenarios, and
+ * job processing metrics for monitoring and debugging.
+ *
  * @since 2.0.0
  */
 interface WebhookResult {
@@ -77,6 +102,10 @@ interface WebhookResult {
 
 /**
  * Complete scrape and sync result for reporting
+ *
+ * Comprehensive execution result containing performance metrics,
+ * artifact locations, and detailed status information for
+ * GitHub Actions reporting and monitoring dashboards.
  *
  * @since 2.0.0
  */
@@ -99,7 +128,9 @@ interface ScrapeAndSyncResult {
  * WordPress webhook client for sending job data
  *
  * Handles authenticated communication with WordPress webhook endpoints
- * using HMAC-SHA256 signature verification for security.
+ * using HMAC-SHA256 signature verification for enterprise security.
+ * Provides retry mechanisms, comprehensive error handling, and
+ * structured logging for production deployment reliability.
  *
  * @since 2.0.0
  */
@@ -112,9 +143,22 @@ class WordPressWebhookClient {
   /**
    * Send job data to WordPress via webhook
    *
-   * @param jobs - Normalized job data to send
-   * @param source - Source identifier for tracking
-   * @returns Promise resolving to webhook result
+   * Transmits normalized job data to WordPress using secure HMAC-SHA256
+   * authentication. Handles payload serialization, signature generation,
+   * and comprehensive error handling for production reliability.
+   *
+   * @param jobs - Normalized job data to send to WordPress
+   * @param source - Source identifier for tracking and analytics
+   * @returns Promise resolving to webhook result with success status
+   * @throws {Error} When webhook request fails or receives non-2xx response
+   * @example
+   * ```typescript
+   * const client = new WordPressWebhookClient(apiUrl, secret);
+   * const result = await client.sendJobs(jobs, 'github-actions');
+   * if (result.success) {
+   *   console.log(`Synced ${result.jobsProcessed} jobs successfully`);
+   * }
+   * ```
    * @since 2.0.0
    */
   async sendJobs(jobs: NormalizedJob[], source: string = 'github-actions'): Promise<WebhookResult> {
@@ -172,9 +216,12 @@ class WordPressWebhookClient {
   /**
    * Generate HMAC-SHA256 signature for webhook authentication
    *
+   * Creates cryptographic signature for webhook payload verification
+   * using SHA-256 hashing algorithm with shared secret for security.
+   *
    * @private
-   * @param payload - Payload to sign
-   * @returns Hex-encoded signature
+   * @param payload - JSON payload to sign for authentication
+   * @returns Hex-encoded HMAC-SHA256 signature
    * @since 2.0.0
    */
   private generateSignature(payload: string): string {
@@ -185,7 +232,19 @@ class WordPressWebhookClient {
 /**
  * Load and validate configuration from environment
  *
- * @returns Promise resolving to validated configuration
+ * Loads environment variables and constructs validated configuration
+ * for scraping and synchronization operations. Performs comprehensive
+ * validation of required environment variables and constructs optimized
+ * settings for GitHub Actions execution environment.
+ *
+ * @returns Promise resolving to validated scrape and sync configuration
+ * @throws {Error} When required environment variables are missing
+ * @example
+ * ```typescript
+ * const config = await loadConfiguration();
+ * console.log(`Scraping for company: ${config.driveHr.companyId}`);
+ * console.log(`WordPress target: ${config.wordpress.apiUrl}`);
+ * ```
  * @since 2.0.0
  */
 async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
@@ -245,7 +304,12 @@ async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
 /**
  * Create output directories for artifacts
  *
+ * Creates necessary directory structure for storing execution
+ * artifacts including logs, temporary files, and debugging data.
+ * Ensures proper permissions and handles creation errors gracefully.
+ *
  * @returns Promise that resolves when directories are created
+ * @throws {Error} When directory creation fails due to permissions
  * @since 2.0.0
  */
 async function createOutputDirectories(): Promise<void> {
@@ -258,9 +322,19 @@ async function createOutputDirectories(): Promise<void> {
 /**
  * Save job data as JSON artifact
  *
- * @param jobs - Job data to save
- * @param runId - GitHub Actions run ID for filename
- * @returns Promise resolving to file path
+ * Persists scraped job data to filesystem as structured JSON artifact
+ * for debugging, monitoring, and compliance purposes. Includes metadata
+ * for traceability and supports both GitHub Actions and local execution.
+ *
+ * @param jobs - Normalized job data to save as artifact
+ * @param runId - GitHub Actions run ID for filename uniqueness
+ * @returns Promise resolving to file path of saved artifact
+ * @throws {Error} When file write operations fail
+ * @example
+ * ```typescript
+ * const artifactPath = await saveJobsArtifact(jobs, 'run-123');
+ * console.log(`Jobs saved to: ${artifactPath}`);
+ * ```
  * @since 2.0.0
  */
 async function saveJobsArtifact(jobs: NormalizedJob[], runId: string = 'local'): Promise<string> {
@@ -281,9 +355,19 @@ async function saveJobsArtifact(jobs: NormalizedJob[], runId: string = 'local'):
 /**
  * Save execution log as artifact
  *
- * @param result - Scrape and sync result
- * @param runId - GitHub Actions run ID for filename
- * @returns Promise resolving to file path
+ * Persists comprehensive execution log including performance metrics,
+ * environment details, and execution results for monitoring, debugging,
+ * and compliance audit trails in production deployments.
+ *
+ * @param result - Complete scrape and sync execution result
+ * @param runId - GitHub Actions run ID for filename uniqueness
+ * @returns Promise resolving to file path of saved log artifact
+ * @throws {Error} When log file write operations fail
+ * @example
+ * ```typescript
+ * const logPath = await saveLogArtifact(executionResult, 'run-123');
+ * console.log(`Execution log saved to: ${logPath}`);
+ * ```
  * @since 2.0.0
  */
 async function saveLogArtifact(
@@ -311,10 +395,22 @@ async function saveLogArtifact(
 /**
  * Main scrape and sync execution function
  *
- * Orchestrates the complete workflow from configuration loading
- * through job scraping to WordPress synchronization.
+ * Orchestrates the complete workflow from configuration loading through
+ * job scraping to WordPress synchronization. Handles comprehensive error
+ * scenarios, performance monitoring, and artifact generation for enterprise
+ * production deployments with full observability.
  *
- * @returns Promise resolving to execution result
+ * @returns Promise resolving to comprehensive execution result
+ * @throws {Error} When critical configuration or execution failures occur
+ * @example
+ * ```typescript
+ * const result = await executeScrapeAndSync();
+ * if (result.success) {
+ *   console.log(`✅ Synced ${result.jobsSynced} jobs in ${result.totalTime}ms`);
+ * } else {
+ *   console.error(`❌ Failed: ${result.error}`);
+ * }
+ * ```
  * @since 2.0.0
  */
 async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
@@ -437,6 +533,20 @@ async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
 /**
  * Script entry point when run directly
  *
+ * Main execution entry point that handles script lifecycle, error reporting,
+ * and exit code management for GitHub Actions integration. Provides
+ * structured console output with emoji indicators for CI/CD visibility.
+ *
+ * @returns Promise that resolves when script execution completes
+ * @throws Process exits with code 1 on failure, 0 on success
+ * @example
+ * ```bash
+ * # Direct execution
+ * node scrape-and-sync.ts
+ *
+ * # With environment variables
+ * DRIVEHR_COMPANY_ID=123 node scrape-and-sync.ts
+ * ```
  * @since 2.0.0
  */
 async function main(): Promise<void> {
@@ -484,7 +594,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * Public API exports for DriveHR scrape and sync functionality
  *
  * Exports the main execution function and result type for programmatic
- * access to the scraping and synchronization capabilities.
+ * access to the scraping and synchronization capabilities. Enables
+ * integration with other services, testing frameworks, and monitoring
+ * systems while maintaining clean API boundaries.
  *
  * @example
  * ```typescript
@@ -493,6 +605,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  * const result: ScrapeAndSyncResult = await executeScrapeAndSync();
  * if (result.success) {
  *   console.log(`Successfully synced ${result.jobsSynced} jobs`);
+ *   console.log(`Execution time: ${result.totalTime}ms`);
+ *   console.log(`Artifacts: ${JSON.stringify(result.artifacts, null, 2)}`);
  * }
  * ```
  * @since 2.0.0
