@@ -484,6 +484,10 @@ describe('WordPress Payload Testing Tool', () => {
 
       try {
         vi.unstubAllEnvs(); // Remove environment variables
+        // Explicitly clear CI-provided environment variables
+        delete process.env['DRIVEHR_COMPANY_ID'];
+        delete process.env['WP_API_URL'];
+        delete process.env['WEBHOOK_SECRET'];
 
         const { stderr, exitCode } = await WordPressPayloadTestUtils.executePayloadScript([
           '--format',
@@ -513,6 +517,7 @@ describe('WordPress Payload Testing Tool', () => {
       try {
         vi.unstubAllEnvs();
         // Explicitly clear CI environment variables
+        delete process.env['DRIVEHR_COMPANY_ID'];
         delete process.env['WEBHOOK_SECRET'];
         delete process.env['WP_API_URL'];
         // Set WP_API_URL but don't set WEBHOOK_SECRET
