@@ -1,18 +1,18 @@
 /**
  * Manual Trigger Function Test Suite
  *
- * Comprehensive test coverage for manual-trigger Netlify function following
- * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates the manual trigger endpoint that initiates
- * GitHub Actions job scraping workflows via the GitHub API.
+ * Comprehensive test coverage for the DriveHR manual trigger Netlify function
+ * following enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates secure webhook-based GitHub Actions workflow triggering,
+ * authentication flows, error handling, and integration with external services.
  *
  * Test Features:
- * - HTTP method validation and security
- * - Authentication with webhook signatures
- * - Payload validation and parsing
- * - GitHub API integration patterns
- * - Error handling and recovery
- * - Response formatting and headers
+ * - HMAC SHA-256 webhook signature validation testing
+ * - GitHub Actions workflow dispatch API integration testing
+ * - HTTP method validation and security header verification
+ * - Environment variable configuration validation testing
+ * - Comprehensive error handling and edge case coverage
+ * - Mock-based isolated unit testing with realistic scenarios
  *
  * @example
  * ```typescript
@@ -34,7 +34,15 @@ import * as logger from '../../src/lib/logger.js';
 import * as httpClient from '../../src/lib/http-client.js';
 import * as utils from '../../src/lib/utils.js';
 
-// Test response types
+/**
+ * Manual trigger function response structure
+ *
+ * Defines the expected response format from the manual trigger Netlify function,
+ * including success indicators, operational metadata, and error information for
+ * comprehensive test validation and assertion coverage.
+ *
+ * @since 2.0.0
+ */
 interface ManualTriggerResponse {
   success: boolean;
   message?: string;
@@ -54,9 +62,6 @@ vi.mock('../../src/functions/manual-trigger.mts', () => ({
   default: mockManualTriggerFunction,
 }));
 
-/**
- * Mock implementations
- */
 const mockLogger = {
   info: vi.fn(),
   error: vi.fn(),
@@ -81,9 +86,36 @@ const mockEnvConfig = {
 };
 
 /**
- * Test utilities for manual trigger function
+ * Manual trigger function test utilities
+ *
+ * Extends enterprise testing patterns with manual trigger function-specific testing
+ * methods and mock configurations. Maintains DRY principles while providing specialized
+ * utilities for webhook signature generation, request creation, and GitHub API mock setup
+ * following the established BaseTestUtils pattern.
+ *
+ * @since 2.0.0
  */
 class ManualTriggerTestUtils {
+  /**
+   * Creates mock HTTP request for manual trigger function testing
+   *
+   * Generates Web API standard Request objects configured for manual trigger
+   * endpoint testing with customizable method, payload, and headers. Provides
+   * realistic request structure for comprehensive function behavior validation.
+   *
+   * @param method - HTTP method for request (default: 'POST')
+   * @param body - Request payload as JSON string (default: empty string)
+   * @param headers - Additional HTTP headers for authentication and metadata
+   * @returns Configured Request object for manual trigger function testing
+   * @example
+   * ```typescript
+   * const request = ManualTriggerTestUtils.createMockRequest('POST',
+   *   JSON.stringify({force_sync: true}),
+   *   {'x-webhook-signature': 'sha256=abc123'}
+   * );
+   * ```
+   * @since 2.0.0
+   */
   static createMockRequest(
     method: string = 'POST',
     body: string = '',
@@ -99,21 +131,91 @@ class ManualTriggerTestUtils {
     });
   }
 
+  /**
+   * Creates mock Netlify execution context for function testing
+   *
+   * Generates standard Netlify function Context objects with realistic metadata
+   * for comprehensive manual trigger function execution testing. Provides
+   * necessary context properties for request correlation and logging validation.
+   *
+   * @returns Configured Context object for Netlify function testing
+   * @example
+   * ```typescript
+   * const context = ManualTriggerTestUtils.createMockContext();
+   * const response = await manualTriggerFunction(request, context);
+   * ```
+   * @since 2.0.0
+   */
   static createMockContext(): Context {
     return {
       requestId: 'test-request-id',
     } as Context;
   }
 
+  /**
+   * Parses HTTP response body to typed manual trigger response
+   *
+   * Converts Response objects from manual trigger function testing into strongly
+   * typed response structures for comprehensive assertion validation and error
+   * checking. Handles JSON parsing with proper error propagation for test reliability.
+   *
+   * @param response - HTTP Response object from manual trigger function execution
+   * @returns Promise resolving to typed manual trigger response structure
+   * @throws {Error} When response body contains invalid JSON
+   * @example
+   * ```typescript
+   * const response = await manualTriggerFunction(request, context);
+   * const data = await ManualTriggerTestUtils.parseResponse(response);
+   * expect(data.success).toBe(true);
+   * ```
+   * @since 2.0.0
+   */
   static async parseResponse(response: Response): Promise<ManualTriggerResponse> {
     return JSON.parse(await response.text()) as ManualTriggerResponse;
   }
 
+  /**
+   * Generates valid HMAC SHA-256 webhook signature for authentication testing
+   *
+   * Creates properly formatted webhook signatures using HMAC SHA-256 algorithm
+   * for testing manual trigger function authentication flows. Produces signatures
+   * compatible with GitHub webhook signature validation standards.
+   *
+   * @param payload - Request body content for signature calculation
+   * @param secret - Webhook secret key for HMAC signature generation
+   * @returns Formatted webhook signature with 'sha256=' prefix
+   * @example
+   * ```typescript
+   * const signature = ManualTriggerTestUtils.generateValidSignature(
+   *   JSON.stringify({force_sync: true}), 'webhook-secret'
+   * );
+   * // Returns: 'sha256=abc123def456...'
+   * ```
+   * @since 2.0.0
+   */
   static generateValidSignature(payload: string, secret: string): string {
     const signature = createHmac('sha256', secret).update(payload).digest('hex');
     return `sha256=${signature}`;
   }
 
+  /**
+   * Configures successful mock scenario for GitHub workflow dispatch testing
+   *
+   * Sets up comprehensive mock environment simulating successful GitHub Actions
+   * workflow dispatch operations including environment configuration, HTTP client
+   * responses, and utility function behaviors. Provides realistic success scenario
+   * baseline for comprehensive function testing.
+   *
+   * @returns void
+   * @example
+   * ```typescript
+   * ManualTriggerTestUtils.setupSuccessfulMocks();
+   * // All mocks configured for successful workflow dispatch
+   * const response = await manualTriggerFunction(request, context);
+   * expect(response.status).toBe(200);
+   * ```
+   * @since 2.0.0
+   */
   static setupSuccessfulMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);
     vi.spyOn(logger, 'createLogger').mockReturnValue(mockLogger);
@@ -137,6 +239,23 @@ class ManualTriggerTestUtils {
     process.env['GITHUB_REPOSITORY'] = 'test-user/test-repo';
   }
 
+  /**
+   * Configures failed GitHub API mock scenario for error testing
+   *
+   * Extends successful mock baseline with GitHub API failure simulation for
+   * comprehensive error handling validation. Simulates authentication failures,
+   * rate limiting, and other GitHub API error conditions for robust testing coverage.
+   *
+   * @returns void
+   * @example
+   * ```typescript
+   * ManualTriggerTestUtils.setupFailedGitHubMocks();
+   * // GitHub API configured to return 401 Unauthorized
+   * const response = await manualTriggerFunction(request, context);
+   * expect(response.status).toBe(500);
+   * ```
+   * @since 2.0.0
+   */
   static setupFailedGitHubMocks(): void {
     this.setupSuccessfulMocks();
 
@@ -150,6 +269,24 @@ class ManualTriggerTestUtils {
     });
   }
 
+  /**
+   * Configures missing environment variable mock scenario for validation testing
+   *
+   * Sets up test environment with missing GitHub authentication credentials to
+   * validate environment variable validation logic and error handling. Simulates
+   * deployment configuration errors and missing secret scenarios for comprehensive
+   * error path testing coverage.
+   *
+   * @returns void
+   * @example
+   * ```typescript
+   * ManualTriggerTestUtils.setupMissingEnvironmentMocks();
+   * // GitHub credentials removed from environment
+   * const response = await manualTriggerFunction(request, context);
+   * expect(data.error).toContain('GITHUB_TOKEN');
+   * ```
+   * @since 2.0.0
+   */
   static setupMissingEnvironmentMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);
     vi.spyOn(logger, 'createLogger').mockReturnValue(mockLogger);

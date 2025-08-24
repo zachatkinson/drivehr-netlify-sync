@@ -1,21 +1,19 @@
 /**
  * Sync Jobs Function Test Suite
  *
- * Comprehensive test coverage for sync-jobs webhook receiver function following
- * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates the lightweight webhook receiver that handles job
- * data from GitHub Actions and forwards it to WordPress, replacing the old job
- * fetcher with a simple webhook endpoint for the new GitHub Actions-based
- * architecture.
+ * Comprehensive test coverage for the DriveHR lightweight webhook receiver Netlify function
+ * following enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates secure webhook-based job data forwarding from GitHub Actions
+ * to WordPress, replacing monolithic client-side scraping with efficient serverless integration.
  *
  * Test Features:
- * - OPTIONS requests (CORS preflight)
- * - GET requests (health checks)
- * - POST requests (webhook data processing)
- * - HTTP method validation
- * - Error handling and security headers
- * - HMAC signature validation
- * - WordPress integration patterns
+ * - OPTIONS requests (CORS preflight) for cross-origin GitHub Actions integration
+ * - GET requests (health check) for system status monitoring and validation
+ * - POST requests (webhook data processing) for GitHub Actions payload handling
+ * - HTTP method validation and comprehensive security header verification
+ * - HMAC SHA-256 signature validation for webhook authenticity
+ * - WordPress integration patterns with error handling and retry logic
+ * - Comprehensive error scenarios and edge case coverage
  *
  * @example
  * ```typescript
@@ -48,7 +46,13 @@ vi.mock('../../src/lib/utils.js');
 vi.mock('../../src/services/wordpress-client.js');
 
 /**
- * Test response interface for webhook receiver
+ * Webhook receiver function response structure
+ *
+ * Defines the expected response format from the sync-jobs webhook receiver function,
+ * including success indicators, health status data, job processing metrics, and error
+ * information for comprehensive test validation and assertion coverage.
+ *
+ * @since 2.0.0
  */
 interface WebhookReceiverResponse {
   success: boolean;
@@ -70,7 +74,14 @@ interface WebhookReceiverResponse {
 }
 
 /**
- * Test utilities for sync-jobs webhook receiver
+ * Sync jobs webhook receiver test utilities
+ *
+ * Extends enterprise testing patterns with webhook receiver-specific testing methods
+ * and mock configurations. Maintains DRY principles while providing specialized utilities
+ * for job data generation, HMAC signature creation, WordPress client mocking, and
+ * comprehensive webhook scenario testing following the established BaseTestUtils pattern.
+ *
+ * @since 2.0.0
  */
 class SyncJobsTestUtils {
   static readonly SAMPLE_JOBS: NormalizedJob[] = [
@@ -112,6 +123,26 @@ class SyncJobsTestUtils {
     logLevel: 'info' as const,
   };
 
+  /**
+   * Creates mock HTTP request for webhook receiver function testing
+   *
+   * Generates Web API standard Request objects configured for sync-jobs endpoint
+   * testing with customizable method, payload, and headers. Provides realistic
+   * request structure for comprehensive webhook processing behavior validation.
+   *
+   * @param method - HTTP method for request (default: 'GET')
+   * @param body - Request payload as JSON string (optional)
+   * @param headers - Additional HTTP headers for authentication and metadata
+   * @returns Configured Request object for webhook receiver function testing
+   * @example
+   * ```typescript
+   * const request = SyncJobsTestUtils.createMockRequest('POST',
+   *   JSON.stringify(payload),
+   *   {'x-webhook-signature': 'sha256=abc123'}
+   * );
+   * ```
+   * @since 2.0.0
+   */
   static createMockRequest(
     method: string = 'GET',
     body?: string,
@@ -127,21 +158,89 @@ class SyncJobsTestUtils {
     });
   }
 
+  /**
+   * Creates mock Netlify execution context for webhook function testing
+   *
+   * Generates standard Netlify function Context objects with realistic metadata
+   * for comprehensive webhook receiver function execution testing. Provides
+   * necessary context properties for request correlation and logging validation.
+   *
+   * @returns Configured Context object for Netlify webhook function testing
+   * @example
+   * ```typescript
+   * const context = SyncJobsTestUtils.createMockContext();
+   * const response = await handler(request, context);
+   * ```
+   * @since 2.0.0
+   */
   static createMockContext(): Context {
     return {
       requestId: 'test-request-id',
     } as Context;
   }
 
+  /**
+   * Parses HTTP response body to typed webhook receiver response
+   *
+   * Converts Response objects from webhook receiver function testing into strongly
+   * typed response structures for comprehensive assertion validation and data
+   * verification. Handles JSON parsing with proper error propagation for test reliability.
+   *
+   * @param response - HTTP Response object from webhook receiver function execution
+   * @returns Promise resolving to typed webhook receiver response structure
+   * @throws {Error} When response body contains invalid JSON
+   * @example
+   * ```typescript
+   * const response = await handler(request, context);
+   * const data = await SyncJobsTestUtils.parseResponse(response);
+   * expect(data.success).toBe(true);
+   * ```
+   * @since 2.0.0
+   */
   static async parseResponse(response: Response): Promise<WebhookReceiverResponse> {
     return JSON.parse(await response.text()) as WebhookReceiverResponse;
   }
 
+  /**
+   * Generates valid HMAC SHA-256 webhook signature for authentication testing
+   *
+   * Creates properly formatted webhook signatures using HMAC SHA-256 algorithm
+   * for testing webhook receiver function authentication flows. Produces signatures
+   * compatible with GitHub Actions webhook signature validation standards.
+   *
+   * @param payload - Request body content for signature calculation
+   * @param secret - Webhook secret key for HMAC signature generation
+   * @returns Formatted webhook signature with 'sha256=' prefix
+   * @example
+   * ```typescript
+   * const signature = SyncJobsTestUtils.generateValidSignature(
+   *   JSON.stringify(payload), 'webhook-secret'
+   * );
+   * // Returns: 'sha256=abc123def456...'
+   * ```
+   * @since 2.0.0
+   */
   static generateValidSignature(payload: string, secret: string): string {
     const signature = createHmac('sha256', secret).update(payload).digest('hex');
     return `sha256=${signature}`;
   }
 
+  /**
+   * Creates realistic GitHub Actions webhook payload for testing
+   *
+   * Generates structured payload objects matching the format expected from GitHub
+   * Actions job scraping workflows. Includes job data, metadata, and repository
+   * information for comprehensive webhook receiver testing scenarios.
+   *
+   * @param jobs - Array of normalized job data for payload (default: SAMPLE_JOBS)
+   * @returns GitHub Actions webhook payload structure for testing
+   * @example
+   * ```typescript
+   * const payload = SyncJobsTestUtils.createGitHubActionsPayload([customJob]);
+   * const body = JSON.stringify(payload);
+   * ```
+   * @since 2.0.0
+   */
   static createGitHubActionsPayload(jobs: NormalizedJob[] = this.SAMPLE_JOBS) {
     return {
       source: 'github-actions',
@@ -153,6 +252,24 @@ class SyncJobsTestUtils {
     };
   }
 
+  /**
+   * Configures comprehensive successful mock scenario for webhook testing
+   *
+   * Sets up complete mock environment simulating successful webhook processing
+   * including environment configuration, logging, HTTP clients, utilities, and
+   * WordPress integration. Provides realistic success scenario baseline for
+   * comprehensive webhook receiver function testing.
+   *
+   * @returns void
+   * @example
+   * ```typescript
+   * SyncJobsTestUtils.setupSuccessfulMocks();
+   * // All mocks configured for successful webhook processing
+   * const response = await handler(request, context);
+   * expect(response.status).toBe(200);
+   * ```
+   * @since 2.0.0
+   */
   static setupSuccessfulMocks() {
     // Environment config
     vi.mocked(env.getEnvironmentConfig).mockReturnValue(this.MOCK_ENV_CONFIG);

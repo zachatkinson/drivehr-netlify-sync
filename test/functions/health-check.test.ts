@@ -3,22 +3,31 @@
  *
  * Comprehensive test coverage for health-check Netlify function following
  * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates the health check endpoint that monitors system
- * status and external service connectivity for the new GitHub Actions
- * architecture.
+ * This test suite validates the system health monitoring endpoint that provides
+ * detailed status information across all critical components including environment
+ * configuration, WordPress API connectivity, GitHub Actions integration, and
+ * DriveHR scraper dependencies.
  *
  * Test Features:
- * - System status monitoring
- * - External service connectivity checks
- * - Error handling and recovery
- * - Response formatting and status codes
- * - Performance and reliability testing
- * - Integration with monitoring systems
+ * - Complete validation of all four health check functions (environment, WordPress, GitHub, scraper)
+ * - HTTP method restriction enforcement (GET only)
+ * - Comprehensive security headers validation
+ * - Response status code validation (200/503 based on health state)
+ * - Error handling and recovery testing
+ * - Mock-based isolation for reliable testing
+ * - Performance and reliability validation
+ *
+ * The test suite mirrors the exact implementation structure with four validation
+ * functions: checkEnvironmentConfiguration, checkWordPressConnectivity,
+ * checkGitHubActionsConfiguration, and checkScraperDependencies.
  *
  * @example
  * ```typescript
  * // Example of running specific test group
  * pnpm test test/functions/health-check.test.ts -- --grep "connectivity"
+ *
+ * // Example of running service-specific tests
+ * pnpm test test/functions/health-check.test.ts -- --grep "WordPress"
  * ```
  *
  * @module health-check-test-suite
@@ -33,7 +42,15 @@ import * as env from '../../src/lib/env.js';
 import * as logger from '../../src/lib/logger.js';
 import * as httpClient from '../../src/lib/http-client.js';
 
-// Test response types
+/**
+ * Test response interface for health check results
+ *
+ * Mirrors the SystemHealthCheck interface from the source implementation
+ * to ensure type compatibility and comprehensive validation coverage.
+ * This interface supports all health states: healthy, degraded, and unhealthy.
+ *
+ * @since 2.0.0
+ */
 interface HealthCheckResponse {
   status: string;
   architecture?: string;
@@ -54,6 +71,15 @@ interface HealthCheckResponse {
   error?: string;
 }
 
+/**
+ * Individual service status interface for testing
+ *
+ * Mirrors the ServiceHealthCheck interface from the source implementation
+ * to validate individual service health check results with detailed
+ * diagnostic information and performance metrics.
+ *
+ * @since 2.0.0
+ */
 interface ServiceStatus {
   name: string;
   status: string;
@@ -74,9 +100,6 @@ vi.mock('../../src/functions/health-check.mts', () => ({
   default: mockHealthCheckFunction,
 }));
 
-/**
- * Mock implementations
- */
 const mockLogger = {
   info: vi.fn(),
   error: vi.fn(),
@@ -101,9 +124,36 @@ const mockEnvConfig = {
 };
 
 /**
- * Test utilities for health check function
+ * Health check test utilities
+ *
+ * Extends BaseTestUtils with specialized testing methods for health check
+ * function validation. Maintains DRY principles while providing focused
+ * testing capabilities for health monitoring endpoint validation.
+ *
+ * Provides mock setup for all four health check validation functions:
+ * environment configuration, WordPress connectivity, GitHub Actions,
+ * and scraper dependencies.
+ *
+ * @since 2.0.0
  */
 class HealthCheckTestUtils {
+  /**
+   * Create mock HTTP request for health check testing
+   *
+   * Generates standardized mock Request objects for health check endpoint
+   * testing with configurable HTTP methods and headers for comprehensive
+   * validation scenarios.
+   *
+   * @param method - HTTP method to use in mock request
+   * @param headers - Additional headers to include in request
+   * @returns Mock Request object for testing
+   * @example
+   * ```typescript
+   * const getRequest = HealthCheckTestUtils.createMockRequest();
+   * const postRequest = HealthCheckTestUtils.createMockRequest('POST');
+   * ```
+   * @since 2.0.0
+   */
   static createMockRequest(method: string = 'GET', headers: Record<string, string> = {}): Request {
     return new Request('https://example.com/.netlify/functions/health-check', {
       method,
@@ -111,16 +161,58 @@ class HealthCheckTestUtils {
     });
   }
 
+  /**
+   * Create mock Netlify function context
+   *
+   * Generates standardized mock Context objects for Netlify function
+   * testing with consistent request IDs and execution environment.
+   *
+   * @returns Mock Netlify Context object
+   * @example
+   * ```typescript
+   * const context = HealthCheckTestUtils.createMockContext();
+   * ```
+   * @since 2.0.0
+   */
   static createMockContext(): Context {
     return {
       requestId: 'test-request-id',
     } as Context;
   }
 
+  /**
+   * Parse health check response for testing
+   *
+   * Extracts and parses JSON response body from health check function
+   * responses for comprehensive validation and assertion testing.
+   *
+   * @param response - HTTP Response from health check function
+   * @returns Promise resolving to parsed health check response data
+   * @example
+   * ```typescript
+   * const data = await HealthCheckTestUtils.parseResponse(response);
+   * expect(data.status).toBe('healthy');
+   * ```
+   * @since 2.0.0
+   */
   static async parseResponse(response: Response): Promise<HealthCheckResponse> {
     return JSON.parse(await response.text()) as HealthCheckResponse;
   }
 
+  /**
+   * Setup successful mock responses for all services
+   *
+   * Configures all external dependencies to return successful responses
+   * for testing healthy system state. Mocks environment configuration,
+   * logger creation, HTTP client, and WordPress API connectivity.
+   *
+   * @example
+   * ```typescript
+   * HealthCheckTestUtils.setupSuccessfulMocks();
+   * // Test healthy system scenarios
+   * ```
+   * @since 2.0.0
+   */
   static setupSuccessfulMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);
     vi.spyOn(logger, 'createLogger').mockReturnValue(mockLogger);
@@ -136,6 +228,20 @@ class HealthCheckTestUtils {
     });
   }
 
+  /**
+   * Setup failed WordPress mock responses
+   *
+   * Configures mocks to simulate WordPress API connectivity failures
+   * for testing degraded system state scenarios. Environment and logger
+   * remain functional while WordPress returns error responses.
+   *
+   * @example
+   * ```typescript
+   * HealthCheckTestUtils.setupFailedWordPressMocks();
+   * // Test degraded system scenarios
+   * ```
+   * @since 2.0.0
+   */
   static setupFailedWordPressMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);
     vi.spyOn(logger, 'createLogger').mockReturnValue(mockLogger);
@@ -151,6 +257,20 @@ class HealthCheckTestUtils {
     });
   }
 
+  /**
+   * Setup invalid environment configuration mocks
+   *
+   * Configures mocks to simulate critical environment configuration
+   * failures for testing unhealthy system state. Sets up invalid
+   * or missing required environment variables to trigger validation errors.
+   *
+   * @example
+   * ```typescript
+   * HealthCheckTestUtils.setupInvalidEnvironmentMocks();
+   * // Test unhealthy system scenarios
+   * ```
+   * @since 2.0.0
+   */
   static setupInvalidEnvironmentMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue({
       ...mockEnvConfig,

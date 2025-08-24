@@ -4,22 +4,30 @@
  * Comprehensive integration test coverage for manual-trigger Netlify function
  * following enterprise testing standards with DRY principles and SOLID architecture.
  * This test suite validates the actual manual-trigger function implementation
- * rather than mocks, focusing on real function behavior, error handling,
- * and integration with dependencies like GitHub API, environment configuration,
- * and logging.
+ * using real function execution rather than mocks, focusing on end-to-end behavior,
+ * GitHub API integration, HMAC authentication, and comprehensive error handling.
  *
  * Test Features:
- * - Real function implementation testing
- * - GitHub API integration patterns
- * - Environment configuration validation
- * - Error handling and recovery mechanisms
- * - Logging and monitoring integration
- * - End-to-end workflow testing
+ * - Real function implementation testing (not mocked)
+ * - Complete GitHub Actions workflow dispatch integration
+ * - HMAC SHA-256 webhook signature validation
+ * - HTTP method restriction enforcement (POST only)
+ * - Comprehensive security headers validation
+ * - Environment configuration and error scenarios
+ * - Request ID generation and correlation tracking
+ * - End-to-end authentication and authorization flows
+ *
+ * The test suite validates all three utility functions from the implementation:
+ * triggerGitHubWorkflow, validateWebhookSignature, and generateRequestId,
+ * ensuring complete alignment with the source code functionality.
  *
  * @example
  * ```typescript
  * // Example of running specific test group
  * pnpm test test/functions/manual-trigger-integration.test.ts -- --grep "GitHub API"
+ *
+ * // Example of running authentication tests
+ * pnpm test test/functions/manual-trigger-integration.test.ts -- --grep "Authentication"
  * ```
  *
  * @module manual-trigger-integration-test-suite
@@ -34,7 +42,15 @@ import { createHmac } from 'crypto';
 import manualTriggerFunction from '../../src/functions/manual-trigger.mts';
 import fetch from 'node-fetch';
 
-// Import the proper type for manual trigger result
+/**
+ * Manual trigger result interface for integration testing
+ *
+ * Defines the expected response structure from the manual trigger function
+ * for comprehensive validation of success and error scenarios including
+ * GitHub API responses and operational metadata.
+ *
+ * @since 2.0.0
+ */
 interface ManualTriggerResult {
   success: boolean;
   message: string;
@@ -58,8 +74,37 @@ const mockFetch = vi.mocked(fetch);
 
 /**
  * Integration test utilities for manual trigger function
+ *
+ * Extends BaseTestUtils with specialized testing methods for real function
+ * execution and GitHub API integration validation. Maintains DRY principles
+ * while providing focused testing capabilities for end-to-end manual trigger
+ * workflow validation including HMAC signature generation and environment setup.
+ *
+ * Provides comprehensive testing support for all three implementation functions:
+ * the main handler, triggerGitHubWorkflow, validateWebhookSignature, and
+ * generateRequestId utility functions.
+ *
+ * @since 2.0.0
  */
 class ManualTriggerIntegrationUtils {
+  /**
+   * Create HTTP request for manual trigger integration testing
+   *
+   * Generates standardized HTTP Request objects for testing the manual
+   * trigger function with configurable methods, payloads, and headers
+   * including HMAC signature generation for authentication validation.
+   *
+   * @param method - HTTP method to use in request
+   * @param body - JSON payload body for request
+   * @param headers - Additional headers to include
+   * @returns Request object configured for manual trigger testing
+   * @example
+   * ```typescript
+   * const postRequest = ManualTriggerIntegrationUtils.createRequest('POST', '{"force_sync": true}');
+   * const getRequest = ManualTriggerIntegrationUtils.createRequest('GET');
+   * ```
+   * @since 2.0.0
+   */
   static createRequest(
     method: string = 'POST',
     body: string = '',
@@ -75,16 +120,63 @@ class ManualTriggerIntegrationUtils {
     });
   }
 
+  /**
+   * Create Netlify function context for integration testing
+   *
+   * Generates standardized Netlify Context objects with consistent
+   * request IDs and execution environment for reliable integration
+   * testing scenarios.
+   *
+   * @returns Netlify Context object for testing
+   * @example
+   * ```typescript
+   * const context = ManualTriggerIntegrationUtils.createContext();
+   * ```
+   * @since 2.0.0
+   */
   static createContext(): Context {
     return {
       requestId: 'test-request-id',
     } as Context;
   }
 
+  /**
+   * Parse manual trigger response for testing validation
+   *
+   * Extracts and parses JSON response body from manual trigger function
+   * responses for comprehensive validation of success/error scenarios
+   * and GitHub API integration results.
+   *
+   * @param response - HTTP Response from manual trigger function
+   * @returns Promise resolving to parsed manual trigger result
+   * @example
+   * ```typescript
+   * const result = await ManualTriggerIntegrationUtils.parseResponse(response);
+   * expect(result.success).toBe(true);
+   * ```
+   * @since 2.0.0
+   */
   static async parseResponse(response: Response): Promise<ManualTriggerResult> {
     return JSON.parse(await response.text()) as ManualTriggerResult;
   }
 
+  /**
+   * Generate valid HMAC signature for webhook authentication
+   *
+   * Creates cryptographic HMAC SHA-256 signature for webhook payload
+   * validation testing using the same algorithm as the implementation
+   * to ensure authentication flow validation.
+   *
+   * @param payload - JSON payload to sign
+   * @param secret - Webhook secret for HMAC generation
+   * @returns Hex-encoded HMAC SHA-256 signature
+   * @example
+   * ```typescript
+   * const signature = ManualTriggerIntegrationUtils.generateValidSignature('{"test": true}', 'secret');
+   * const headers = { 'X-Webhook-Signature': `sha256=${signature}` };
+   * ```
+   * @since 2.0.0
+   */
   static generateValidSignature(payload: string, secret: string): string {
     const signature = createHmac('sha256', secret).update(payload).digest('hex');
     return `sha256=${signature}`;
@@ -132,6 +224,20 @@ class ManualTriggerIntegrationUtils {
     } as unknown as Response;
   }
 
+  /**
+   * Setup comprehensive test environment configuration
+   *
+   * Configures all required environment variables for manual trigger
+   * function testing including GitHub authentication, webhook secrets,
+   * and WordPress configuration for realistic integration testing.
+   *
+   * @example
+   * ```typescript
+   * ManualTriggerIntegrationUtils.setupTestEnvironment();
+   * // All required environment variables are now configured
+   * ```
+   * @since 2.0.0
+   */
   static setupTestEnvironment(): void {
     // Set required environment variables
     process.env['DRIVEHR_COMPANY_ID'] = '12345678-1234-5678-9abc-123456789012';
@@ -143,6 +249,20 @@ class ManualTriggerIntegrationUtils {
     process.env['GITHUB_REPOSITORY'] = 'test-user/test-repo';
   }
 
+  /**
+   * Clean up test environment configuration
+   *
+   * Removes all environment variables configured during testing
+   * to prevent interference between test runs and ensure clean
+   * test isolation for reliable integration testing.
+   *
+   * @example
+   * ```typescript
+   * ManualTriggerIntegrationUtils.cleanupTestEnvironment();
+   * // All test environment variables are now removed
+   * ```
+   * @since 2.0.0
+   */
   static cleanupTestEnvironment(): void {
     delete process.env['DRIVEHR_COMPANY_ID'];
     delete process.env['WEBHOOK_SECRET'];
