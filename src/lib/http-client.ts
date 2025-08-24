@@ -1,28 +1,83 @@
 /**
- * HTTP Client Abstraction
+ * Enterprise HTTP Client System
  *
- * Enterprise-grade HTTP client with retry logic, timeout handling, and proper error management.
- * Implements dependency inversion principle with clean interfaces.
+ * Production-ready HTTP client library providing enterprise-grade features including
+ * automatic retry logic with exponential backoff, comprehensive timeout handling,
+ * intelligent error categorization, and robust request/response processing.
+ *
+ * This system implements dependency inversion principles through clean interfaces,
+ * enabling easy testing and service composition. Built following SOLID principles
+ * with a focus on reliability, maintainability, and performance.
+ *
+ * Core Features:
+ * - Automatic retry with exponential backoff and jitter
+ * - Configurable timeouts with AbortController support
+ * - Comprehensive error handling with detailed error types
+ * - Support for all major HTTP methods (GET, POST, PUT, DELETE)
+ * - Automatic JSON serialization/deserialization
+ * - Custom header support with sensible defaults
+ * - Base URL resolution for relative paths
+ * - Network error detection and categorization
+ * - Built-in User-Agent header management
+ *
+ * The system provides three main components:
+ * 1. IHttpClient interface for dependency injection
+ * 2. HttpClient concrete implementation with enterprise features
+ * 3. RetryStrategy for intelligent retry orchestration
+ *
+ * @example
+ * ```typescript
+ * import { createHttpClient, type IHttpClient } from './http-client.js';
+ *
+ * // Basic usage
+ * const client = createHttpClient({
+ *   baseUrl: 'https://api.example.com',
+ *   timeout: 10000,
+ *   retries: 3
+ * });
+ *
+ * const response = await client.get<UserData>('/users/123');
+ * if (response.success) {
+ *   console.log('User:', response.data);
+ * }
+ *
+ * // Dependency injection
+ * class UserService {
+ *   constructor(private httpClient: IHttpClient) {}
+ *
+ *   async fetchUser(id: string): Promise<User> {
+ *     const response = await this.httpClient.get<User>(`/users/${id}`);
+ *     return response.data;
+ *   }
+ * }
+ * ```
+ *
+ * @module http-client-system
+ * @since 1.0.0
+ * @see {@link ../types/api.ts} for type definitions
+ * @see {@link IHttpClient} for the main interface
+ * @see {@link HttpClient} for the production implementation
  */
 
 import fetch, { type Response } from 'node-fetch';
 import type { HttpClientConfig, HttpResponse, HttpError, RetryConfig } from '../types/api.js';
 
 /**
- * Re-export HttpResponse type for external use
+ * Re-export HttpResponse type for convenient external access
  *
- * Provides convenient access to the HttpResponse type interface
- * for consumers of this module without requiring them to import
- * from the types/api module directly.
+ * Provides direct access to the HttpResponse type interface for consumers
+ * of this module without requiring separate imports from types/api.
+ * This promotes cleaner import statements and better developer experience.
  *
  * @example
  * ```typescript
- * import { type HttpResponse } from './http-client.js';
+ * import { createHttpClient, type HttpResponse } from './http-client.js';
  *
- * function handleResponse(response: HttpResponse<UserData>) {
- *   if (response.ok) {
- *     console.log('User data:', response.data);
+ * function processResponse<T>(response: HttpResponse<T>) {
+ *   if (response.success) {
+ *     return response.data;
  *   }
+ *   throw new Error(`HTTP ${response.status}: ${response.statusText}`);
  * }
  * ```
  * @since 1.0.0
@@ -31,50 +86,109 @@ import type { HttpClientConfig, HttpResponse, HttpError, RetryConfig } from '../
 export type { HttpResponse } from '../types/api.js';
 
 /**
- * HTTP Client interface for dependency injection
+ * HTTP Client interface for dependency injection and testing
  *
- * Defines the contract for HTTP client implementations with support
- * for all major HTTP methods. Enables dependency inversion and makes
- * services easily testable by allowing mock implementations.
- * All methods return strongly typed responses with consistent error handling.
+ * Defines the contract for HTTP client implementations supporting all major
+ * HTTP methods with consistent error handling and strongly typed responses.
+ * This interface enables dependency inversion, making services easily testable
+ * by allowing mock implementations during testing.
+ *
+ * All methods return Promise<HttpResponse<T>> with consistent error handling:
+ * - Network errors throw HttpClientError with isNetworkError=true
+ * - Timeout errors throw HttpClientError with isTimeoutError=true
+ * - HTTP status errors throw HttpClientError with status code
+ * - JSON parsing errors are handled gracefully
+ *
+ * The interface supports generic typing for response data, enabling
+ * compile-time type safety for API responses.
  *
  * @example
  * ```typescript
- * class MyService {
+ * class ApiService {
  *   constructor(private httpClient: IHttpClient) {}
  *
- *   async fetchData(url: string): Promise<MyData> {
- *     const response = await this.httpClient.get<MyData>(url);
+ *   async getUser(id: string): Promise<User> {
+ *     const response = await this.httpClient.get<User>(`/users/${id}`);
  *     if (response.success) {
  *       return response.data;
  *     }
- *     throw new Error('Failed to fetch data');
+ *     throw new Error('Failed to fetch user');
+ *   }
+ *
+ *   async createUser(userData: CreateUserData): Promise<User> {
+ *     const response = await this.httpClient.post<User>('/users', userData);
+ *     return response.data;
  *   }
  * }
+ *
+ * // Testing with mock implementation
+ * const mockClient: IHttpClient = {
+ *   get: vi.fn().mockResolvedValue({ success: true, data: mockUser }),
+ *   post: vi.fn(),
+ *   put: vi.fn(),
+ *   delete: vi.fn()
+ * };
  * ```
  * @since 1.0.0
  * @see {@link HttpClient} for the production implementation
  * @see {@link createHttpClient} for factory function
+ * @see {@link HttpResponse} for response type structure
  */
 export interface IHttpClient {
   /**
-   * Perform HTTP GET request
+   * Perform HTTP GET request with automatic retry and error handling
    *
-   * @param url - The URL to request
-   * @param headers - Optional HTTP headers
-   * @returns Promise resolving to typed HTTP response
-   * @throws {HttpClientError} When request fails or times out
+   * Executes a GET request to the specified URL with optional custom headers.
+   * Automatically applies base URL resolution, default headers, retry logic,
+   * and comprehensive error handling.
+   *
+   * @template T - Expected response data type (defaults to unknown for flexibility)
+   * @param url - Target URL (absolute or relative to base URL)
+   * @param headers - Optional custom HTTP headers to merge with defaults
+   * @returns Promise resolving to typed HTTP response with success indicator
+   * @throws {HttpClientError} For network errors, timeouts, or HTTP status errors
+   * @example
+   * ```typescript
+   * // Basic GET request
+   * const response = await client.get<User>('/api/users/123');
+   * console.log('User:', response.data);
+   *
+   * // GET with custom headers
+   * const response = await client.get<UserList>('/api/users', {
+   *   'Authorization': 'Bearer token123',
+   *   'X-Page-Size': '50'
+   * });
+   * ```
    * @since 1.0.0
    */
   get<T = unknown>(url: string, headers?: Record<string, string>): Promise<HttpResponse<T>>;
   /**
-   * Perform HTTP POST request
+   * Perform HTTP POST request with JSON serialization and retry logic
    *
-   * @param url - The URL to request
-   * @param data - Optional request body data
-   * @param headers - Optional HTTP headers
-   * @returns Promise resolving to typed HTTP response
-   * @throws {HttpClientError} When request fails or times out
+   * Executes a POST request with automatic JSON serialization of request data,
+   * proper Content-Type headers, retry logic, and error handling. Supports
+   * both simple data objects and complex nested structures.
+   *
+   * @template T - Expected response data type (defaults to unknown for flexibility)
+   * @param url - Target URL (absolute or relative to base URL)
+   * @param data - Optional request body data (automatically JSON-serialized)
+   * @param headers - Optional custom HTTP headers to merge with defaults
+   * @returns Promise resolving to typed HTTP response with success indicator
+   * @throws {HttpClientError} For network errors, timeouts, or HTTP status errors
+   * @example
+   * ```typescript
+   * // POST with JSON data
+   * const newUser = await client.post<User>('/api/users', {
+   *   name: 'John Doe',
+   *   email: 'john@example.com'
+   * });
+   *
+   * // POST with custom headers
+   * const response = await client.post<ApiResponse>('/api/data', payload, {
+   *   'Content-Type': 'application/json',
+   *   'X-Request-ID': 'req-123'
+   * });
+   * ```
    * @since 1.0.0
    */
   post<T = unknown>(
@@ -83,13 +197,32 @@ export interface IHttpClient {
     headers?: Record<string, string>
   ): Promise<HttpResponse<T>>;
   /**
-   * Perform HTTP PUT request
+   * Perform HTTP PUT request with JSON serialization and retry logic
    *
-   * @param url - The URL to request
-   * @param data - Optional request body data
-   * @param headers - Optional HTTP headers
-   * @returns Promise resolving to typed HTTP response
-   * @throws {HttpClientError} When request fails or times out
+   * Executes a PUT request for updating resources with automatic JSON
+   * serialization, proper headers, retry logic, and error handling.
+   * Typically used for full resource updates or replacements.
+   *
+   * @template T - Expected response data type (defaults to unknown for flexibility)
+   * @param url - Target URL (absolute or relative to base URL)
+   * @param data - Optional request body data (automatically JSON-serialized)
+   * @param headers - Optional custom HTTP headers to merge with defaults
+   * @returns Promise resolving to typed HTTP response with success indicator
+   * @throws {HttpClientError} For network errors, timeouts, or HTTP status errors
+   * @example
+   * ```typescript
+   * // PUT to update user
+   * const updatedUser = await client.put<User>('/api/users/123', {
+   *   id: 123,
+   *   name: 'John Smith',
+   *   email: 'john.smith@example.com'
+   * });
+   *
+   * // PUT with version header
+   * const response = await client.put<Resource>('/api/resources/456', data, {
+   *   'If-Match': '"v2.1"'
+   * });
+   * ```
    * @since 1.0.0
    */
   put<T = unknown>(
@@ -98,23 +231,50 @@ export interface IHttpClient {
     headers?: Record<string, string>
   ): Promise<HttpResponse<T>>;
   /**
-   * Perform HTTP DELETE request
+   * Perform HTTP DELETE request with automatic retry and error handling
    *
-   * @param url - The URL to request
-   * @param headers - Optional HTTP headers
-   * @returns Promise resolving to typed HTTP response
-   * @throws {HttpClientError} When request fails or times out
+   * Executes a DELETE request to remove resources with proper error handling
+   * and retry logic. Supports custom headers for authorization and conditional
+   * deletion scenarios.
+   *
+   * @template T - Expected response data type (defaults to unknown for flexibility)
+   * @param url - Target URL (absolute or relative to base URL)
+   * @param headers - Optional custom HTTP headers to merge with defaults
+   * @returns Promise resolving to typed HTTP response with success indicator
+   * @throws {HttpClientError} For network errors, timeouts, or HTTP status errors
+   * @example
+   * ```typescript
+   * // Basic DELETE request
+   * const response = await client.delete('/api/users/123');
+   * console.log('Deleted:', response.success);
+   *
+   * // DELETE with authorization
+   * const response = await client.delete<DeleteResponse>('/api/resources/456', {
+   *   'Authorization': 'Bearer token123',
+   *   'X-Reason': 'cleanup'
+   * });
+   * ```
    * @since 1.0.0
    */
   delete<T = unknown>(url: string, headers?: Record<string, string>): Promise<HttpResponse<T>>;
 }
 
 /**
- * Custom HTTP error class with enhanced error information
+ * Enhanced HTTP error class with comprehensive error categorization
  *
- * Provides detailed error information for HTTP request failures,
- * including status codes, response data, and error categorization.
- * Helps with proper error handling and debugging in services.
+ * Provides detailed error information for HTTP request failures including
+ * status codes, response data, and intelligent error categorization. This
+ * class enables proper error handling strategies by categorizing errors into
+ * network issues, timeouts, and HTTP status problems.
+ *
+ * Error Categories:
+ * - Network errors: DNS failures, connection refused, etc.
+ * - Timeout errors: Requests exceeding configured timeout
+ * - HTTP status errors: 4xx client errors, 5xx server errors
+ * - Parse errors: Invalid JSON or response format issues
+ *
+ * The class maintains the original Error interface while adding HTTP-specific
+ * properties for detailed error analysis and appropriate retry logic.
  *
  * @example
  * ```typescript
@@ -123,15 +283,20 @@ export interface IHttpClient {
  * } catch (error) {
  *   if (error instanceof HttpClientError) {
  *     if (error.isTimeoutError) {
- *       console.log('Request timed out');
- *     } else if (error.status === 404) {
- *       console.log('Resource not found');
+ *       console.log('Request timed out - consider increasing timeout');
+ *     } else if (error.isNetworkError) {
+ *       console.log('Network connectivity issue - check connection');
+ *     } else if (error.status === 401) {
+ *       console.log('Authentication required - refresh token');
+ *     } else if (error.status && error.status >= 500) {
+ *       console.log('Server error - retry may help');
  *     }
  *   }
  * }
  * ```
  * @since 1.0.0
  * @see {@link HttpError} for the interface definition
+ * @see {@link HttpClient} for error throwing context
  */
 export class HttpClientError extends Error implements HttpError {
   public readonly status?: number;
@@ -141,14 +306,52 @@ export class HttpClientError extends Error implements HttpError {
   public readonly isTimeoutError: boolean;
 
   /**
-   * Create a new HttpClientError
+   * Create a new HttpClientError with comprehensive error context
    *
-   * @param message - Human-readable error message
+   * Initializes an HTTP client error with detailed context information
+   * for proper error handling and debugging. All parameters except message
+   * are optional to support various error scenarios from network failures
+   * to HTTP status errors.
+   *
+   * The constructor automatically sets the error name and maintains proper
+   * stack traces for debugging in V8 environments.
+   *
+   * @param message - Human-readable error description
    * @param status - HTTP status code (if applicable)
    * @param statusText - HTTP status text (if applicable)
-   * @param response - The HTTP response object (if available)
-   * @param isNetworkError - Whether this is a network connectivity error
-   * @param isTimeoutError - Whether this is a timeout error
+   * @param response - Complete HTTP response object (if available)
+   * @param isNetworkError - Whether this represents a network connectivity issue
+   * @param isTimeoutError - Whether this represents a timeout issue
+   * @example
+   * ```typescript
+   * // Network error
+   * new HttpClientError(
+   *   'Connection refused',
+   *   undefined,
+   *   undefined,
+   *   undefined,
+   *   true,
+   *   false
+   * );
+   *
+   * // HTTP status error
+   * new HttpClientError(
+   *   'Not Found',
+   *   404,
+   *   'Not Found',
+   *   httpResponse
+   * );
+   *
+   * // Timeout error
+   * new HttpClientError(
+   *   'Request timeout after 30000ms',
+   *   undefined,
+   *   undefined,
+   *   undefined,
+   *   false,
+   *   true
+   * );
+   * ```
    * @since 1.0.0
    */
   constructor(
@@ -175,41 +378,58 @@ export class HttpClientError extends Error implements HttpError {
 }
 
 /**
- * Exponential backoff retry strategy implementation
+ * Enterprise exponential backoff retry strategy implementation
  *
- * Implements enterprise-grade retry logic with exponential backoff, jitter,
- * and intelligent retry conditions. Follows the SOLID principles by providing
- * a single responsibility for retry orchestration with configurable behavior.
+ * Implements production-grade retry logic with exponential backoff, jitter,
+ * and intelligent retry conditions. This class follows SOLID principles by
+ * providing single responsibility for retry orchestration with highly
+ * configurable behavior patterns.
  *
  * Key Features:
- * - Exponential backoff with configurable base and multiplier
- * - Optional jitter to prevent thundering herd problem
- * - Intelligent retry conditions based on error types
- * - Configurable maximum attempts and delays
+ * - Exponential backoff with configurable base delay and multiplier
+ * - Optional jitter to prevent thundering herd scenarios
+ * - Intelligent retry conditions based on error types and HTTP status
+ * - Configurable maximum attempts and delay caps
  * - Built-in support for HTTP client error categorization
+ * - Extensible retry condition logic via predicate functions
  *
+ * Retry Logic:
  * The strategy automatically retries on:
- * - Network connectivity errors
- * - Timeout errors
- * - Server errors (5xx status codes)
+ * - Network connectivity errors (DNS, connection refused, etc.)
+ * - Timeout errors (request exceeded configured timeout)
+ * - Server errors (5xx HTTP status codes)
  *
  * It will NOT retry on:
- * - Client errors (4xx status codes)
+ * - Client errors (4xx HTTP status codes)
  * - Authentication/authorization failures
  * - Validation errors
+ * - Unknown error types (unless custom predicate allows)
+ *
+ * Backoff Algorithm:
+ * delay = min(baseDelay * exponentialBase^(attempt-1), maxDelay)
+ * With optional jitter: delay ± (delay * 0.1 * random())
  *
  * @example
  * ```typescript
- * const retryStrategy = new RetryStrategy({
+ * // Basic usage with defaults (3 attempts, 1s base, 2x multiplier)
+ * const strategy = new RetryStrategy();
+ * const result = await strategy.execute(
+ *   () => httpClient.get('/api/data')
+ * );
+ *
+ * // Advanced configuration
+ * const customStrategy = new RetryStrategy({
  *   maxAttempts: 5,
- *   baseDelay: 1000,
- *   exponentialBase: 2,
- *   jitter: true
+ *   baseDelay: 500,
+ *   maxDelay: 30000,
+ *   exponentialBase: 1.5,
+ *   jitter: false
  * });
  *
- * const result = await retryStrategy.execute(
- *   () => httpClient.get('/api/data'),
- *   (error) => error instanceof NetworkError
+ * // Custom retry condition
+ * const result = await strategy.execute(
+ *   () => riskOperation(),
+ *   (error) => error.code === 'RATE_LIMITED'
  * );
  * ```
  * @since 1.0.0
@@ -220,25 +440,40 @@ export class RetryStrategy {
   private readonly config: RetryConfig;
 
   /**
-   * Create a new retry strategy instance
+   * Create a new retry strategy with configurable behavior
    *
-   * Initializes the retry strategy with the provided configuration,
-   * applying sensible defaults for enterprise applications. The default
-   * configuration provides 3 attempts with exponential backoff starting
-   * at 1 second, capped at 10 seconds maximum delay.
+   * Initializes the retry strategy with provided configuration, applying
+   * enterprise-grade defaults for missing values. The default configuration
+   * provides balanced retry behavior suitable for most production scenarios.
+   *
+   * Default Configuration:
+   * - maxAttempts: 3 (plus initial attempt = 4 total tries)
+   * - baseDelay: 1000ms (1 second)
+   * - maxDelay: 10000ms (10 seconds cap)
+   * - exponentialBase: 2 (doubling delay each attempt)
+   * - jitter: true (adds ±10% randomization)
+   *
+   * The configuration is immutable after construction, ensuring consistent
+   * retry behavior throughout the strategy's lifecycle.
    *
    * @param config - Partial retry configuration (defaults applied for missing values)
    * @example
    * ```typescript
-   * // Use defaults (3 attempts, 1s base delay, 2x multiplier)
-   * const strategy = new RetryStrategy();
+   * // Use all defaults
+   * const defaultStrategy = new RetryStrategy();
    *
-   * // Custom configuration
-   * const customStrategy = new RetryStrategy({
-   *   maxAttempts: 5,
-   *   baseDelay: 500,
-   *   maxDelay: 30000,
-   *   exponentialBase: 1.5,
+   * // Custom aggressive retries
+   * const aggressiveStrategy = new RetryStrategy({
+   *   maxAttempts: 8,
+   *   baseDelay: 200,
+   *   exponentialBase: 1.3
+   * });
+   *
+   * // Conservative retries without jitter
+   * const conservativeStrategy = new RetryStrategy({
+   *   maxAttempts: 2,
+   *   baseDelay: 2000,
+   *   maxDelay: 5000,
    *   jitter: false
    * });
    * ```
@@ -254,38 +489,6 @@ export class RetryStrategy {
     };
   }
 
-  /**
-   * Execute an operation with retry logic
-   *
-   * Attempts to execute the provided operation with automatic retry on retryable
-   * errors. Uses exponential backoff with optional jitter between attempts.
-   * The retry behavior can be customized via the isRetryable predicate function.
-   *
-   * The operation will be retried based on the configured maximum attempts.
-   * Between retries, the strategy will wait for a calculated delay that increases
-   * exponentially with each attempt, optionally including jitter to prevent
-   * synchronized retries across multiple clients.
-   *
-   * @template T - The return type of the operation
-   * @param operation - Async function to execute with retry logic
-   * @param isRetryable - Predicate function to determine if error should trigger retry (defaults to built-in logic)
-   * @returns Promise resolving to the operation result
-   * @throws {Error} The last error if all retry attempts are exhausted
-   * @example
-   * ```typescript
-   * // Using default retry conditions
-   * const data = await retryStrategy.execute(
-   *   () => fetch('/api/data').then(r => r.json())
-   * );
-   *
-   * // Custom retry condition
-   * const result = await retryStrategy.execute(
-   *   () => riskOperation(),
-   *   (error) => error.code === 'RATE_LIMITED'
-   * );
-   * ```
-   * @since 1.0.0
-   */
   public async execute<T>(
     operation: () => Promise<T>,
     isRetryable: (error: unknown) => boolean = this.defaultRetryCondition
@@ -310,24 +513,6 @@ export class RetryStrategy {
     throw lastError;
   }
 
-  /**
-   * Calculate exponential backoff delay with optional jitter
-   *
-   * Computes the delay duration for the next retry attempt using exponential
-   * backoff algorithm. The delay starts at baseDelay and multiplies by
-   * exponentialBase for each attempt, capped at maxDelay. Optional jitter
-   * adds randomness to prevent thundering herd scenarios.
-   *
-   * @param attempt - Current attempt number (1-based)
-   * @returns Delay in milliseconds before next retry
-   * @example
-   * ```typescript
-   * // For attempt 3 with baseDelay=1000, exponentialBase=2:
-   * // delay = min(1000 * 2^(3-1), maxDelay) = min(4000, maxDelay)
-   * // With jitter: delay ± (delay * 0.1)
-   * ```
-   * @since 1.0.0
-   */
   private calculateDelay(attempt: number): number {
     const exponentialDelay = Math.min(
       this.config.baseDelay * Math.pow(this.config.exponentialBase, attempt - 1),
@@ -344,57 +529,10 @@ export class RetryStrategy {
     return Math.max(0, exponentialDelay + jitter);
   }
 
-  /**
-   * Asynchronous sleep utility
-   *
-   * Creates a promise that resolves after the specified number of milliseconds.
-   * Used to implement delays between retry attempts without blocking the
-   * event loop.
-   *
-   * @param ms - Number of milliseconds to sleep
-   * @returns Promise that resolves after the delay
-   * @example
-   * ```typescript
-   * await this.sleep(1000); // Wait 1 second
-   * ```
-   * @since 1.0.0
-   */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  /**
-   * Default retry condition logic
-   *
-   * Determines whether an error should trigger a retry attempt based on
-   * enterprise-grade error categorization. This implements intelligent
-   * retry logic that avoids wasting attempts on non-recoverable errors.
-   *
-   * Retryable conditions:
-   * - Network connectivity errors (DNS, connection refused, etc.)
-   * - Timeout errors (request exceeded configured timeout)
-   * - Server errors (5xx HTTP status codes)
-   *
-   * Non-retryable conditions:
-   * - Client errors (4xx HTTP status codes)
-   * - Authentication/authorization failures
-   * - Validation errors
-   * - Unknown error types
-   *
-   * @param error - The error to evaluate for retry eligibility
-   * @returns True if the error should trigger a retry, false otherwise
-   * @example
-   * ```typescript
-   * const shouldRetry = this.defaultRetryCondition(new HttpClientError(
-   *   'Server Error', 500
-   * )); // returns true
-   *
-   * const shouldNotRetry = this.defaultRetryCondition(new HttpClientError(
-   *   'Bad Request', 400
-   * )); // returns false
-   * ```
-   * @since 1.0.0
-   */
   private defaultRetryCondition(error: unknown): boolean {
     if (error instanceof HttpClientError) {
       // Retry on network errors, timeouts, and 5xx server errors
@@ -408,128 +546,10 @@ export class RetryStrategy {
   }
 }
 
-/**
- * Enterprise-grade HTTP client implementation
- *
- * Production-ready HTTP client that implements the IHttpClient interface with
- * enterprise-grade features including automatic retry logic, timeout handling,
- * comprehensive error management, and proper request/response processing.
- *
- * Built following SOLID principles with dependency inversion support through
- * the IHttpClient interface. Designed for high-reliability scenarios with
- * intelligent retry strategies and proper error categorization.
- *
- * Key Features:
- * - Automatic retry with exponential backoff and jitter
- * - Configurable timeouts with AbortController support
- * - Comprehensive error handling with detailed error types
- * - Support for all major HTTP methods (GET, POST, PUT, DELETE)
- * - Automatic JSON serialization/deserialization
- * - Custom header support with sensible defaults
- * - Base URL resolution for relative paths
- * - Built-in User-Agent header management
- * - Network error detection and categorization
- * - Timeout error detection and proper cleanup
- *
- * Error Handling:
- * - Network connectivity errors (DNS, connection refused, etc.)
- * - Timeout errors with proper request abortion
- * - HTTP status errors (4xx client errors, 5xx server errors)
- * - JSON parsing errors with graceful fallback
- * - Request serialization errors
- *
- * Retry Strategy:
- * - Automatic retry on network errors, timeouts, and 5xx errors
- * - No retry on 4xx client errors (bad requests, auth failures)
- * - Exponential backoff with configurable parameters
- * - Jitter to prevent thundering herd scenarios
- * - Maximum retry attempts and delay caps
- *
- * @example
- * ```typescript
- * // Basic usage with defaults
- * const client = new HttpClient();
- * const response = await client.get<UserData>('/api/users/123');
- *
- * // Advanced configuration
- * const client = new HttpClient({
- *   baseUrl: 'https://api.example.com',
- *   timeout: 10000,
- *   retries: 5,
- *   userAgent: 'MyApp/1.0',
- *   headers: { 'X-API-Key': 'secret' }
- * });
- *
- * // POST with data
- * const newUser = await client.post<User>('/api/users', {
- *   name: 'John Doe',
- *   email: 'john@example.com'
- * });
- *
- * // Error handling
- * try {
- *   const data = await client.get('/api/protected');
- * } catch (error) {
- *   if (error instanceof HttpClientError) {
- *     if (error.status === 401) {
- *       console.log('Authentication required');
- *     } else if (error.isNetworkError) {
- *       console.log('Network connectivity issue');
- *     }
- *   }
- * }
- * ```
- * @since 1.0.0
- * @see {@link IHttpClient} for the interface this class implements
- * @see {@link HttpClientConfig} for configuration options
- * @see {@link RetryStrategy} for retry logic details
- * @see {@link HttpClientError} for error handling details
- */
 export class HttpClient implements IHttpClient {
   private readonly config: Required<HttpClientConfig>;
   private readonly retryStrategy: RetryStrategy;
 
-  /**
-   * Create a new HTTP client instance
-   *
-   * Initializes the HTTP client with the provided configuration, applying
-   * sensible defaults for enterprise applications. The client is immediately
-   * ready for use and all configuration is immutable after construction.
-   *
-   * Default Configuration:
-   * - No base URL (empty string)
-   * - 30 second timeout
-   * - 3 retry attempts (plus initial attempt = 4 total)
-   * - User-Agent: 'DriveHR-Sync/1.0'
-   * - No default headers
-   *
-   * The retry strategy is automatically configured with:
-   * - Maximum attempts: retries + 1
-   * - Base delay: 1 second
-   * - Maximum delay: 10 seconds
-   * - Exponential base: 2 (doubling)
-   * - Jitter: enabled
-   *
-   * @param config - HTTP client configuration (defaults applied for missing values)
-   * @example
-   * ```typescript
-   * // Minimal configuration
-   * const client = new HttpClient();
-   *
-   * // Production configuration
-   * const client = new HttpClient({
-   *   baseUrl: 'https://api.production.com',
-   *   timeout: 15000,
-   *   retries: 5,
-   *   userAgent: 'DriveHR-Production/2.1',
-   *   headers: {
-   *     'X-API-Version': '2.0',
-   *     'X-Client-ID': 'drivehr-sync'
-   *   }
-   * });
-   * ```
-   * @since 1.0.0
-   */
   constructor(config: HttpClientConfig = {}) {
     this.config = {
       baseUrl: config.baseUrl ?? '',
@@ -730,64 +750,6 @@ export class HttpClient implements IHttpClient {
   }
 }
 
-/**
- * Factory function for creating HTTP client instances
- *
- * Provides a convenient factory function for creating HTTP client instances
- * that implement the IHttpClient interface. This function promotes dependency
- * inversion by returning the interface type rather than the concrete class,
- * making it easier to substitute implementations in tests or different
- * environments.
- *
- * The factory pattern allows for:
- * - Consistent client instantiation across the application
- * - Future extensibility (different implementations based on config)
- * - Easier testing with mock implementations
- * - Clear separation between interface and implementation
- * - Simplified dependency injection setup
- *
- * This is the recommended way to create HTTP client instances in application
- * code, as it abstracts away the concrete implementation details and ensures
- * consumers depend only on the interface contract.
- *
- * @param config - Optional HTTP client configuration (uses defaults if not provided)
- * @returns HTTP client instance implementing the IHttpClient interface
- * @example
- * ```typescript
- * // Basic usage with defaults
- * const httpClient = createHttpClient();
- * const users = await httpClient.get<User[]>('/api/users');
- *
- * // With configuration
- * const apiClient = createHttpClient({
- *   baseUrl: 'https://api.example.com',
- *   timeout: 15000,
- *   retries: 5,
- *   headers: {
- *     'Authorization': 'Bearer token',
- *     'X-API-Version': '2.0'
- *   }
- * });
- *
- * // Dependency injection usage
- * class UserService {
- *   constructor(private httpClient: IHttpClient = createHttpClient()) {}
- *
- *   async getUser(id: string): Promise<User> {
- *     const response = await this.httpClient.get<User>(`/users/${id}`);
- *     return response.data;
- *   }
- * }
- *
- * // Testing with mock implementation
- * const mockClient = createMockHttpClient();
- * const userService = new UserService(mockClient);
- * ```
- * @since 1.0.0
- * @see {@link IHttpClient} for the interface specification
- * @see {@link HttpClient} for the concrete implementation
- * @see {@link HttpClientConfig} for configuration options
- */
 export function createHttpClient(config?: HttpClientConfig): IHttpClient {
   return new HttpClient(config);
 }

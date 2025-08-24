@@ -1,91 +1,200 @@
 /**
- * Telemetry Strategy Base Classes
+ * Telemetry Strategy Framework for Enterprise Applications
  *
- * Provides common base classes and interfaces for telemetry strategies across
- * the application. Implements the Strategy pattern with shared functionality
- * to eliminate code duplication while maintaining flexibility for different
- * telemetry use cases.
+ * Comprehensive base classes and interfaces implementing the Strategy pattern
+ * for telemetry operations across the DriveHR application. Provides shared
+ * functionality and abstractions to eliminate code duplication while maintaining
+ * flexibility for different telemetry contexts and use cases.
  *
- * This module reduces duplication between job fetching and WordPress sync
- * telemetry implementations by extracting common span attribute handling
- * and telemetry state checking into a reusable base class.
+ * The framework centralizes common telemetry operations including span attribute
+ * management, telemetry state checking, and OpenTelemetry integration patterns.
+ * This reduces implementation overhead and ensures consistent telemetry behavior
+ * across job fetching, WordPress synchronization, and other application services.
  *
- * @module telemetry-strategy
+ * Key Features:
+ * - Abstract base class with common telemetry operations
+ * - Type-safe span attribute handling with runtime validation
+ * - Telemetry initialization state checking
+ * - Strategy pattern implementation for extensibility
+ * - Integration with OpenTelemetry standards
+ * - Error-resistant telemetry operations
+ *
+ * The framework supports multiple telemetry backends and provides graceful
+ * degradation when telemetry services are unavailable or not configured.
+ *
+ * @example
+ * ```typescript
+ * import { BaseTelemetryStrategy } from './telemetry-strategy.js';
+ *
+ * // Implement custom telemetry strategy
+ * class JobFetchTelemetryStrategy extends BaseTelemetryStrategy {
+ *   public recordJobFetchMetrics(jobId: string, duration: number, success: boolean): void {
+ *     if (this.isTelemetryEnabled()) {
+ *       const span = trace.getActiveSpan();
+ *       this.setSpanAttributes(span, {
+ *         'job.id': jobId,
+ *         'job.fetch.duration': duration,
+ *         'job.fetch.success': success
+ *       });
+ *     }
+ *   }
+ * }
+ *
+ * // Use in service implementations
+ * const telemetryStrategy = new JobFetchTelemetryStrategy();
+ * const span = tracer.startSpan('job-fetch-operation');
+ * telemetryStrategy.setSpanAttributes(span, { 'operation.type': 'fetch' });
+ * ```
+ *
+ * @module telemetry-strategy-framework
  * @since 1.0.0
- * @see {@link ../services/job-fetcher.ts} for job fetching telemetry usage
- * @see {@link ../services/wordpress-client.ts} for sync telemetry usage
+ * @see {@link ./telemetry.ts} for core telemetry functionality
+ * @see {@link ../services/job-fetcher/telemetry.ts} for job fetching telemetry usage
+ * @see {@link ITelemetryStrategy} for the strategy interface
+ * @see {@link BaseTelemetryStrategy} for the base implementation
  */
 
 import { isTelemetryInitialized } from './telemetry.js';
 
 /**
- * Base interface for telemetry strategy implementations
+ * Telemetry strategy interface defining common operations
  *
- * Defines the common contract that all telemetry strategies must implement.
- * Currently focuses on span attribute management which is shared across
- * all telemetry use cases in the application.
+ * Establishes the contract that all telemetry strategy implementations must
+ * follow. Currently focuses on span attribute management which is fundamental
+ * to distributed tracing and observability across all application services.
  *
+ * This interface ensures consistency across different telemetry contexts while
+ * allowing for specialized implementations based on specific business requirements
+ * and telemetry backend capabilities.
+ *
+ * @example
+ * ```typescript
+ * // Custom telemetry strategy implementation
+ * class DatabaseTelemetryStrategy implements ITelemetryStrategy {
+ *   public setSpanAttributes(span: unknown, attributes: Record<string, unknown>): void {
+ *     // Add database-specific attribute validation and transformation
+ *     const dbAttributes = this.transformDatabaseAttributes(attributes);
+ *
+ *     if (this.isValidSpan(span)) {
+ *       span.setAttributes(dbAttributes);
+ *     }
+ *   }
+ *
+ *   private transformDatabaseAttributes(attrs: Record<string, unknown>) {
+ *     // Transform attributes for database telemetry standards
+ *     return { ...attrs, 'db.system': 'postgresql' };
+ *   }
+ * }
+ * ```
  * @since 1.0.0
- * @see {@link BaseTelemetryStrategy} for the base implementation
+ * @see {@link BaseTelemetryStrategy} for the default implementation
  */
 export interface ITelemetryStrategy {
   /**
-   * Set attributes on a telemetry span
+   * Set attributes on an OpenTelemetry span
    *
-   * @param span - The span object to modify (if available)
-   * @param attributes - Attributes to set on the span
+   * Sets key-value attributes on a telemetry span object to provide context
+   * and metadata for distributed tracing. Implementations should handle type
+   * validation and graceful error handling when spans are unavailable.
+   *
+   * @param span - The OpenTelemetry span object to modify
+   * @param attributes - Key-value pairs to set as span attributes
    * @since 1.0.0
    */
   setSpanAttributes(span: unknown, attributes: Record<string, unknown>): void;
 }
 
 /**
- * Abstract base class for telemetry strategies
+ * Abstract base class providing common telemetry strategy functionality
  *
- * Provides common implementation for telemetry strategies, reducing code
- * duplication across different telemetry contexts. Handles span attribute
- * setting with proper type checking and provides utility methods for
- * checking telemetry initialization state.
+ * Implements shared telemetry operations and utilities for all strategy
+ * implementations. Provides type-safe span attribute handling, telemetry
+ * state checking, and integration with the OpenTelemetry ecosystem.
  *
- * Subclasses should extend this base class and implement their specific
- * metrics recording methods while leveraging the shared functionality.
+ * This base class eliminates code duplication across telemetry implementations
+ * while ensuring consistent behavior and error handling patterns. Subclasses
+ * inherit common functionality and can focus on their specific telemetry
+ * requirements.
+ *
+ * Features:
+ * - Type-safe span attribute setting with runtime validation
+ * - Telemetry initialization state checking
+ * - Graceful error handling for missing telemetry infrastructure
+ * - Integration with OpenTelemetry standards
+ * - Protected utility methods for subclass usage
  *
  * @abstract
  * @implements {ITelemetryStrategy}
  * @example
  * ```typescript
- * class CustomTelemetryStrategy extends BaseTelemetryStrategy {
- *   public recordMetrics(operation: string, status: string, duration: number): void {
+ * // Extend for specific telemetry needs
+ * class APITelemetryStrategy extends BaseTelemetryStrategy {
+ *   public recordAPICall(endpoint: string, method: string, statusCode: number): void {
  *     if (this.isTelemetryEnabled()) {
- *       // Custom metrics recording logic
+ *       const span = trace.getActiveSpan();
+ *       this.setSpanAttributes(span, {
+ *         'http.method': method,
+ *         'http.url': endpoint,
+ *         'http.status_code': statusCode,
+ *         'service.name': 'api-gateway'
+ *       });
+ *     }
+ *   }
+ *
+ *   public recordError(error: Error, context: Record<string, unknown>): void {
+ *     if (this.isTelemetryEnabled()) {
+ *       const span = trace.getActiveSpan();
+ *       this.setSpanAttributes(span, {
+ *         'error.name': error.name,
+ *         'error.message': error.message,
+ *         ...context
+ *       });
  *     }
  *   }
  * }
  * ```
  * @since 1.0.0
+ * @see {@link ITelemetryStrategy} for the implemented interface
  */
 export abstract class BaseTelemetryStrategy implements ITelemetryStrategy {
   /**
-   * Set attributes on an OpenTelemetry span with type safety
+   * Set attributes on OpenTelemetry span with comprehensive type safety
    *
-   * Safely sets attributes on a span object after verifying it has the
-   * expected structure. This method performs runtime type checking to
-   * ensure the span object has a setAttributes method before attempting
-   * to call it, preventing runtime errors in environments where telemetry
-   * may not be fully initialized.
+   * Safely sets attributes on a span object after performing thorough runtime
+   * type validation. This method ensures the span object has the expected
+   * structure and methods before attempting to modify it, preventing runtime
+   * errors in environments where telemetry may be disabled or partially initialized.
    *
-   * @param span - The span object to modify (typically from OpenTelemetry)
-   * @param attributes - Key-value pairs to set as span attributes
+   * The method performs multiple validation checks:
+   * - Verifies the span object exists and is not null
+   * - Confirms the span has a setAttributes method
+   * - Validates the setAttributes method is callable
+   *
+   * @param span - The OpenTelemetry span object to modify (type-validated at runtime)
+   * @param attributes - Key-value pairs to set as span attributes for tracing context
    * @example
    * ```typescript
    * const span = trace.getActiveSpan();
+   * const strategy = new ConcreteStrategy();
+   *
+   * // Set business context attributes
    * strategy.setSpanAttributes(span, {
-   *   'job.id': '123',
-   *   'operation.type': 'fetch',
-   *   'retry.count': 2
+   *   'job.id': 'job-12345',
+   *   'job.type': 'data-sync',
+   *   'operation.name': 'fetch-jobs',
+   *   'retry.count': 2,
+   *   'batch.size': 50
+   * });
+   *
+   * // Set error context attributes
+   * strategy.setSpanAttributes(span, {
+   *   'error.occurred': true,
+   *   'error.type': 'NetworkTimeout',
+   *   'error.message': 'Request timeout after 30s'
    * });
    * ```
    * @since 1.0.0
+   * @see {@link https://opentelemetry.io/docs/specs/semconv/} for semantic conventions
    */
   public setSpanAttributes(span: unknown, attributes: Record<string, unknown>): void {
     if (
@@ -100,26 +209,49 @@ export abstract class BaseTelemetryStrategy implements ITelemetryStrategy {
   }
 
   /**
-   * Check if telemetry is enabled and initialized
+   * Check if telemetry system is enabled and properly initialized
    *
-   * Protected utility method for subclasses to check whether telemetry
-   * is currently enabled and initialized. This allows conditional
-   * execution of telemetry operations to avoid errors when telemetry
-   * is disabled or not yet initialized.
+   * Protected utility method for subclasses to determine whether telemetry
+   * operations should be performed. This check prevents errors and unnecessary
+   * overhead when telemetry is disabled or not yet initialized.
    *
-   * @returns True if telemetry is initialized and ready for use
+   * Subclasses should call this method before performing any telemetry operations
+   * to ensure graceful degradation when telemetry services are unavailable.
+   * This pattern allows the application to continue functioning normally
+   * even when monitoring infrastructure is down.
+   *
+   * @returns True if telemetry is initialized and ready for operations
    * @protected
    * @example
    * ```typescript
-   * public recordMetrics(data: MetricData): void {
-   *   if (this.isTelemetryEnabled()) {
-   *     // Safe to use telemetry APIs
-   *     recordCustomMetrics(data);
+   * class ServiceTelemetryStrategy extends BaseTelemetryStrategy {
+   *   public recordServiceMetrics(operation: string, duration: number): void {
+   *     // Always check telemetry availability before operations
+   *     if (this.isTelemetryEnabled()) {
+   *       const span = trace.getActiveSpan();
+   *       this.setSpanAttributes(span, {
+   *         'service.operation': operation,
+   *         'service.duration': duration,
+   *         'service.timestamp': new Date().toISOString()
+   *       });
+   *     }
+   *     // Application continues normally regardless of telemetry state
+   *   }
+   *
+   *   public recordBusinessEvent(eventType: string, data: Record<string, unknown>): void {
+   *     if (this.isTelemetryEnabled()) {
+   *       // Record custom business metrics
+   *       const span = trace.getActiveSpan();
+   *       this.setSpanAttributes(span, {
+   *         'business.event.type': eventType,
+   *         'business.event.data': JSON.stringify(data)
+   *       });
+   *     }
    *   }
    * }
    * ```
    * @since 1.0.0
-   * @see {@link isTelemetryInitialized} for the underlying check
+   * @see {@link isTelemetryInitialized} for the underlying telemetry state check
    */
   protected isTelemetryEnabled(): boolean {
     return isTelemetryInitialized();

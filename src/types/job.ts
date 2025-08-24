@@ -5,11 +5,29 @@
  * the DriveHR integration system. Covers the complete job data lifecycle from
  * raw data fetching through normalization to WordPress synchronization.
  *
- * These types ensure type safety for:
- * - Raw job data from various sources (API, HTML, JSON-LD)
- * - Normalized job objects with consistent structure
- * - Job fetching results and synchronization responses
- * - Validation and error handling
+ * These types ensure type safety across the entire job processing pipeline,
+ * from initial data extraction to final WordPress webhook delivery. The
+ * architecture supports multiple data sources and validation strategies.
+ *
+ * @example
+ * ```typescript
+ * import type { NormalizedJob, JobFetchResult, JobSyncRequest } from './job.js';
+ *
+ * const fetchResult: JobFetchResult = {
+ *   jobs: [normalizedJob],
+ *   method: 'api',
+ *   success: true,
+ *   fetchedAt: new Date().toISOString(),
+ *   totalCount: 1
+ * };
+ *
+ * const syncRequest: JobSyncRequest = {
+ *   source: 'webhook',
+ *   jobs: fetchResult.jobs,
+ *   timestamp: new Date().toISOString(),
+ *   requestId: crypto.randomUUID()
+ * };
+ * ```
  *
  * @module job-types
  * @since 1.0.0
@@ -24,7 +42,32 @@
  *
  * The interface includes common field name variations to handle
  * inconsistencies in naming conventions across different data sources.
+ * All properties are optional to support partial data extraction.
  *
+ * @param id - Primary job identifier
+ * @param job_id - Alternative job identifier field name
+ * @param title - Job title or position name
+ * @param position_title - Alternative job title field name
+ * @param name - Generic name field that may contain job title
+ * @param department - Department or team name
+ * @param category - Alternative department field name
+ * @param division - Alternative department field name
+ * @param location - Job location information
+ * @param city - Alternative location field name
+ * @param office - Alternative location field name
+ * @param type - Employment type information
+ * @param employment_type - Alternative employment type field name
+ * @param schedule - Alternative employment type field name
+ * @param description - Job description or requirements
+ * @param summary - Alternative description field name
+ * @param overview - Alternative description field name
+ * @param posted_date - Job posting date
+ * @param created_at - Alternative posted date field name
+ * @param date_posted - Alternative posted date field name
+ * @param apply_url - Application URL
+ * @param application_url - Alternative application URL field name
+ * @param url - Generic URL field that may contain application link
+ * @returns Interface supporting flexible raw job data structures
  * @example
  * ```typescript
  * // From API response
@@ -40,9 +83,9 @@
  *
  * // From HTML scraping (different field names)
  * const htmlJobData: RawJobData = {
- *   position_title: 'Software Engineer', // different field name
- *   category: 'Engineering', // maps to department
- *   city: 'San Francisco, CA', // maps to location
+ *   position_title: 'Software Engineer',
+ *   category: 'Engineering',
+ *   city: 'San Francisco, CA',
  *   application_url: 'https://company.com/careers/apply/123'
  * };
  * ```
@@ -50,61 +93,29 @@
  * @see {@link NormalizedJob} for the processed, consistent structure
  */
 export interface RawJobData {
-  /** Job identifier (various naming conventions) */
   id?: string;
-  /** Alternative job identifier field name */
   job_id?: string;
-
-  /** Job title (various naming conventions) */
   title?: string;
-  /** Alternative job title field name */
   position_title?: string;
-  /** Generic name field that may contain job title */
   name?: string;
-
-  /** Department/category information (various naming conventions) */
   department?: string;
-  /** Alternative department field name */
   category?: string;
-  /** Alternative department field name */
   division?: string;
-
-  /** Location information (various naming conventions) */
   location?: string;
-  /** Alternative location field name */
   city?: string;
-  /** Alternative location field name */
   office?: string;
-
-  /** Employment type information (various naming conventions) */
   type?: string;
-  /** Alternative employment type field name */
   employment_type?: string;
-  /** Alternative employment type field name */
   schedule?: string;
-
-  /** Job description (various naming conventions) */
   description?: string;
-  /** Alternative description field name */
   summary?: string;
-  /** Alternative description field name */
   overview?: string;
-
-  /** Posted date information (various naming conventions) */
   posted_date?: string;
-  /** Alternative posted date field name */
   created_at?: string;
-  /** Alternative posted date field name */
   date_posted?: string;
-
-  /** Application URL (various naming conventions) */
   apply_url?: string;
-  /** Alternative application URL field name */
   application_url?: string;
-  /** Generic URL field that may contain application link */
   url?: string;
-
-  /** Allow additional properties for extensibility */
   [key: string]: unknown;
 }
 
@@ -115,6 +126,22 @@ export interface RawJobData {
  * All fields are required and follow consistent naming conventions.
  * Includes metadata for tracking source and processing information.
  *
+ * This interface ensures data consistency across the entire job processing
+ * pipeline and provides a standardized format for WordPress synchronization.
+ * All normalized jobs include audit trail information for debugging.
+ *
+ * @param id - Unique job identifier (generated if not provided)
+ * @param title - Normalized job title
+ * @param department - Normalized department/category name
+ * @param location - Normalized location information
+ * @param type - Normalized employment type
+ * @param description - Normalized job description (may be truncated)
+ * @param postedDate - Posted date in ISO format
+ * @param applyUrl - Absolute URL for job application
+ * @param source - Source system that provided this job data
+ * @param rawData - Original raw data before normalization
+ * @param processedAt - Timestamp when normalization was performed
+ * @returns Normalized job object with consistent structure
  * @example
  * ```typescript
  * const normalizedJob: NormalizedJob = {
@@ -127,7 +154,7 @@ export interface RawJobData {
  *   postedDate: '2025-01-15T10:00:00.000Z',
  *   applyUrl: 'https://company.com/apply/sw-eng-sf-001',
  *   source: 'webhook',
- *   rawData: {}, // original raw data
+ *   rawData: {},
  *   processedAt: '2025-01-15T10:30:00.000Z'
  * };
  * ```
@@ -136,27 +163,16 @@ export interface RawJobData {
  * @see {@link JobSource} for available source types
  */
 export interface NormalizedJob {
-  /** Unique job identifier (generated if not provided) */
   readonly id: string;
-  /** Normalized job title */
   readonly title: string;
-  /** Normalized department/category name */
   readonly department: string;
-  /** Normalized location information */
   readonly location: string;
-  /** Normalized employment type */
   readonly type: string;
-  /** Normalized job description (may be truncated) */
   readonly description: string;
-  /** Posted date in ISO format */
   readonly postedDate: string;
-  /** Absolute URL for job application */
   readonly applyUrl: string;
-  /** Source system that provided this job data */
   readonly source: JobSource;
-  /** Original raw data before normalization */
   readonly rawData: RawJobData;
-  /** Timestamp when normalization was performed */
   readonly processedAt: string;
 }
 
@@ -165,8 +181,17 @@ export interface NormalizedJob {
  *
  * Contains the results of a job fetching operation including the
  * retrieved jobs, metadata about the fetch method used, and
- * success/error information.
+ * success/error information. Used to track fetch operations and
+ * provide debugging information for failed attempts.
  *
+ * @param jobs - Array of successfully fetched and normalized jobs
+ * @param method - Method that was used to fetch the jobs
+ * @param success - Whether the fetch operation was successful
+ * @param message - Success message (when operation succeeded)
+ * @param error - Error message (when operation failed)
+ * @param fetchedAt - Timestamp when the fetch operation was performed
+ * @param totalCount - Total number of jobs found/processed
+ * @returns Job fetch operation result with metadata
  * @example
  * ```typescript
  * const fetchResult: JobFetchResult = {
@@ -193,19 +218,12 @@ export interface NormalizedJob {
  * @see {@link NormalizedJob} for the job data structure
  */
 export interface JobFetchResult {
-  /** Array of successfully fetched and normalized jobs */
   readonly jobs: readonly NormalizedJob[];
-  /** Method that was used to fetch the jobs */
   readonly method: FetchMethod;
-  /** Whether the fetch operation was successful */
   readonly success: boolean;
-  /** Success message (when operation succeeded) */
   readonly message?: string;
-  /** Error message (when operation failed) */
   readonly error?: string;
-  /** Timestamp when the fetch operation was performed */
   readonly fetchedAt: string;
-  /** Total number of jobs found/processed */
   readonly totalCount: number;
 }
 
@@ -213,8 +231,14 @@ export interface JobFetchResult {
  * Job synchronization request interface
  *
  * Payload structure for sending job data to WordPress via webhook.
- * Includes metadata for tracking and debugging purposes.
+ * Includes metadata for tracking and debugging purposes. Used to
+ * maintain audit trail and enable request tracing across systems.
  *
+ * @param source - Source system that provided the job data
+ * @param jobs - Array of normalized jobs to synchronize
+ * @param timestamp - Timestamp when the sync request was created
+ * @param requestId - Unique identifier for tracking this sync request
+ * @returns Job sync request payload for WordPress webhook
  * @example
  * ```typescript
  * const syncRequest: JobSyncRequest = {
@@ -229,13 +253,9 @@ export interface JobFetchResult {
  * @see {@link NormalizedJob} for the job data structure
  */
 export interface JobSyncRequest {
-  /** Source system that provided the job data */
   readonly source: JobSource;
-  /** Array of normalized jobs to synchronize */
   readonly jobs: readonly NormalizedJob[];
-  /** Timestamp when the sync request was created */
   readonly timestamp: string;
-  /** Unique identifier for tracking this sync request */
   readonly requestId: string;
 }
 
@@ -243,8 +263,17 @@ export interface JobSyncRequest {
  * Job synchronization response interface
  *
  * Response structure from WordPress after processing a job sync request.
- * Provides detailed statistics about the synchronization operation.
+ * Provides detailed statistics about the synchronization operation and
+ * enables comprehensive error reporting and debugging.
  *
+ * @param success - Whether the overall sync operation was successful
+ * @param syncedCount - Number of jobs successfully synchronized
+ * @param skippedCount - Number of jobs skipped (e.g., duplicates)
+ * @param errorCount - Number of jobs that failed to sync
+ * @param message - Overall sync operation message
+ * @param errors - Detailed error messages for failed jobs
+ * @param processedAt - Timestamp when the sync operation was completed
+ * @returns Job sync operation response with statistics
  * @example
  * ```typescript
  * const syncResponse: JobSyncResponse = {
@@ -275,19 +304,12 @@ export interface JobSyncRequest {
  * @since 1.0.0
  */
 export interface JobSyncResponse {
-  /** Whether the overall sync operation was successful */
   readonly success: boolean;
-  /** Number of jobs successfully synchronized */
   readonly syncedCount: number;
-  /** Number of jobs skipped (e.g., duplicates) */
   readonly skippedCount: number;
-  /** Number of jobs that failed to sync */
   readonly errorCount: number;
-  /** Overall sync operation message */
   readonly message?: string;
-  /** Detailed error messages for failed jobs */
   readonly errors?: readonly string[];
-  /** Timestamp when the sync operation was completed */
   readonly processedAt: string;
 }
 
@@ -295,8 +317,10 @@ export interface JobSyncResponse {
  * Job source enumeration
  *
  * Identifies the source system or trigger that initiated the job data fetch.
- * Used for tracking, analytics, and conditional processing logic.
+ * Used for tracking, analytics, and conditional processing logic. Enables
+ * audit trail and helps identify data quality issues by source.
  *
+ * @returns Union type representing job data sources
  * @example
  * ```typescript
  * // Automatic webhook trigger
@@ -310,24 +334,16 @@ export interface JobSyncResponse {
  * ```
  * @since 1.0.0
  */
-export type JobSource =
-  /** Job data fetched directly from DriveHR system */
-  | 'drivehr'
-  /** Job data fetched via manual user-initiated sync */
-  | 'manual'
-  /** Job data fetched via automated webhook trigger */
-  | 'webhook'
-  /** Job data fetched via GitHub Actions scraping */
-  | 'github-actions'
-  /** Job data fetched via automated system processes */
-  | 'automated';
+export type JobSource = 'drivehr' | 'manual' | 'webhook' | 'github-actions' | 'automated';
 
 /**
  * Job fetching method enumeration
  *
  * Identifies the specific strategy used to fetch job data from DriveHR.
- * Each method represents a different approach to data extraction.
+ * Each method represents a different approach to data extraction with
+ * varying reliability and data completeness characteristics.
  *
+ * @returns Union type representing job fetching strategies
  * @example
  * ```typescript
  * // Successful API fetch
@@ -341,26 +357,16 @@ export type JobSource =
  * ```
  * @since 1.0.0
  */
-export type FetchMethod =
-  /** Fetched via DriveHR API endpoints */
-  | 'api'
-  /** Fetched via dedicated JSON endpoint */
-  | 'json'
-  /** Fetched via HTML scraping and parsing */
-  | 'html'
-  /** Fetched via JSON-LD structured data extraction */
-  | 'json-ld'
-  /** Fetched via embedded JavaScript data extraction */
-  | 'embedded-js'
-  /** No method succeeded in fetching data */
-  | 'none';
+export type FetchMethod = 'api' | 'json' | 'html' | 'json-ld' | 'embedded-js' | 'none';
 
 /**
  * Employment type enumeration
  *
  * Standardized employment types for job postings. Used for consistent
- * categorization and filtering of job opportunities.
+ * categorization and filtering of job opportunities. Supports both
+ * traditional employment models and modern work arrangements.
  *
+ * @returns Union type representing employment types
  * @example
  * ```typescript
  * // Standard employment types
@@ -371,19 +377,12 @@ export type FetchMethod =
  * @since 1.0.0
  */
 export type JobType =
-  /** Standard full-time employment */
   | 'Full-time'
-  /** Part-time employment with reduced hours */
   | 'Part-time'
-  /** Contract-based employment */
   | 'Contract'
-  /** Temporary employment with fixed duration */
   | 'Temporary'
-  /** Internship or educational opportunity */
   | 'Internship'
-  /** Remote work arrangement */
   | 'Remote'
-  /** Hybrid work arrangement (office + remote) */
   | 'Hybrid';
 
 /**
@@ -391,8 +390,14 @@ export type JobType =
  *
  * Represents a single validation error encountered during job data
  * processing or normalization. Provides detailed error information
- * for debugging and error reporting.
+ * for debugging and error reporting. Includes both human-readable
+ * messages and machine-readable error codes.
  *
+ * @param field - Name of the field that failed validation
+ * @param value - The actual value that caused the validation failure
+ * @param message - Human-readable error message
+ * @param code - Machine-readable error code for programmatic handling
+ * @returns Single validation error with context
  * @example
  * ```typescript
  * const validationError: JobValidationError = {
@@ -413,13 +418,9 @@ export type JobType =
  * @see {@link JobValidationResult} for validation result aggregation
  */
 export interface JobValidationError {
-  /** Name of the field that failed validation */
   readonly field: string;
-  /** The actual value that caused the validation failure */
   readonly value: unknown;
-  /** Human-readable error message */
   readonly message: string;
-  /** Machine-readable error code for programmatic handling */
   readonly code: string;
 }
 
@@ -428,8 +429,13 @@ export interface JobValidationError {
  *
  * Aggregates validation results for a job data object, including
  * both errors (blocking issues) and warnings (non-blocking issues).
- * Used to provide comprehensive feedback about data quality.
+ * Used to provide comprehensive feedback about data quality and
+ * enable conditional processing based on validation status.
  *
+ * @param isValid - Whether the job data passed validation (no errors)
+ * @param errors - Array of validation errors that prevent processing
+ * @param warnings - Array of validation warnings that don't prevent processing
+ * @returns Complete validation result with errors and warnings
  * @example
  * ```typescript
  * // Successful validation
@@ -471,10 +477,7 @@ export interface JobValidationError {
  * @see {@link JobValidationError} for individual error details
  */
 export interface JobValidationResult {
-  /** Whether the job data passed validation (no errors) */
   readonly isValid: boolean;
-  /** Array of validation errors that prevent processing */
   readonly errors: readonly JobValidationError[];
-  /** Array of validation warnings that don't prevent processing */
   readonly warnings: readonly JobValidationError[];
 }

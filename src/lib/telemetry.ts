@@ -1,40 +1,75 @@
 /**
- * Enterprise OpenTelemetry Telemetry Configuration
+ * Enterprise OpenTelemetry Integration System
  *
- * Comprehensive observability setup following OpenTelemetry standards for
- * enterprise-grade monitoring, tracing, and metrics collection. Provides
- * distributed tracing, custom metrics, and integration with monitoring
- * platforms like Datadog, New Relic, or Grafana.
+ * Comprehensive observability framework implementing OpenTelemetry standards for
+ * enterprise-grade distributed tracing, metrics collection, and monitoring integration.
+ * Provides unified telemetry infrastructure supporting multiple backend systems including
+ * Datadog, New Relic, Prometheus, and custom OTLP endpoints.
  *
- * Features:
- * - Distributed tracing with correlation IDs
- * - Custom business metrics with semantic conventions
- * - Performance monitoring with SLA tracking
- * - Error tracking and alerting
- * - Resource detection and metadata
- * - Export to multiple backends (OTLP, Prometheus, etc.)
+ * The system offers complete lifecycle management from initialization through graceful
+ * shutdown, with automatic instrumentation, business metrics collection, and performance
+ * monitoring capabilities optimized for serverless and microservice architectures.
+ *
+ * Key Architecture Components:
+ * - OpenTelemetry SDK initialization with auto-instrumentation
+ * - Business metrics collection with semantic conventions
+ * - Distributed tracing with correlation ID propagation
+ * - Multi-backend export configuration (OTLP, Console, Custom)
+ * - Resource detection and metadata injection
+ * - Graceful shutdown with data export completion
+ * - Error handling and telemetry state management
+ *
+ * Enterprise Features:
+ * - Type-safe telemetry configuration with validation
+ * - Strongly-typed business metrics interfaces
+ * - High-level span management utilities
+ * - HTTP, job processing, and webhook metrics recording
+ * - Development and production environment optimization
+ * - Memory-efficient resource management
  *
  * @example
  * ```typescript
- * // Initialize telemetry at application startup
- * import { initializeTelemetry } from './lib/telemetry.js';
+ * import {
+ *   initializeTelemetry,
+ *   getTracer,
+ *   getBusinessMetrics,
+ *   withSpan,
+ *   recordJobMetrics
+ * } from './lib/telemetry.js';
  *
+ * // Initialize telemetry system at application startup
  * await initializeTelemetry({
- *   serviceName: 'drivehr-netlify-sync',
- *   environment: 'production'
+ *   serviceName: 'drivehr-job-sync',
+ *   serviceVersion: '1.2.0',
+ *   environment: 'production',
+ *   traceEndpoint: 'https://api.honeycomb.io/v1/traces',
+ *   headers: { 'x-honeycomb-team': process.env.HONEYCOMB_API_KEY }
  * });
  *
- * // Use in your code
- * import { trace, metrics } from '@opentelemetry/api';
+ * // Use distributed tracing
+ * const tracer = getTracer();
+ * await withSpan('job-processing-batch', async (span) => {
+ *   span.setAttributes({
+ *     'job.batch.size': 50,
+ *     'job.source': 'drivehr-api'
+ *   });
  *
- * const tracer = trace.getTracer('job-sync');
- * const meter = metrics.getMeter('job-sync');
+ *   const jobs = await fetchJobs();
+ *   await processJobs(jobs);
+ * });
+ *
+ * // Record business metrics
+ * const metrics = getBusinessMetrics();
+ * metrics.jobsProcessed.add(25, { source: 'api', status: 'success' });
+ * recordJobMetrics('data-sync', 'success', 1200, { company: 'acme-corp' });
  * ```
  *
- * @module telemetry
+ * @module enterprise-opentelemetry-integration
  * @since 1.0.0
- * @see {@link https://opentelemetry.io/docs/} for OpenTelemetry documentation
- * @see {@link https://github.com/open-telemetry/opentelemetry-js} for implementation details
+ * @see {@link https://opentelemetry.io/docs/} for OpenTelemetry standards
+ * @see {@link https://github.com/open-telemetry/opentelemetry-js} for JavaScript implementation
+ * @see {@link TelemetryConfig} for configuration options
+ * @see {@link BusinessMetrics} for metrics interface
  */
 
 import { NodeSDK } from '@opentelemetry/sdk-node';
@@ -61,63 +96,264 @@ import {
 import { createLogger } from './logger.js';
 
 /**
- * Telemetry configuration options
+ * Comprehensive telemetry configuration interface
  *
- * Comprehensive configuration for OpenTelemetry setup with enterprise
- * features including service identification, environment metadata,
- * and export configuration.
+ * Defines all configuration options for initializing the OpenTelemetry system
+ * with enterprise features including service identification, backend connectivity,
+ * authentication, and resource metadata. Supports multiple export backends
+ * and development/production environment optimization.
  *
+ * @example
+ * ```typescript
+ * // Production configuration with Datadog
+ * const prodConfig: TelemetryConfig = {
+ *   serviceName: 'drivehr-job-sync',
+ *   serviceVersion: '1.2.0',
+ *   environment: 'production',
+ *   namespace: 'hr-systems',
+ *   traceEndpoint: 'https://trace.agent.datadoghq.com/v0.4/traces',
+ *   metricsEndpoint: 'https://api.datadoghq.com/api/v1/series',
+ *   headers: {
+ *     'DD-API-KEY': process.env.DATADOG_API_KEY,
+ *     'Content-Type': 'application/json'
+ *   },
+ *   debug: false,
+ *   resourceAttributes: {
+ *     'deployment.environment': 'production',
+ *     'service.instance.id': process.env.INSTANCE_ID,
+ *     'cloud.provider': 'aws',
+ *     'cloud.region': 'us-east-1'
+ *   }
+ * };
+ *
+ * // Development configuration with console output
+ * const devConfig: TelemetryConfig = {
+ *   serviceName: 'drivehr-job-sync-dev',
+ *   environment: 'development',
+ *   debug: true
+ * };
+ * ```
  * @since 1.0.0
+ * @see {@link initializeTelemetry} for configuration usage
  */
 export interface TelemetryConfig {
-  /** Service name for identification in traces and metrics */
+  /**
+   * Service name for identification in traces and metrics
+   *
+   * Unique identifier for this service in the telemetry backend.
+   * Should follow naming conventions like 'company-service-function'.
+   *
+   * @since 1.0.0
+   */
   serviceName: string;
-  /** Service version for release tracking */
+
+  /**
+   * Service version for release tracking and debugging
+   *
+   * Semantic version of the service for correlating telemetry data
+   * with specific releases and deployments.
+   *
+   * @since 1.0.0
+   */
   serviceVersion?: string;
-  /** Deployment environment (development, staging, production) */
+
+  /**
+   * Deployment environment identifier
+   *
+   * Environment name for filtering and organizing telemetry data
+   * across development, staging, and production environments.
+   *
+   * @since 1.0.0
+   */
   environment?: string;
-  /** Service namespace for multi-service architectures */
+
+  /**
+   * Service namespace for multi-service architectures
+   *
+   * Logical grouping for related services in complex systems.
+   * Helps organize telemetry data in large microservice deployments.
+   *
+   * @since 1.0.0
+   */
   namespace?: string;
-  /** OTLP endpoint for traces (optional - defaults to console) */
+
+  /**
+   * OTLP endpoint URL for distributed traces
+   *
+   * HTTP endpoint for exporting trace data. If not provided,
+   * traces will be output to console in development.
+   *
+   * @since 1.0.0
+   */
   traceEndpoint?: string;
-  /** OTLP endpoint for metrics (optional - defaults to console) */
+
+  /**
+   * OTLP endpoint URL for metrics data
+   *
+   * HTTP endpoint for exporting metrics data. If not provided,
+   * metrics will be output to console in development.
+   *
+   * @since 1.0.0
+   */
   metricsEndpoint?: string;
-  /** Authentication headers for OTLP exporters */
+
+  /**
+   * Authentication and custom headers for OTLP exporters
+   *
+   * Headers sent with all telemetry export requests including
+   * API keys, authentication tokens, and custom metadata.
+   *
+   * @since 1.0.0
+   */
   headers?: Record<string, string>;
-  /** Enable debug mode for troubleshooting */
+
+  /**
+   * Enable debug mode for troubleshooting telemetry issues
+   *
+   * Enables verbose logging and additional telemetry validation.
+   * Should be disabled in production for performance optimization.
+   *
+   * @since 1.0.0
+   */
   debug?: boolean;
-  /** Custom resource attributes */
+
+  /**
+   * Custom resource attributes for service metadata
+   *
+   * Additional key-value pairs attached to all telemetry data
+   * for filtering, grouping, and contextual information.
+   *
+   * @since 1.0.0
+   */
   resourceAttributes?: Record<string, string>;
 }
 
 /**
- * Business metrics interface for domain-specific monitoring
+ * Enterprise business metrics interface for domain-specific monitoring
  *
- * Provides strongly-typed interfaces for recording business metrics
- * with proper semantic conventions and enterprise monitoring patterns.
+ * Provides strongly-typed OpenTelemetry metrics instruments for tracking
+ * business operations and performance indicators. Each metric follows
+ * semantic conventions and supports dimensional data through labels
+ * for comprehensive operational visibility.
  *
+ * The interface encompasses core business processes including job processing,
+ * HTTP communication, and webhook delivery systems with both count and
+ * duration metrics for complete operational oversight.
+ *
+ * @example
+ * ```typescript
+ * const metrics = getBusinessMetrics();
+ *
+ * // Record job processing metrics
+ * metrics.jobsProcessed.add(1, {
+ *   source: 'drivehr-api',
+ *   status: 'success',
+ *   company: 'acme-corp'
+ * });
+ *
+ * // Track job processing duration
+ * const startTime = Date.now();
+ * await processJob(jobData);
+ * const duration = Date.now() - startTime;
+ * metrics.jobDuration.record(duration, {
+ *   job_type: 'data-sync',
+ *   complexity: 'high'
+ * });
+ *
+ * // Record HTTP request metrics
+ * metrics.httpRequests.add(1, {
+ *   method: 'GET',
+ *   endpoint: '/api/jobs',
+ *   status_code: '200'
+ * });
+ *
+ * // Track webhook delivery success/failure
+ * try {
+ *   await deliverWebhook(payload, webhookUrl);
+ *   metrics.webhookDeliveries.add(1, { status: 'success' });
+ * } catch (error) {
+ *   metrics.webhookFailures.add(1, {
+ *     error_type: error.name,
+ *     status: 'failed'
+ *   });
+ * }
+ * ```
  * @since 1.0.0
+ * @see {@link getBusinessMetrics} for obtaining metrics instance
+ * @see {@link https://opentelemetry.io/docs/specs/semconv/} for semantic conventions
  */
 export interface BusinessMetrics {
-  /** Counter for total jobs processed */
+  /**
+   * Counter for total jobs processed successfully
+   *
+   * Tracks the number of job processing operations completed.
+   * Use labels for source, company, job type, and status classification.
+   *
+   * @since 1.0.0
+   */
   jobsProcessed: Counter;
-  /** Counter for job processing errors */
+
+  /**
+   * Counter for job processing errors and failures
+   *
+   * Records job processing failures for error rate monitoring.
+   * Include error type, source, and failure reason in labels.
+   *
+   * @since 1.0.0
+   */
   jobErrors: Counter;
-  /** Histogram for job processing duration */
+
+  /**
+   * Histogram for job processing execution time
+   *
+   * Measures job processing duration in milliseconds for performance analysis.
+   * Use labels for job complexity, data size, and processing type.
+   *
+   * @since 1.0.0
+   */
   jobDuration: Histogram;
-  /** Counter for HTTP requests */
+
+  /**
+   * Counter for HTTP requests made by the service
+   *
+   * Tracks outbound HTTP requests for API monitoring.
+   * Include method, endpoint, status code, and response time in labels.
+   *
+   * @since 1.0.0
+   */
   httpRequests: Counter;
-  /** Histogram for HTTP request duration */
+
+  /**
+   * Histogram for HTTP request response time
+   *
+   * Measures HTTP request duration in milliseconds for API performance monitoring.
+   * Use labels for endpoint, method, and response status classification.
+   *
+   * @since 1.0.0
+   */
   httpDuration: Histogram;
-  /** Counter for webhook deliveries */
+
+  /**
+   * Counter for successful webhook deliveries
+   *
+   * Tracks webhook delivery attempts and successes for reliability monitoring.
+   * Include destination, payload type, and delivery status in labels.
+   *
+   * @since 1.0.0
+   */
   webhookDeliveries: Counter;
-  /** Counter for webhook failures */
+
+  /**
+   * Counter for failed webhook delivery attempts
+   *
+   * Records webhook delivery failures for error tracking and alerting.
+   * Include error type, retry count, and destination in labels.
+   *
+   * @since 1.0.0
+   */
   webhookFailures: Counter;
 }
 
-/**
- * Global telemetry state management
- */
 let sdk: NodeSDK | undefined;
 let isInitialized = false;
 let businessMetrics: BusinessMetrics | undefined;
@@ -128,29 +364,48 @@ const logger = createLogger();
 /**
  * Initialize OpenTelemetry SDK with enterprise configuration
  *
- * Sets up comprehensive observability including distributed tracing,
- * custom metrics, and automatic instrumentation. Configures exporters
- * for integration with enterprise monitoring platforms.
+ * Bootstraps the complete telemetry system including trace exporters, metrics readers,
+ * business metrics instruments, and auto-instrumentation for Node.js applications.
+ * This function must be called once at application startup before any telemetry
+ * operations can be performed.
  *
- * @param config - Telemetry configuration options
- * @returns Promise that resolves when telemetry is initialized
- * @throws {Error} When telemetry initialization fails
+ * The initialization process configures OTLP exporters for traces and metrics,
+ * sets up OpenTelemetry SDK with auto-instrumentation, creates business metrics
+ * instruments, and establishes the application tracer. Supports both production
+ * backends (Datadog, New Relic, Honeycomb) and development console output.
+ *
+ * @param config - Complete telemetry configuration with service metadata and backend settings
+ * @throws {Error} When telemetry initialization fails due to configuration errors or backend connectivity issues
  * @example
  * ```typescript
- * import { getEnvVar } from './env.js';
- *
+ * // Production initialization with external backend
  * await initializeTelemetry({
- *   serviceName: 'drivehr-netlify-sync',
- *   serviceVersion: '1.0.0',
- *   environment: getEnvVar('NODE_ENV', 'development'),
- *   traceEndpoint: getEnvVar('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'),
- *   metricsEndpoint: getEnvVar('OTEL_EXPORTER_OTLP_METRICS_ENDPOINT'),
+ *   serviceName: 'drivehr-job-sync',
+ *   serviceVersion: '1.2.0',
+ *   environment: 'production',
+ *   traceEndpoint: 'https://api.honeycomb.io/v1/traces',
+ *   metricsEndpoint: 'https://api.honeycomb.io/v1/metrics',
  *   headers: {
- *     'x-api-key': getEnvVar('OTEL_API_KEY')
+ *     'x-honeycomb-team': process.env.HONEYCOMB_API_KEY,
+ *     'x-honeycomb-dataset': 'job-processing'
+ *   },
+ *   resourceAttributes: {
+ *     'deployment.environment': 'production',
+ *     'service.instance.id': process.env.INSTANCE_ID
  *   }
+ * });
+ *
+ * // Development initialization with console output
+ * await initializeTelemetry({
+ *   serviceName: 'drivehr-job-sync-dev',
+ *   environment: 'development',
+ *   debug: true
  * });
  * ```
  * @since 1.0.0
+ * @see {@link TelemetryConfig} for configuration options
+ * @see {@link getTracer} for obtaining tracer after initialization
+ * @see {@link getBusinessMetrics} for accessing metrics after initialization
  */
 export async function initializeTelemetry(config: TelemetryConfig): Promise<void> {
   if (isInitialized) {
@@ -161,7 +416,6 @@ export async function initializeTelemetry(config: TelemetryConfig): Promise<void
   try {
     logger.info('Initializing OpenTelemetry SDK', { config: { ...config, headers: '[REDACTED]' } });
 
-    // Create trace exporter
     const traceExporter = config.traceEndpoint
       ? new OTLPTraceExporter({
           url: config.traceEndpoint,
@@ -169,7 +423,6 @@ export async function initializeTelemetry(config: TelemetryConfig): Promise<void
         })
       : undefined;
 
-    // Create metrics reader
     const { PeriodicExportingMetricReader } = await import('@opentelemetry/sdk-metrics');
     const metricsReader = config.metricsEndpoint
       ? new PeriodicExportingMetricReader({
@@ -177,32 +430,26 @@ export async function initializeTelemetry(config: TelemetryConfig): Promise<void
             url: config.metricsEndpoint,
             headers: config.headers,
           }),
-          exportIntervalMillis: 60000, // Export every 60 seconds
+          exportIntervalMillis: 60000,
         })
       : undefined;
 
-    // Initialize SDK with comprehensive configuration
     sdk = new NodeSDK({
-      // Automatic instrumentation for popular libraries
       instrumentations: [
         getNodeAutoInstrumentations({
-          '@opentelemetry/instrumentation-fs': { enabled: false }, // Disable file system noise
-          '@opentelemetry/instrumentation-dns': { enabled: false }, // Disable DNS noise
+          '@opentelemetry/instrumentation-fs': { enabled: false },
+          '@opentelemetry/instrumentation-dns': { enabled: false },
         }),
       ],
 
-      // Export configuration
       traceExporter,
       metricReader: metricsReader,
     });
 
-    // Start the SDK
     await sdk.start();
 
-    // Initialize business metrics
     await initializeBusinessMetrics(config);
 
-    // Get application tracer
     appTracer = trace.getTracer(config.serviceName, config.serviceVersion);
 
     isInitialized = true;
@@ -221,14 +468,17 @@ export async function initializeTelemetry(config: TelemetryConfig): Promise<void
 }
 
 /**
- * Initialize business-specific metrics with semantic conventions
+ * Initialize OpenTelemetry business metrics instruments
  *
- * Creates strongly-typed metrics for monitoring business operations
- * with proper naming conventions and enterprise monitoring patterns.
+ * Creates all business metrics instruments including counters and histograms
+ * for tracking job processing, HTTP requests, and webhook deliveries.
+ * This internal function is called during telemetry initialization to set up
+ * domain-specific metrics collection capabilities.
  *
- * @param config - Telemetry configuration for metric setup
- * @returns Promise that resolves when metrics are initialized
+ * @param config - Telemetry configuration containing service metadata for metrics creation
+ * @throws {Error} When metrics creation fails due to OpenTelemetry API issues
  * @since 1.0.0
+ * @internal
  */
 async function initializeBusinessMetrics(config: TelemetryConfig): Promise<void> {
   const meter: Meter = metrics.getMeter(config.serviceName, config.serviceVersion);
@@ -276,22 +526,42 @@ async function initializeBusinessMetrics(config: TelemetryConfig): Promise<void>
 }
 
 /**
- * Get application tracer for creating spans
+ * Get the initialized OpenTelemetry tracer instance
  *
- * Returns the configured tracer instance for creating distributed
- * tracing spans with proper service identification and metadata.
+ * Returns the configured tracer for creating distributed traces and spans.
+ * This tracer is initialized with the service name and version provided
+ * during telemetry initialization and is used for all tracing operations
+ * throughout the application.
  *
- * @returns Application tracer instance
- * @throws {Error} When telemetry is not initialized
+ * @returns Configured OpenTelemetry tracer instance for span creation and management
+ * @throws {Error} When telemetry system is not initialized or tracer is not available
  * @example
  * ```typescript
+ * // Get tracer and create a span
  * const tracer = getTracer();
- * const span = tracer.startSpan('process-job', {
+ * const span = tracer.startSpan('job-processing', {
  *   kind: SpanKind.INTERNAL,
- *   attributes: { 'job.id': jobId }
+ *   attributes: {
+ *     'job.id': 'job-12345',
+ *     'job.type': 'data-sync'
+ *   }
  * });
+ *
+ * try {
+ *   // Perform operation
+ *   await processJob(jobData);
+ *   span.setStatus({ code: SpanStatusCode.OK });
+ * } catch (error) {
+ *   span.recordException(error);
+ *   span.setStatus({ code: SpanStatusCode.ERROR });
+ *   throw error;
+ * } finally {
+ *   span.end();
+ * }
  * ```
  * @since 1.0.0
+ * @see {@link initializeTelemetry} for tracer initialization
+ * @see {@link withSpan} for higher-level span management
  */
 export function getTracer(): Tracer {
   if (!isInitialized || !appTracer) {
@@ -301,20 +571,48 @@ export function getTracer(): Tracer {
 }
 
 /**
- * Get business metrics for recording domain-specific measurements
+ * Get the initialized business metrics instruments
  *
- * Returns strongly-typed business metrics for monitoring application
- * performance and business operations with proper semantic conventions.
+ * Returns the collection of OpenTelemetry metrics instruments for recording
+ * business operations including job processing, HTTP requests, and webhook deliveries.
+ * These metrics provide operational visibility into application performance
+ * and business process success rates.
  *
- * @returns Business metrics interface
- * @throws {Error} When telemetry is not initialized
+ * @returns Complete business metrics interface with counters and histograms for operational monitoring
+ * @throws {Error} When telemetry system is not initialized or business metrics are not available
  * @example
  * ```typescript
+ * // Get metrics and record business operations
  * const metrics = getBusinessMetrics();
- * metrics.jobsProcessed.add(1, { source: 'drivehr', status: 'success' });
- * metrics.jobDuration.record(processingTime, { operation: 'sync' });
+ *
+ * // Record successful job processing
+ * metrics.jobsProcessed.add(1, {
+ *   source: 'drivehr-api',
+ *   company: 'acme-corp',
+ *   status: 'success'
+ * });
+ *
+ * // Record job processing duration
+ * const startTime = Date.now();
+ * await processJob(jobData);
+ * const duration = Date.now() - startTime;
+ * metrics.jobDuration.record(duration / 1000, {
+ *   job_type: 'data-sync',
+ *   complexity: 'high'
+ * });
+ *
+ * // Record HTTP request metrics
+ * metrics.httpRequests.add(1, {
+ *   method: 'POST',
+ *   endpoint: '/api/jobs',
+ *   status_code: '200'
+ * });
  * ```
  * @since 1.0.0
+ * @see {@link BusinessMetrics} for available metrics instruments
+ * @see {@link initializeTelemetry} for metrics initialization
+ * @see {@link recordJobMetrics} for simplified job metrics recording
+ * @see {@link recordHttpMetrics} for simplified HTTP metrics recording
  */
 export function getBusinessMetrics(): BusinessMetrics {
   if (!isInitialized || !businessMetrics) {
@@ -324,26 +622,63 @@ export function getBusinessMetrics(): BusinessMetrics {
 }
 
 /**
- * Create instrumented span for operation tracing
+ * Execute operation within OpenTelemetry span with automatic lifecycle management
  *
- * Higher-level helper for creating spans with automatic error handling,
- * timing, and status code management. Follows OpenTelemetry best practices
- * for enterprise observability.
+ * High-level utility for creating distributed tracing spans with automatic error handling,
+ * status management, and proper span lifecycle. Provides a clean API for wrapping
+ * operations in telemetry spans without manual span management boilerplate.
  *
- * @param name - Span name following semantic conventions
- * @param operation - Function to execute within the span
- * @param attributes - Span attributes for context
- * @param kind - Span kind (INTERNAL, CLIENT, SERVER, etc.)
- * @returns Promise with operation result
- * @throws {Error} Rethrows original error after recording in span
+ * The function automatically handles span creation, activation, status updates,
+ * exception recording, and proper cleanup. Successful operations are marked with
+ * OK status, while exceptions are recorded and marked with ERROR status.
+ *
+ * @param name - Descriptive name for the span operation (e.g., 'job-processing-batch', 'http-request')
+ * @param operation - Async function to execute within the span context, receives active span as parameter
+ * @param attributes - Optional key-value attributes to attach to the span for contextual information
+ * @param kind - OpenTelemetry span kind indicating the type of operation (INTERNAL, CLIENT, SERVER, PRODUCER, CONSUMER)
+ * @returns Result of the operation function execution
+ * @throws Re-throws any exception from the operation after recording it in the span
  * @example
  * ```typescript
- * const result = await withSpan('fetch-jobs', async (span) => {
- *   span.setAttributes({ 'job.source': 'drivehr', 'job.count': jobs.length });
- *   return await fetchJobsFromAPI();
- * }, { 'operation.type': 'fetch' }, SpanKind.CLIENT);
+ * // Execute job processing with tracing
+ * const result = await withSpan(
+ *   'job-batch-processing',
+ *   async (span) => {
+ *     span.setAttributes({
+ *       'job.batch.size': jobs.length,
+ *       'job.source': 'drivehr-api'
+ *     });
+ *
+ *     const processedJobs = [];
+ *     for (const job of jobs) {
+ *       const processed = await processJob(job);
+ *       processedJobs.push(processed);
+ *
+ *       // Update progress in span
+ *       span.setAttributes({
+ *         'job.batch.processed': processedJobs.length
+ *       });
+ *     }
+ *
+ *     return processedJobs;
+ *   },
+ *   { 'operation.type': 'batch-processing' },
+ *   SpanKind.INTERNAL
+ * );
+ *
+ * // HTTP client request with tracing
+ * const response = await withSpan(
+ *   'wordpress-webhook-delivery',
+ *   async (span) => {
+ *     return await httpClient.post(webhookUrl, payload);
+ *   },
+ *   { 'http.method': 'POST', 'webhook.destination': 'wordpress' },
+ *   SpanKind.CLIENT
+ * );
  * ```
  * @since 1.0.0
+ * @see {@link getTracer} for direct tracer access
+ * @see {@link https://opentelemetry.io/docs/specs/otel/trace/api/#spankind} for span kinds
  */
 export async function withSpan<T>(
   name: string,
@@ -359,14 +694,12 @@ export async function withSpan<T>(
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (error) {
-      // Record error in span
       span.recordException(error instanceof Error ? error : new Error(String(error)));
       span.setStatus({
         code: SpanStatusCode.ERROR,
         message: error instanceof Error ? error.message : String(error),
       });
 
-      // Set error attributes
       span.setAttributes({
         [ATTR_ERROR_TYPE]: error instanceof Error ? error.constructor.name : 'Unknown',
         'error.message': error instanceof Error ? error.message : String(error),
@@ -380,24 +713,61 @@ export async function withSpan<T>(
 }
 
 /**
- * Record HTTP request metrics and tracing
+ * Record HTTP request metrics with OpenTelemetry semantic conventions
  *
- * Specialized helper for recording HTTP operations with proper
- * semantic conventions and enterprise monitoring patterns.
+ * Captures HTTP request performance and success metrics including request count,
+ * response time, and status codes. Automatically applies OpenTelemetry semantic
+ * conventions for HTTP observability while supporting custom attributes for
+ * additional context and filtering capabilities.
  *
- * @param method - HTTP method (GET, POST, etc.)
- * @param url - Request URL
- * @param statusCode - HTTP response status code
- * @param duration - Request duration in milliseconds
- * @param attributes - Additional attributes for context
+ * This function records both counter metrics for request tracking and histogram
+ * metrics for performance analysis, enabling comprehensive HTTP client monitoring
+ * and alerting based on response times and error rates.
+ *
+ * @param method - HTTP method (GET, POST, PUT, DELETE, etc.)
+ * @param url - Target URL or endpoint for the HTTP request
+ * @param statusCode - HTTP response status code for success/error categorization
+ * @param duration - Request duration in milliseconds for performance tracking
+ * @param attributes - Additional custom attributes for filtering and context (endpoint, service, etc.)
  * @example
  * ```typescript
- * recordHttpMetrics('POST', 'https://api.drivehr.com/jobs', 200, 150, {
- *   'http.user_agent': 'drivehr-sync/1.0.0',
- *   'job.count': 5
- * });
+ * // Record successful API request
+ * const startTime = Date.now();
+ * const response = await httpClient.get('https://api.drivehr.com/jobs');
+ * const duration = Date.now() - startTime;
+ *
+ * recordHttpMetrics(
+ *   'GET',
+ *   'https://api.drivehr.com/jobs',
+ *   response.status,
+ *   duration,
+ *   {
+ *     'service.name': 'drivehr-api',
+ *     'endpoint.name': 'list-jobs',
+ *     'client.type': 'job-fetcher'
+ *   }
+ * );
+ *
+ * // Record failed webhook delivery
+ * try {
+ *   await httpClient.post(webhookUrl, payload);
+ * } catch (error) {
+ *   recordHttpMetrics(
+ *     'POST',
+ *     webhookUrl,
+ *     error.response?.status || 0,
+ *     Date.now() - requestStartTime,
+ *     {
+ *       'webhook.type': 'job-sync',
+ *       'error.type': error.name,
+ *       'retry.count': retryCount
+ *     }
+ *   );
+ * }
  * ```
  * @since 1.0.0
+ * @see {@link getBusinessMetrics} for direct metrics access
+ * @see {@link https://opentelemetry.io/docs/specs/semconv/http/} for HTTP semantic conventions
  */
 export function recordHttpMetrics(
   method: string,
@@ -415,33 +785,83 @@ export function recordHttpMetrics(
     ...attributes,
   };
 
-  // Record request count
   metrics.httpRequests.add(1, baseAttributes);
 
-  // Record request duration (convert ms to seconds)
   metrics.httpDuration.record(duration / 1000, baseAttributes);
 }
 
 /**
- * Record job processing metrics with business context
+ * Record job processing metrics with comprehensive status tracking
  *
- * Specialized helper for recording job processing operations
- * with proper business metrics and performance tracking.
+ * Captures job processing performance, success rates, and error patterns for
+ * operational monitoring and alerting. Automatically categorizes metrics based
+ * on job status and records both count and duration metrics for complete
+ * visibility into job processing operations.
  *
- * @param jobId - Job identifier for correlation
- * @param operation - Job operation type (fetch, process, sync, etc.)
- * @param status - Job processing status (success, error, timeout, etc.)
- * @param duration - Processing duration in milliseconds
- * @param metadata - Additional business context
+ * The function distinguishes between successful and failed operations,
+ * recording appropriate counters for error rate monitoring while maintaining
+ * duration tracking for all operations regardless of status.
+ *
+ * @param jobId - Unique identifier for the job being processed
+ * @param operation - Type of operation performed (fetch, sync, parse, validate, etc.)
+ * @param status - Job processing outcome for success/failure categorization
+ * @param duration - Job processing duration in milliseconds for performance analysis
+ * @param metadata - Additional contextual metadata (company, source, batch size, etc.)
  * @example
  * ```typescript
- * recordJobMetrics('job-123', 'sync', 'success', 2500, {
- *   source: 'drivehr',
- *   jobCount: 10,
- *   location: 'remote'
- * });
+ * // Record successful job processing
+ * const jobStartTime = Date.now();
+ * const jobResult = await processJob(jobData);
+ * const processingTime = Date.now() - jobStartTime;
+ *
+ * recordJobMetrics(
+ *   'job-12345',
+ *   'data-sync',
+ *   'success',
+ *   processingTime,
+ *   {
+ *     company: 'acme-corp',
+ *     source: 'drivehr-api',
+ *     job_type: 'full-time',
+ *     batch_size: 50,
+ *     location: 'remote'
+ *   }
+ * );
+ *
+ * // Record failed job with error context
+ * try {
+ *   await syncJobToWordPress(jobData);
+ * } catch (error) {
+ *   recordJobMetrics(
+ *     jobData.id,
+ *     'wordpress-sync',
+ *     'error',
+ *     Date.now() - syncStartTime,
+ *     {
+ *       error_type: error.name,
+ *       webhook_endpoint: webhookUrl,
+ *       retry_count: 3,
+ *       company: jobData.company
+ *     }
+ *   );
+ * }
+ *
+ * // Record skipped job due to business rules
+ * recordJobMetrics(
+ *   jobData.id,
+ *   'validation',
+ *   'skipped',
+ *   validationDuration,
+ *   {
+ *     skip_reason: 'duplicate',
+ *     existing_job_id: existingJob.id,
+ *     company: jobData.company
+ *   }
+ * );
  * ```
  * @since 1.0.0
+ * @see {@link getBusinessMetrics} for direct metrics access
+ * @see {@link BusinessMetrics} for available job metrics instruments
  */
 export function recordJobMetrics(
   jobId: string,
@@ -459,36 +879,86 @@ export function recordJobMetrics(
     ...metadata,
   };
 
-  // Record job completion
   if (status === 'success') {
     metrics.jobsProcessed.add(1, attributes);
   } else {
     metrics.jobErrors.add(1, attributes);
   }
 
-  // Record processing duration (convert ms to seconds)
   metrics.jobDuration.record(duration / 1000, attributes);
 }
 
 /**
- * Record webhook delivery metrics
+ * Record webhook delivery metrics with comprehensive status and performance tracking
  *
- * Specialized helper for recording webhook operations with
- * delivery tracking and failure monitoring.
+ * Captures webhook delivery success rates, failure patterns, and performance metrics
+ * for monitoring webhook reliability and identifying integration issues. Automatically
+ * categorizes metrics based on delivery status while maintaining performance tracking
+ * for operational visibility and alerting capabilities.
  *
- * @param webhook - Webhook identifier or URL
- * @param status - Delivery status (success, failure, timeout, etc.)
- * @param statusCode - HTTP response status code
- * @param duration - Delivery duration in milliseconds
- * @param attributes - Additional delivery context
+ * The function distinguishes between successful deliveries and failures, recording
+ * appropriate counters for reliability monitoring while supporting custom attributes
+ * for filtering by webhook destination, payload type, and retry scenarios.
+ *
+ * @param webhook - Webhook identifier or destination name for categorization
+ * @param status - Webhook delivery outcome for success/failure classification
+ * @param statusCode - HTTP status code from webhook delivery attempt
+ * @param duration - Webhook delivery duration in milliseconds for performance analysis
+ * @param attributes - Additional contextual attributes (destination URL, payload type, retry count, etc.)
  * @example
  * ```typescript
- * recordWebhookMetrics('wordpress-sync', 'success', 200, 300, {
- *   'webhook.event': 'job.completed',
- *   'payload.size': 1024
- * });
+ * // Record successful webhook delivery
+ * const webhookStartTime = Date.now();
+ * const response = await deliverWebhook(payload, webhookUrl);
+ * const deliveryTime = Date.now() - webhookStartTime;
+ *
+ * recordWebhookMetrics(
+ *   'wordpress-job-sync',
+ *   'success',
+ *   response.status,
+ *   deliveryTime,
+ *   {
+ *     destination: 'customer-site.com',
+ *     payload_type: 'job-batch',
+ *     job_count: payload.jobs.length,
+ *     company: 'acme-corp'
+ *   }
+ * );
+ *
+ * // Record failed webhook with retry context
+ * try {
+ *   await httpClient.post(webhookUrl, jobPayload);
+ * } catch (error) {
+ *   recordWebhookMetrics(
+ *     'wordpress-job-sync',
+ *     'failure',
+ *     error.response?.status || 0,
+ *     Date.now() - startTime,
+ *     {
+ *       error_type: error.name,
+ *       destination: webhookUrl,
+ *       retry_count: currentRetry,
+ *       payload_size: JSON.stringify(jobPayload).length
+ *     }
+ *   );
+ * }
+ *
+ * // Record timeout scenario
+ * recordWebhookMetrics(
+ *   'wordpress-job-sync',
+ *   'timeout',
+ *   0,
+ *   WEBHOOK_TIMEOUT_MS,
+ *   {
+ *     destination: webhookUrl,
+ *     timeout_threshold: WEBHOOK_TIMEOUT_MS,
+ *     company: jobData.company
+ *   }
+ * );
  * ```
  * @since 1.0.0
+ * @see {@link getBusinessMetrics} for direct metrics access
+ * @see {@link recordHttpMetrics} for general HTTP request metrics
  */
 export function recordWebhookMetrics(
   webhook: string,
@@ -506,7 +976,6 @@ export function recordWebhookMetrics(
     ...attributes,
   };
 
-  // Record delivery attempt
   if (status === 'success') {
     metrics.webhookDeliveries.add(1, baseAttributes);
   } else {
@@ -515,22 +984,54 @@ export function recordWebhookMetrics(
 }
 
 /**
- * Gracefully shutdown telemetry SDK
+ * Gracefully shutdown OpenTelemetry SDK with complete data export
  *
- * Properly terminates the OpenTelemetry SDK ensuring all spans
- * are exported and resources are cleaned up. Should be called
- * during application shutdown for clean telemetry termination.
+ * Performs orderly shutdown of the telemetry system ensuring all pending
+ * spans and metrics are exported before termination. This function should be
+ * called during application shutdown, process termination, or container stops
+ * to ensure no telemetry data is lost.
  *
- * @returns Promise that resolves when shutdown is complete
+ * The shutdown process includes flushing all exporters, stopping metric collection,
+ * cleaning up resources, and resetting internal state. After shutdown, the
+ * telemetry system must be reinitialized before further use.
+ *
+ * @throws {Error} When shutdown process fails due to exporter issues or timeout
  * @example
  * ```typescript
- * // In application shutdown handler
+ * // Graceful application shutdown
  * process.on('SIGTERM', async () => {
+ *   console.log('Received SIGTERM, shutting down gracefully...');
+ *
+ *   try {
+ *     // Shutdown telemetry first to export remaining data
+ *     await shutdownTelemetry();
+ *     console.log('Telemetry shutdown completed');
+ *
+ *     // Shutdown other services
+ *     await server.close();
+ *     await database.disconnect();
+ *
+ *     process.exit(0);
+ *   } catch (error) {
+ *     console.error('Error during shutdown:', error);
+ *     process.exit(1);
+ *   }
+ * });
+ *
+ * // Container shutdown hook
+ * process.on('SIGINT', async () => {
  *   await shutdownTelemetry();
  *   process.exit(0);
  * });
+ *
+ * // Explicit shutdown in tests
+ * afterAll(async () => {
+ *   await shutdownTelemetry();
+ * });
  * ```
  * @since 1.0.0
+ * @see {@link initializeTelemetry} for system initialization
+ * @see {@link isTelemetryInitialized} for checking shutdown status
  */
 export async function shutdownTelemetry(): Promise<void> {
   if (!isInitialized || !sdk) {
@@ -542,7 +1043,6 @@ export async function shutdownTelemetry(): Promise<void> {
     logger.info('Shutting down OpenTelemetry SDK');
     await sdk.shutdown();
 
-    // Reset state
     isInitialized = false;
     businessMetrics = undefined;
     appTracer = undefined;
@@ -556,20 +1056,63 @@ export async function shutdownTelemetry(): Promise<void> {
 }
 
 /**
- * Check if telemetry is initialized and ready for use
+ * Check if OpenTelemetry system is fully initialized and operational
  *
- * Utility function to verify telemetry initialization status
- * before attempting to use tracing or metrics functionality.
+ * Validates that all components of the telemetry system are properly initialized
+ * including the SDK, business metrics, and tracer instances. This function provides
+ * safe validation before attempting telemetry operations and enables graceful
+ * degradation when telemetry is disabled or unavailable.
  *
- * @returns True if telemetry is initialized and ready
+ * Used internally by telemetry functions and available for application code
+ * to implement conditional telemetry behavior based on system availability.
+ *
+ * @returns True if telemetry system is fully initialized and ready for operations
  * @example
  * ```typescript
- * if (isTelemetryInitialized()) {
- *   const tracer = getTracer();
- *   // ... use tracer safely
+ * // Conditional telemetry recording
+ * export function processJobWithTelemetry(jobData: JobData) {
+ *   const startTime = Date.now();
+ *
+ *   if (isTelemetryInitialized()) {
+ *     return withSpan('job-processing', async (span) => {
+ *       span.setAttributes({
+ *         'job.id': jobData.id,
+ *         'job.type': jobData.type
+ *       });
+ *
+ *       const result = await processJob(jobData);
+ *
+ *       recordJobMetrics(
+ *         jobData.id,
+ *         'processing',
+ *         'success',
+ *         Date.now() - startTime
+ *       );
+ *
+ *       return result;
+ *     });
+ *   }
+ *
+ *   // Fallback when telemetry is disabled
+ *   return processJob(jobData);
+ * }
+ *
+ * // Pre-flight check in service initialization
+ * export async function initializeJobService() {
+ *   console.log('Initializing job service...');
+ *
+ *   if (isTelemetryInitialized()) {
+ *     console.log('Telemetry available - monitoring enabled');
+ *   } else {
+ *     console.log('Telemetry disabled - running without monitoring');
+ *   }
+ *
+ *   // Continue with service initialization
  * }
  * ```
  * @since 1.0.0
+ * @see {@link initializeTelemetry} for system initialization
+ * @see {@link shutdownTelemetry} for system shutdown
  */
 export function isTelemetryInitialized(): boolean {
   return isInitialized && !!sdk && !!businessMetrics && !!appTracer;

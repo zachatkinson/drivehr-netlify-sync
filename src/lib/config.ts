@@ -1,25 +1,45 @@
 /**
  * Application Configuration Service
  *
- * Secure configuration management with validation and type safety.
- * Implements enterprise-grade configuration practices with proper error handling.
+ * Enterprise-grade configuration management system providing secure, validated
+ * access to environment variables and application settings. Implements singleton
+ * pattern with comprehensive validation, type safety, and error handling.
+ *
+ * This service ensures all configuration is loaded once, validated against schemas,
+ * and cached for optimal performance. It provides both imperative and declarative
+ * access patterns, supporting various deployment environments with environment-
+ * specific defaults and security policies.
+ *
+ * @example
+ * ```typescript
+ * import { loadAppConfig, getAppConfig } from './config.js';
+ *
+ * // Application startup - load and validate configuration
+ * const result = loadAppConfig();
+ * if (!result.isValid) {
+ *   console.error('Configuration errors:', result.errors);
+ *   process.exit(1);
+ * }
+ *
+ * // Anywhere in application - access validated configuration
+ * const config = getAppConfig();
+ * console.log(`Environment: ${config.environment}`);
+ * console.log(`DriveHR Company: ${config.driveHr.companyId}`);
+ * console.log(`WordPress URL: ${config.wordPress.baseUrl}`);
+ * ```
+ *
+ * @module config-service
+ * @since 1.0.0
  */
 
 import { getEnvVar } from './env.js';
 import {
   AppConfigSchema,
-  EnvironmentSchema,
-  LogLevelSchema,
   type AppConfig,
   type ConfigValidationResult,
-  type Environment,
-  type LogLevel,
   type EnvironmentVariable,
 } from '../types/config.js';
 
-/**
- * Environment variable definitions with validation rules
- */
 const ENV_VARIABLES: readonly EnvironmentVariable[] = [
   {
     name: 'NODE_ENV',
@@ -82,12 +102,23 @@ const ENV_VARIABLES: readonly EnvironmentVariable[] = [
  * to environment variables with proper error handling and validation.
  * Implements lazy loading and caching for optimal performance.
  *
+ * The service follows a strict validation process:
+ * 1. Environment variable presence validation
+ * 2. Schema-based type validation using Zod
+ * 3. Business logic validation (URL formats, UUIDs, etc.)
+ * 4. Environment-specific defaults and security policies
+ *
  * @example
  * ```typescript
  * const configService = ConfigService.getInstance();
- * await configService.loadConfig();
- * const config = configService.getConfig();
- * console.log(`Environment: ${config.environment}`);
+ * const result = configService.loadConfig();
+ *
+ * if (result.isValid) {
+ *   const config = configService.getConfig();
+ *   console.log(`Environment: ${config.environment}`);
+ * } else {
+ *   console.error('Configuration errors:', result.errors);
+ * }
  * ```
  * @since 1.0.0
  * @see {@link AppConfig} for configuration schema
@@ -129,7 +160,6 @@ export class ConfigService {
    * loading in test environments. Should NEVER be used in
    * production code as it can lead to configuration inconsistencies.
    *
-   * @throws {Error} If called in production environment
    * @example
    * ```typescript
    * // In test setup
@@ -248,9 +278,6 @@ export class ConfigService {
     return this.config;
   }
 
-  /**
-   * Format Zod validation errors to match expected test format
-   */
   private formatValidationError(path: (string | number)[], message: string, code: string): string {
     const fieldPath = path.join('.');
     const envVarName = this.getEnvVarName(fieldPath);
@@ -327,9 +354,6 @@ export class ConfigService {
     return `${envVarName} has invalid type`;
   }
 
-  /**
-   * Validate environment variables are present (used internally)
-   */
   private validateEnvironmentVariables(): string[] {
     const errors: string[] = [];
 
@@ -345,33 +369,10 @@ export class ConfigService {
     return errors;
   }
 
-  /**
-   * Validate environment variables are present (public API)
-   */
   public validateEnvironment(): readonly string[] {
     return this.validateEnvironmentVariables();
   }
 
-  /**
-   * Build core environment and logging configuration
-   *
-   * Constructs the fundamental environment and logging configuration by reading
-   * environment variables and applying environment-specific defaults. Prioritizes
-   * ENVIRONMENT over NODE_ENV for consistency with application standards.
-   *
-   * @returns Object containing environment string and logging configuration
-   * @private
-   * @example
-   * ```typescript
-   * const core = this.buildCoreEnvironmentConfig();
-   * // Returns: {
-   * //   environment: 'development',
-   * //   logging: { level: 'info', enableConsole: true, ... }
-   * // }
-   * ```
-   * @since 1.0.0
-   * @see {@link buildRawConfig} for usage in main configuration building
-   */
   private buildCoreEnvironmentConfig(): { environment: string; logging: unknown } {
     const environment = getEnvVar('ENVIRONMENT') ?? getEnvVar('NODE_ENV') ?? 'development';
     const logLevel = getEnvVar('LOG_LEVEL') ?? 'info';
@@ -387,32 +388,6 @@ export class ConfigService {
     };
   }
 
-  /**
-   * Build DriveHR integration configuration
-   *
-   * Constructs the DriveHR-specific configuration including API URLs, company
-   * identification, and connection parameters. Generates the appropriate career
-   * page URLs based on the company ID when available.
-   *
-   * @param companyId - The DriveHR company identifier for URL generation
-   * @param requestTimeout - Timeout duration for HTTP requests in milliseconds
-   * @param maxRetries - Maximum number of retry attempts for failed requests
-   * @returns DriveHR configuration object with URLs and connection settings
-   * @private
-   * @example
-   * ```typescript
-   * const config = this.buildDriveHrConfig('company-123', 30000, 3);
-   * // Returns: {
-   * //   careersUrl: 'https://drivehris.app/careers/company-123/list',
-   * //   companyId: 'company-123',
-   * //   apiBaseUrl: 'https://drivehris.app/careers/company-123',
-   * //   timeout: 30000,
-   * //   retries: 3
-   * // }
-   * ```
-   * @since 1.0.0
-   * @see {@link buildRawConfig} for integration with main configuration
-   */
   private buildDriveHrConfig(
     companyId: string,
     requestTimeout: number,
@@ -430,35 +405,6 @@ export class ConfigService {
     };
   }
 
-  /**
-   * Build WordPress and webhook configuration
-   *
-   * Constructs both WordPress API configuration and webhook security settings.
-   * Combines these related configurations into a single method since they work
-   * together for job synchronization with WordPress endpoints.
-   *
-   * @param wpApiUrl - WordPress webhook endpoint URL for job synchronization
-   * @param webhookSecret - HMAC secret for webhook signature verification
-   * @param requestTimeout - Timeout duration for HTTP requests in milliseconds
-   * @param maxRetries - Maximum number of retry attempts for failed requests
-   * @returns Object containing both WordPress and webhook configurations
-   * @private
-   * @example
-   * ```typescript
-   * const config = this.buildWordPressConfig(
-   *   'https://site.com/webhook/drivehr-sync',
-   *   'secret-key',
-   *   30000,
-   *   3
-   * );
-   * // Returns: {
-   * //   wordPress: { baseUrl: '...', timeout: 30000, retries: 3 },
-   * //   webhook: { secret: 'secret-key', algorithm: 'sha256', ... }
-   * // }
-   * ```
-   * @since 1.0.0
-   * @see {@link buildRawConfig} for integration with main configuration
-   */
   private buildWordPressConfig(
     wpApiUrl: string,
     webhookSecret: string,
@@ -479,37 +425,6 @@ export class ConfigService {
     };
   }
 
-  /**
-   * Build security and access control configuration
-   *
-   * Constructs security settings including CORS policies, rate limiting,
-   * and input validation controls. Applies environment-specific security
-   * policies with stricter controls in production environments.
-   *
-   * @param corsOrigins - Array of allowed CORS origins for cross-origin requests
-   * @param environment - Current environment (development, staging, production)
-   * @param rateLimitMaxRequests - Maximum requests allowed per time window
-   * @returns Security configuration object with all access control settings
-   * @private
-   * @example
-   * ```typescript
-   * const config = this.buildSecurityConfig(
-   *   ['https://app.example.com'],
-   *   'production',
-   *   100
-   * );
-   * // Returns: {
-   * //   enableCors: true,
-   * //   corsOrigins: ['https://app.example.com'],
-   * //   enableRateLimit: true,
-   * //   rateLimitMaxRequests: 100,
-   * //   enableInputValidation: true,
-   * //   ...
-   * // }
-   * ```
-   * @since 1.0.0
-   * @see {@link buildRawConfig} for integration with main configuration
-   */
   private buildSecurityConfig(
     corsOrigins: string[],
     environment: string,
@@ -527,35 +442,6 @@ export class ConfigService {
     };
   }
 
-  /**
-   * Build performance and optimization configuration
-   *
-   * Constructs performance-related settings including timeouts, retry behavior,
-   * caching policies, and concurrency limits. Applies environment-specific
-   * optimizations with caching enabled in production for better performance.
-   *
-   * @param requestTimeout - HTTP request timeout duration in milliseconds
-   * @param maxRetries - Maximum number of retry attempts for failed operations
-   * @param batchSize - Number of items to process in a single batch operation
-   * @param environment - Current environment for environment-specific optimizations
-   * @returns Performance configuration object with all optimization settings
-   * @private
-   * @example
-   * ```typescript
-   * const config = this.buildPerformanceConfig(30000, 3, 10, 'production');
-   * // Returns: {
-   * //   httpTimeout: 30000,
-   * //   maxRetries: 3,
-   * //   retryDelay: 1000,
-   * //   batchSize: 10,
-   * //   cacheEnabled: true,
-   * //   cacheTtl: 300,
-   * //   maxConcurrentRequests: 10
-   * // }
-   * ```
-   * @since 1.0.0
-   * @see {@link buildRawConfig} for integration with main configuration
-   */
   private buildPerformanceConfig(
     requestTimeout: number,
     maxRetries: number,
@@ -573,9 +459,6 @@ export class ConfigService {
     };
   }
 
-  /**
-   * Build raw configuration object from environment variables
-   */
   private buildRawConfig(): unknown {
     // Get core configuration
     const coreConfig = this.buildCoreEnvironmentConfig();
@@ -624,18 +507,6 @@ export class ConfigService {
     };
   }
 
-  private parseEnvironment(): Environment {
-    const env = getEnvVar('NODE_ENV') ?? getEnvVar('ENVIRONMENT') ?? 'development';
-    const result = EnvironmentSchema.safeParse(env);
-    return result.success ? result.data : 'development';
-  }
-
-  private parseLogLevel(): LogLevel {
-    const level = getEnvVar('LOG_LEVEL') ?? 'info';
-    const result = LogLevelSchema.safeParse(level);
-    return result.success ? result.data : 'info';
-  }
-
   private parseNumber(envVar: string, defaultValue: number): number {
     const value = getEnvVar(envVar, String(defaultValue));
     const parsed = parseInt(value, 10);
@@ -652,56 +523,57 @@ export class ConfigService {
 }
 
 /**
- * Get the application configuration (singleton pattern)
+ * Get application configuration (convenience function)
  *
- * Convenience function that provides direct access to the validated
- * application configuration. This is the recommended way to access
- * configuration in most parts of the application.
+ * Convenience wrapper around ConfigService singleton for accessing
+ * the application configuration. This function provides a simpler
+ * API for components that just need to read configuration values
+ * without managing the service instance directly.
  *
  * @returns The validated application configuration
  * @throws {Error} When configuration has not been loaded or is invalid
  * @example
  * ```typescript
- * // In your service or function
  * import { getAppConfig } from './config.js';
  *
  * const config = getAppConfig();
  * console.log(`Environment: ${config.environment}`);
- * console.log(`DriveHR Company: ${config.driveHr.companyId}`);
+ * console.log(`WordPress URL: ${config.wordPress.baseUrl}`);
  * ```
  * @since 1.0.0
- * @see {@link loadAppConfig} for loading configuration first
  * @see {@link ConfigService.getConfig} for the underlying implementation
+ * @see {@link loadAppConfig} for loading configuration first
  */
 export function getAppConfig(): AppConfig {
   return ConfigService.getInstance().getConfig();
 }
 
 /**
- * Load and validate configuration
+ * Load and validate application configuration (convenience function)
  *
- * Convenience function that loads and validates the application
- * configuration from environment variables. Should be called once
- * during application startup before accessing configuration.
+ * Convenience wrapper around ConfigService singleton for loading
+ * and validating the application configuration. This function provides
+ * a simpler API for application startup code that needs to initialize
+ * configuration without managing the service instance directly.
  *
- * @returns Configuration validation result with success status and any errors
+ * @returns Configuration validation result containing either valid config or errors
  * @example
  * ```typescript
- * // In application startup
  * import { loadAppConfig, getAppConfig } from './config.js';
  *
+ * // Application startup - load and validate configuration
  * const result = loadAppConfig();
  * if (!result.isValid) {
  *   console.error('Configuration errors:', result.errors);
  *   process.exit(1);
  * }
  *
- * // Now safe to use getAppConfig() anywhere
+ * // Now safe to use configuration anywhere
  * const config = getAppConfig();
  * ```
  * @since 1.0.0
- * @see {@link getAppConfig} for accessing loaded configuration
  * @see {@link ConfigService.loadConfig} for the underlying implementation
+ * @see {@link getAppConfig} for accessing loaded configuration
  */
 export function loadAppConfig(): ConfigValidationResult {
   return ConfigService.getInstance().loadConfig();

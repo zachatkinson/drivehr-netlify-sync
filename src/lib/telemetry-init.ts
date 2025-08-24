@@ -1,14 +1,26 @@
 /**
- * Enterprise Telemetry Initialization
+ * Enterprise Telemetry Initialization System
  *
- * Application-wide telemetry initialization that sets up OpenTelemetry
- * monitoring for the DriveHR Netlify sync service. Configures distributed
- * tracing, business metrics, and integration with enterprise monitoring
- * platforms following best practices.
+ * Application-wide telemetry initialization framework providing OpenTelemetry
+ * monitoring configuration for the DriveHR Netlify sync service. Enables
+ * distributed tracing, business metrics collection, and seamless integration
+ * with enterprise monitoring platforms following industry best practices.
  *
- * This module should be imported and initialized at the very beginning
- * of the application lifecycle, before any other modules are loaded,
- * to ensure complete instrumentation coverage.
+ * The system provides environment-specific configurations optimized for
+ * development, testing, and production environments with automatic error
+ * handling and graceful degradation when telemetry services are unavailable.
+ *
+ * Key Features:
+ * - Environment-aware configuration selection (development, test, production)
+ * - Automatic service discovery and endpoint configuration
+ * - Resource attribute injection for cloud platform metadata
+ * - Graceful error handling with environment-specific behavior
+ * - Process signal handling for clean telemetry shutdown
+ * - Configuration validation and debugging utilities
+ *
+ * This module should be initialized at the very beginning of the application
+ * lifecycle, before any other modules are loaded, to ensure complete
+ * instrumentation coverage across all application components.
  *
  * @example
  * ```typescript
@@ -22,10 +34,11 @@
  * import { createJobFetcher } from './services/job-fetcher.js';
  * ```
  *
- * @module telemetry-init
+ * @module enterprise-telemetry-initialization
  * @since 1.0.0
- * @see {@link initializeTelemetry} for the core initialization function
- * @see {@link https://opentelemetry.io/docs/languages/js/getting-started/nodejs/} for setup guide
+ * @see {@link ./telemetry.ts} for core telemetry functionality
+ * @see {@link initializeApplicationTelemetry} for main initialization function
+ * @see {@link https://opentelemetry.io/docs/languages/js/getting-started/nodejs/} for OpenTelemetry setup guide
  */
 
 import {
@@ -40,12 +53,21 @@ import { getEnvVar } from './env.js';
 const logger = createLogger();
 
 /**
- * Production telemetry configuration
+ * Production telemetry configuration for enterprise deployment
  *
- * Enterprise-grade configuration for production deployment with
- * comprehensive monitoring and observability features.
+ * Comprehensive configuration optimized for production deployment with
+ * enterprise-grade monitoring, observability features, and integration
+ * with major monitoring platforms including Datadog and New Relic.
+ *
+ * Features:
+ * - Cloud platform metadata injection (Netlify, AWS)
+ * - Git commit and repository tracking
+ * - Multi-provider API key support
+ * - Resource attribute enrichment
+ * - Environment variable-driven configuration
  *
  * @since 1.0.0
+ * @see {@link TelemetryConfig} for configuration interface
  */
 const PRODUCTION_CONFIG: TelemetryConfig = {
   serviceName: 'drivehr-netlify-sync',
@@ -82,12 +104,20 @@ const PRODUCTION_CONFIG: TelemetryConfig = {
 };
 
 /**
- * Development telemetry configuration
+ * Development telemetry configuration for local debugging
  *
- * Lightweight configuration for local development with console
- * logging and debugging features enabled.
+ * Lightweight configuration optimized for local development with enhanced
+ * debugging capabilities and console-based telemetry output. Minimizes
+ * external dependencies while providing comprehensive instrumentation.
+ *
+ * Features:
+ * - Debug mode enabled by default
+ * - Developer identity tracking
+ * - Local service identification
+ * - Console-based telemetry export
  *
  * @since 1.0.0
+ * @see {@link TelemetryConfig} for configuration interface
  */
 const DEVELOPMENT_CONFIG: TelemetryConfig = {
   serviceName: 'drivehr-netlify-sync-dev',
@@ -103,12 +133,20 @@ const DEVELOPMENT_CONFIG: TelemetryConfig = {
 };
 
 /**
- * Test telemetry configuration
+ * Test telemetry configuration for testing environments
  *
- * Minimal configuration for testing environments with
- * instrumentation disabled to avoid interference.
+ * Minimal configuration designed for testing environments with reduced
+ * instrumentation overhead and no external telemetry dependencies.
+ * Prevents telemetry interference with test execution and timing.
+ *
+ * Features:
+ * - Minimal resource usage
+ * - No external endpoint dependencies
+ * - Test runner identification
+ * - Disabled debug logging to reduce test noise
  *
  * @since 1.0.0
+ * @see {@link TelemetryConfig} for configuration interface
  */
 const TEST_CONFIG: TelemetryConfig = {
   serviceName: 'drivehr-netlify-sync-test',
@@ -123,36 +161,28 @@ const TEST_CONFIG: TelemetryConfig = {
 };
 
 /**
- * Initialize telemetry for the application with environment-specific configuration
+ * Select appropriate telemetry configuration based on environment
  *
- * Automatically detects the current environment and applies the appropriate
- * telemetry configuration. Handles initialization errors gracefully and
- * provides fallback behavior when telemetry services are unavailable.
+ * Automatically selects the optimal telemetry configuration based on the
+ * current execution environment. Supports configuration overrides for
+ * testing scenarios and custom deployment requirements.
  *
- * @param forceConfig - Optional configuration override for testing
- * @returns Promise that resolves when telemetry is initialized
- * @throws {Error} When telemetry initialization fails in critical environments
+ * @param environment - Current execution environment (development, test, production)
+ * @param forceConfig - Optional configuration override for testing or custom scenarios
+ * @returns Complete telemetry configuration object
  * @example
  * ```typescript
- * // Standard initialization
- * await initializeApplicationTelemetry();
+ * // Standard environment-based selection
+ * const config = selectTelemetryConfig('production');
  *
  * // Custom configuration for testing
- * await initializeApplicationTelemetry({
- *   serviceName: 'test-service',
- *   environment: 'test',
+ * const testConfig = selectTelemetryConfig('test', {
+ *   serviceName: 'custom-test-service',
  *   debug: true
  * });
  * ```
  * @since 1.0.0
- */
-/**
- * Select telemetry configuration based on environment
- *
- * @param environment - Current environment
- * @param forceConfig - Optional override configuration
- * @returns Selected telemetry configuration
- * @since 1.0.0
+ * @see {@link TelemetryConfig} for configuration options
  */
 function selectTelemetryConfig(
   environment: string,
@@ -178,11 +208,24 @@ function selectTelemetryConfig(
 }
 
 /**
- * Handle telemetry initialization errors based on environment
+ * Handle telemetry initialization errors with environment-specific behavior
  *
- * @param error - The error that occurred
- * @param environment - Current environment
- * @throws Error in non-production environments
+ * Provides intelligent error handling for telemetry initialization failures
+ * with different behaviors based on the execution environment. Production
+ * environments continue execution with degraded telemetry, while development
+ * environments fail fast to surface configuration issues.
+ *
+ * @param error - The error that occurred during telemetry initialization
+ * @param environment - Current execution environment
+ * @throws {Error} In non-production environments to surface configuration issues
+ * @example
+ * ```typescript
+ * try {
+ *   await initializeTelemetry(config);
+ * } catch (error) {
+ *   handleTelemetryError(error, 'production'); // Logs error, continues execution
+ * }
+ * ```
  * @since 1.0.0
  */
 function handleTelemetryError(error: unknown, environment: string): void {
@@ -201,6 +244,43 @@ function handleTelemetryError(error: unknown, environment: string): void {
   }
 }
 
+/**
+ * Initialize application telemetry with environment-specific configuration
+ *
+ * Main telemetry initialization function that automatically detects the current
+ * environment and applies appropriate telemetry configuration. Handles initialization
+ * errors gracefully and provides fallback behavior when telemetry services are
+ * unavailable.
+ *
+ * The function is idempotent - multiple calls will not result in duplicate
+ * initialization. Supports configuration overrides for testing and custom
+ * deployment scenarios.
+ *
+ * @param forceConfig - Optional configuration override for testing or custom scenarios
+ * @returns Promise that resolves when telemetry initialization is complete
+ * @throws {Error} When telemetry initialization fails in non-production environments
+ * @example
+ * ```typescript
+ * // Standard initialization with automatic environment detection
+ * await initializeApplicationTelemetry();
+ *
+ * // Custom configuration for testing
+ * await initializeApplicationTelemetry({
+ *   serviceName: 'test-service',
+ *   environment: 'test',
+ *   debug: true
+ * });
+ *
+ * // Production initialization with custom endpoints
+ * await initializeApplicationTelemetry({
+ *   traceEndpoint: 'https://api.honeycomb.io/v1/traces',
+ *   headers: { 'x-honeycomb-team': 'your-api-key' }
+ * });
+ * ```
+ * @since 1.0.0
+ * @see {@link TelemetryConfig} for configuration options
+ * @see {@link selectTelemetryConfig} for environment-based configuration selection
+ */
 export async function initializeApplicationTelemetry(
   forceConfig?: Partial<TelemetryConfig>
 ): Promise<void> {
@@ -235,13 +315,17 @@ export async function initializeApplicationTelemetry(
 }
 
 /**
- * Gracefully shutdown application telemetry
+ * Gracefully shutdown application telemetry with resource cleanup
  *
- * Properly terminates all telemetry resources and ensures data is
- * exported before application shutdown. Should be called during
- * application cleanup or process termination.
+ * Properly terminates all telemetry resources and ensures collected data is
+ * exported before application shutdown. Handles shutdown errors gracefully
+ * to prevent application hang during termination sequences.
  *
- * @returns Promise that resolves when shutdown is complete
+ * Should be called during application cleanup, process termination handlers,
+ * or when telemetry is no longer needed. The function is safe to call multiple
+ * times and will only perform shutdown operations once.
+ *
+ * @returns Promise that resolves when telemetry shutdown is complete
  * @example
  * ```typescript
  * // In application shutdown handler
@@ -251,13 +335,25 @@ export async function initializeApplicationTelemetry(
  *   process.exit(0);
  * });
  *
- * process.on('SIGINT', async () => {
- *   logger.info('Received SIGINT, shutting down gracefully');
+ * // In serverless function cleanup
+ * export const handler = async (event) => {
+ *   try {
+ *     // Your application logic here
+ *     return response;
+ *   } finally {
+ *     await shutdownApplicationTelemetry();
+ *   }
+ * };
+ *
+ * // Manual shutdown in long-running applications
+ * const cleanup = async () => {
  *   await shutdownApplicationTelemetry();
+ *   await database.close();
  *   process.exit(0);
- * });
+ * };
  * ```
  * @since 1.0.0
+ * @see {@link shutdownTelemetry} for low-level shutdown operations
  */
 export async function shutdownApplicationTelemetry(): Promise<void> {
   if (!isTelemetryInitialized()) {
@@ -278,18 +374,27 @@ export async function shutdownApplicationTelemetry(): Promise<void> {
 }
 
 /**
- * Setup process handlers for graceful telemetry shutdown
+ * Setup process signal handlers for graceful telemetry shutdown
  *
- * Automatically registers signal handlers to ensure telemetry
- * is properly shut down when the application terminates.
- * This prevents data loss and ensures clean resource cleanup.
+ * Automatically registers signal handlers to ensure telemetry is properly
+ * shut down when the application terminates. Handles SIGTERM, SIGINT,
+ * uncaught exceptions, and unhandled promise rejections to prevent data
+ * loss and ensure clean resource cleanup.
+ *
+ * This function should be called once during application startup after
+ * telemetry initialization to ensure proper cleanup during all termination
+ * scenarios.
  *
  * @example
  * ```typescript
  * // Call once during application startup
+ * await initializeApplicationTelemetry();
  * setupTelemetryShutdownHandlers();
+ *
+ * // Your application logic here
  * ```
  * @since 1.0.0
+ * @see {@link shutdownApplicationTelemetry} for manual shutdown operations
  */
 export function setupTelemetryShutdownHandlers(): void {
   const shutdownHandler = async (signal: string): Promise<void> => {
@@ -318,19 +423,35 @@ export function setupTelemetryShutdownHandlers(): void {
 }
 
 /**
- * Check if telemetry should be enabled for current environment
+ * Determine if telemetry should be enabled for the current environment
  *
- * Utility function to determine if telemetry should be active
- * based on environment variables and configuration flags.
+ * Utility function that evaluates environment variables and configuration
+ * flags to determine if telemetry should be active. Provides intelligent
+ * defaults while allowing explicit control through environment variables.
  *
- * @returns True if telemetry should be enabled
+ * Decision logic:
+ * - Respects explicit DISABLE_TELEMETRY flag
+ * - Enables by default in production environments
+ * - Requires explicit ENABLE_TELEMETRY flag in development
+ * - Disabled by default in test environments
+ *
+ * @returns True if telemetry should be enabled for the current environment
  * @example
  * ```typescript
+ * // Conditional telemetry initialization
  * if (shouldEnableTelemetry()) {
  *   await initializeApplicationTelemetry();
+ *   setupTelemetryShutdownHandlers();
  * }
+ *
+ * // Environment variable examples:
+ * // Production: Default enabled (NODE_ENV=production)
+ * // Development: ENABLE_TELEMETRY=true to enable
+ * // Test: ENABLE_TELEMETRY=true to enable
+ * // Any: DISABLE_TELEMETRY=true to disable
  * ```
  * @since 1.0.0
+ * @see {@link initializeApplicationTelemetry} for telemetry initialization
  */
 export function shouldEnableTelemetry(): boolean {
   // Explicit disable flag
@@ -358,19 +479,32 @@ export function shouldEnableTelemetry(): boolean {
 }
 
 /**
- * Get current telemetry configuration summary
+ * Get comprehensive telemetry configuration summary for debugging
  *
- * Returns a summary of the current telemetry configuration
- * for debugging and monitoring purposes.
+ * Returns detailed summary of the current telemetry configuration including
+ * initialization status, service information, and endpoint availability.
+ * Useful for debugging telemetry issues and validating configuration.
  *
- * @returns Configuration summary object
+ * @returns Configuration summary object with current telemetry state
  * @example
  * ```typescript
  * const summary = getTelemetryConfigSummary();
  * console.log(`Telemetry enabled: ${summary.enabled}`);
- * console.log(`Service: ${summary.serviceName}`);
+ * console.log(`Service: ${summary.serviceName} (${summary.environment})`);
+ * console.log(`Trace endpoint: ${summary.hasTraceEndpoint ? 'configured' : 'not configured'}`);
+ * console.log(`Metrics endpoint: ${summary.hasMetricsEndpoint ? 'configured' : 'not configured'}`);
+ *
+ * // Use in health checks
+ * app.get('/health', (req, res) => {
+ *   const telemetrySummary = getTelemetryConfigSummary();
+ *   res.json({
+ *     status: 'healthy',
+ *     telemetry: telemetrySummary
+ *   });
+ * });
  * ```
  * @since 1.0.0
+ * @see {@link TelemetryConfig} for full configuration structure
  */
 export function getTelemetryConfigSummary(): {
   enabled: boolean;
