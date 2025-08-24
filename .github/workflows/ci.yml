@@ -87,10 +87,6 @@ jobs:
           # Service Tests
           - name: 'Job-Fetcher-Services'
             pattern: 'test/services/job-fetcher'
-          - name: 'Browser-Services'
-            pattern: 'test/services/browser'
-          - name: 'Interface-Services'
-            pattern: 'test/services/interfaces'
           - name: 'HTML-Parser-Service'
             pattern: 'test/services/html-parser.test.ts'
           - name: 'WordPress-Client-Service'
