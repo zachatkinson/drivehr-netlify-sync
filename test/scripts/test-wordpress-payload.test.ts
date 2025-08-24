@@ -511,7 +511,8 @@ describe('WordPress Payload Testing Tool', () => {
 
       try {
         vi.unstubAllEnvs();
-        // Don't set WEBHOOK_SECRET
+        // Set WP_API_URL but don't set WEBHOOK_SECRET
+        vi.stubEnv('WP_API_URL', 'https://test.example.com/webhook/drivehr-sync');
 
         const { stderr, exitCode } = await WordPressPayloadTestUtils.executePayloadScript([
           '--company-id',

@@ -107,6 +107,7 @@ class PlaywrightScraperTestUtils {
   static createMockPage() {
     return {
       goto: vi.fn().mockResolvedValue(undefined),
+      url: vi.fn().mockReturnValue('https://example.com/careers'),
       waitForSelector: vi.fn().mockResolvedValue(undefined),
       waitForLoadState: vi.fn().mockResolvedValue(undefined),
       waitForTimeout: vi.fn().mockResolvedValue(undefined),
@@ -115,14 +116,7 @@ class PlaywrightScraperTestUtils {
           isVisible: vi.fn().mockResolvedValue(false),
         }),
       }),
-      evaluate: vi.fn().mockImplementation(async fn => {
-        // Mock browser-side extraction using new modular architecture
-        if (typeof fn === 'function') {
-          // Mock the browser context with realistic extraction results
-          return this.SAMPLE_RAW_JOBS;
-        }
-        return this.SAMPLE_RAW_JOBS;
-      }),
+      evaluate: vi.fn(), // Allow each test to configure its own behavior
       screenshot: vi.fn().mockResolvedValue(undefined),
       close: vi.fn().mockResolvedValue(undefined),
       route: vi.fn().mockImplementation((_pattern, handler) => {
@@ -212,11 +206,35 @@ class PlaywrightScraperTestUtils {
     const { DriveHrUrlBuilder } = await import('../../src/lib/job-fetch-utils.js');
     vi.mocked(DriveHrUrlBuilder.buildCareersPageUrl).mockReturnValue(this.SAMPLE_CONFIG.careersUrl);
 
+    // Don't setup default mock behavior here - each test will configure its own
+    // This prevents interference between default setup and custom test mocks
+
     return { mockPage, mockContext, mockBrowser, mockLogger };
   }
 
   static restoreMocks() {
     vi.clearAllMocks();
+  }
+
+  static setupStandardSuccessfulMocks(mockPage: ReturnType<typeof PlaywrightScraperTestUtils.createMockPage>) {
+    // Setup the 3 standard calls that most successful tests need:
+    // Call 1: Page diagnostic (first call in extractFromElementUICollapse)
+    // Call 2: Button expansion (returns expand result)  
+    // Call 3: Job extraction (returns sample jobs)
+    mockPage.evaluate
+      .mockResolvedValueOnce({
+        url: 'https://example.com/careers',
+        title: 'Test Careers Page',
+        readyState: 'complete',
+        collapseItems: 2,
+        collapseButtons: 2,
+        titleLinks: 0,
+        bodyTextLength: 1000,
+        hasElementUI: true,
+        firstJobText: 'Senior Engineer'
+      })
+      .mockResolvedValueOnce({ totalButtons: 5, clickedCount: 5 })
+      .mockResolvedValue(this.SAMPLE_RAW_JOBS);
   }
 }
 
@@ -225,6 +243,8 @@ describe('PlaywrightScraper', () => {
 
   beforeEach(async () => {
     mocks = await PlaywrightScraperTestUtils.setupMocks();
+    // NOTE: No default mock setup - each test must configure its own mocks
+    // Use PlaywrightScraperTestUtils.setupDefaultSuccessfulMocks(mocks.mockPage) if needed
   });
 
   afterEach(() => {
@@ -251,6 +271,7 @@ describe('PlaywrightScraper', () => {
     });
 
     it('should handle interface method calls correctly', async () => {
+      PlaywrightScraperTestUtils.setupStandardSuccessfulMocks(mocks.mockPage);
       const scraper = new PlaywrightScraper();
 
       const result = await scraper.scrapeJobs(
@@ -287,6 +308,7 @@ describe('PlaywrightScraper', () => {
 
   describe('scrapeJobs', () => {
     it('should successfully scrape jobs from a careers page', async () => {
+      PlaywrightScraperTestUtils.setupStandardSuccessfulMocks(mocks.mockPage);
       const scraper = new PlaywrightScraper();
       const result = await scraper.scrapeJobs(
         PlaywrightScraperTestUtils.SAMPLE_CONFIG,
@@ -627,6 +649,7 @@ describe('PlaywrightScraper', () => {
     });
 
     it('should take debug screenshot when debug mode is enabled', async () => {
+      PlaywrightScraperTestUtils.setupStandardSuccessfulMocks(mocks.mockPage);
       const scraper = new PlaywrightScraper({ debug: true });
       const result = await scraper.scrapeJobs(
         PlaywrightScraperTestUtils.SAMPLE_CONFIG,
@@ -642,6 +665,7 @@ describe('PlaywrightScraper', () => {
     });
 
     it('should not take screenshot when debug mode is disabled', async () => {
+      PlaywrightScraperTestUtils.setupStandardSuccessfulMocks(mocks.mockPage);
       const scraper = new PlaywrightScraper({ debug: false });
       const result = await scraper.scrapeJobs(
         PlaywrightScraperTestUtils.SAMPLE_CONFIG,
@@ -656,31 +680,36 @@ describe('PlaywrightScraper', () => {
 
   describe('data extraction strategies', () => {
     it('should fall back to JSON-LD when structured elements fail', async () => {
-      // Mock browser-side modular extraction strategies
+      // Reset default mocks and configure custom behavior
+      mocks.mockPage.evaluate.mockReset();
+      // Mock browser-side extraction with Element UI flow + JSON-LD fallback
       mocks.mockPage.evaluate
-        .mockResolvedValueOnce([]) // First call (structured elements using new dom-utils)
-        .mockResolvedValueOnce(PlaywrightScraperTestUtils.SAMPLE_RAW_JOBS); // Second call (JSON-LD using new json-ld-parser)
+        .mockResolvedValueOnce({ totalButtons: 5, clickedCount: 5 }) // First call: button expansion
+        .mockResolvedValueOnce([]) // Second call: structured extraction (empty to trigger fallback)
+        .mockResolvedValueOnce(PlaywrightScraperTestUtils.SAMPLE_RAW_JOBS); // Third call: JSON-LD extraction
 
       const scraper = new PlaywrightScraper();
       const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
 
       expect(result.success).toBe(true);
       expect(result.jobs).toHaveLength(2);
-      expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(2);
+      expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(3);
     });
 
-    it('should fall back to text patterns when other strategies fail', async () => {
-      // Mock modular extraction strategies: structured HTML, JSON-LD, then text patterns
+    it('should return empty result when all extraction strategies fail', async () => {
+      // Reset default mocks and configure custom behavior
+      mocks.mockPage.evaluate.mockReset();
+      // Mock structured extraction failure: button expansion succeeds but job extraction fails in both strategies
       mocks.mockPage.evaluate
-        .mockResolvedValueOnce([]) // extractFromStructuredHtml
-        .mockResolvedValueOnce([]) // extractFromJsonLd
-        .mockResolvedValueOnce([PlaywrightScraperTestUtils.SAMPLE_RAW_JOBS[0]]); // extractFromTextPatterns
+        .mockResolvedValueOnce({ totalButtons: 5, clickedCount: 5 }) // Button expansion
+        .mockResolvedValueOnce([]) // Structured elements extraction fails
+        .mockResolvedValueOnce([]); // JSON-LD extraction fails
 
       const scraper = new PlaywrightScraper();
       const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
 
-      expect(result.success).toBe(true);
-      expect(result.jobs).toHaveLength(1);
+      expect(result.success).toBe(true); // Still successful, just no jobs found
+      expect(result.jobs).toHaveLength(0);
       expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(3);
     });
 
@@ -712,6 +741,9 @@ describe('PlaywrightScraper', () => {
 
   describe('extraction method implementation', () => {
     it('should extract jobs from structured HTML elements', async () => {
+      // Reset default mocks and configure custom behavior
+      mocks.mockPage.evaluate.mockReset();
+      
       // Test the Element UI expansion extraction logic
       let evaluateCallCount = 0;
       mocks.mockPage.evaluate.mockImplementation(async (fn, baseUrl) => {
@@ -719,8 +751,8 @@ describe('PlaywrightScraper', () => {
 
         // First call: expand buttons
         if (evaluateCallCount === 1) {
-          // Simulating button expansion
-          return undefined;
+          // Return proper button expansion result
+          return { totalButtons: 2, clickedCount: 2 };
         }
 
         // Second call: extract jobs after expansion
@@ -1323,6 +1355,9 @@ describe('PlaywrightScraper', () => {
      * @since 1.0.0
      */
     it('should abort blocked resource types for performance', async () => {
+      // Reset default mocks and configure custom behavior
+      mocks.mockPage.route.mockReset();
+      
       const scraper = new PlaywrightScraper();
 
       // Mock route handler to capture the callback
@@ -1332,7 +1367,7 @@ describe('PlaywrightScraper', () => {
         continue: () => void;
       }) => void = () => {};
 
-      vi.mocked(mocks.mockPage.route).mockImplementation((pattern, handler) => {
+      mocks.mockPage.route.mockImplementation((pattern, handler) => {
         routeHandler = handler;
       });
 
@@ -1583,17 +1618,16 @@ describe('PlaywrightScraper', () => {
      * @since 1.0.0
      */
     it('should handle structured elements extraction with no matching selectors', async () => {
-      const scraper = new PlaywrightScraper();
-
-      // Mock all 4 page.evaluate calls to return empty results
-      // Call 1: Button expansion (returns undefined)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce(undefined);
+      // Reset default mocks and configure custom behavior for this test
+      mocks.mockPage.evaluate.mockReset();
+      // Call 1: Button expansion (returns expansion result)
+      mocks.mockPage.evaluate.mockResolvedValueOnce({ totalButtons: 0, clickedCount: 0 });
       // Call 2: Element UI extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      mocks.mockPage.evaluate.mockResolvedValueOnce([]);
       // Call 3: JSON-LD extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
-      // Call 4: Text pattern extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      mocks.mockPage.evaluate.mockResolvedValueOnce([]);
+
+      const scraper = new PlaywrightScraper();
 
       const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
 
@@ -1621,23 +1655,24 @@ describe('PlaywrightScraper', () => {
      */
     it('should handle JSON-LD extraction with invalid JSON', async () => {
       const scraper = new PlaywrightScraper();
+      
+      // Reset default mocks and configure custom behavior
+      mocks.mockPage.evaluate.mockReset();
 
-      // Mock all 4 page.evaluate calls to return empty results
-      // Call 1: Button expansion (returns undefined)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce(undefined);
+      // Mock all 3 page.evaluate calls to return empty results
+      // Call 1: Button expansion (returns expansion result)
+      mocks.mockPage.evaluate.mockResolvedValueOnce({ totalButtons: 5, clickedCount: 5 });
       // Call 2: Element UI extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      mocks.mockPage.evaluate.mockResolvedValueOnce([]);
       // Call 3: JSON-LD extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
-      // Call 4: Text pattern extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      mocks.mockPage.evaluate.mockResolvedValueOnce([]);
 
       const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
 
       expect(result.success).toBe(true);
       expect(result.jobs.length).toBe(0);
-      // Should try all four extraction strategies
-      expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(4);
+      // Should try all three extraction strategies
+      expect(mocks.mockPage.evaluate).toHaveBeenCalledTimes(3);
     });
 
     /**
@@ -1658,15 +1693,13 @@ describe('PlaywrightScraper', () => {
     it('should handle text pattern extraction with no matches', async () => {
       const scraper = new PlaywrightScraper();
 
-      // Mock all 4 page.evaluate calls to return empty results
-      // Call 1: Button expansion (returns undefined)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce(undefined);
+      // Mock all 3 page.evaluate calls to return empty results
+      // Call 1: Button expansion (returns expansion result)
+      mocks.mockPage.evaluate.mockResolvedValueOnce({ totalButtons: 0, clickedCount: 0 });
       // Call 2: Element UI extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      mocks.mockPage.evaluate.mockResolvedValueOnce([]);
       // Call 3: JSON-LD extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
-      // Call 4: Text pattern extraction (returns empty array)
-      vi.mocked(mocks.mockPage.evaluate).mockResolvedValueOnce([]);
+      mocks.mockPage.evaluate.mockResolvedValueOnce([]);
 
       const result = await scraper.scrapeJobs(PlaywrightScraperTestUtils.SAMPLE_CONFIG, 'manual');
 
