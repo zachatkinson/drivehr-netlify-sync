@@ -132,7 +132,7 @@ interface MockWordPressResponse {
  * ```
  * @since 1.0.0
  */
-class WordPressPayloadTester {
+export class WordPressPayloadTester {
   private readonly logger = createLogger('info', true);
 
   /**
@@ -238,16 +238,16 @@ class WordPressPayloadTester {
 
     const config: DriveHrApiConfig = {
       companyId,
-      baseUrl: DRIVEHR_BASE_URL,
-      maxRetries: 2,
+      careersUrl: `${DRIVEHR_BASE_URL}/careers/${companyId}`,
+      apiBaseUrl: `${DRIVEHR_BASE_URL}/api/companies/${companyId}`,
       timeout: 30000,
+      retries: 2,
     };
 
     const scraper = new PlaywrightScraper({
       headless: true,
       timeout: 30000,
       waitForSelector: '[data-testid="job-card"], .job-listing, .position',
-      screenshotOnError: false,
       retries: 1,
     });
 
@@ -282,7 +282,7 @@ class WordPressPayloadTester {
    * ```
    * @since 1.0.0
    */
-  private generateTestJobs(): readonly NormalizedJob[] {
+  public generateTestJobs(): readonly NormalizedJob[] {
     const jobs: NormalizedJob[] = [
       {
         id: 'test-job-001',
@@ -545,7 +545,7 @@ function parseCliArgs(args: string[]): CliArgs {
         parsedArgs.useTestData = true;
         break;
       case '--format':
-        const formatValue: string = args[++i];
+        const formatValue: string = args[++i] || '';
         if (formatValue === 'json' || formatValue === 'table' || formatValue === 'detailed') {
           parsedArgs.format = formatValue;
         }
@@ -705,8 +705,8 @@ async function main(): Promise<void> {
       }
       env = {
         driveHrCompanyId: '',
-        webhookSecret: process.env.WEBHOOK_SECRET || '',
-        wpApiUrl: process.env.WP_API_URL || '',
+        webhookSecret: process.env['WEBHOOK_SECRET'] || '',
+        wpApiUrl: process.env['WP_API_URL'] || '',
         environment: 'development' as const,
         logLevel: 'debug' as const,
       };
@@ -777,15 +777,7 @@ async function main(): Promise<void> {
 
   } catch (error: unknown) {
     console.error('❌ WordPress payload testing failed:');
-    console.error('Error details:', error instanceof Error ? error.message : String(error));
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
-    console.error('Environment debug:', {
-      NODE_ENV: process.env.NODE_ENV,
-      DRIVEHR_COMPANY_ID: process.env.DRIVEHR_COMPANY_ID ? '[SET]' : '[MISSING]',
-      WP_API_URL: process.env.WP_API_URL ? '[SET]' : '[MISSING]',
-      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '[SET]' : '[MISSING]',
-      useTestData: args.useTestData,
-    });
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
