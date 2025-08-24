@@ -39,7 +39,7 @@
  */
 
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 
 /**
  * Registry of available job data tools with configurations
@@ -329,7 +329,7 @@ function showStatus(): void {
   
   if (existsSync(jobsDir)) {
     try {
-      const files: string[] = require('fs').readdirSync(jobsDir);
+      const files: string[] = readdirSync(jobsDir);
       const jobFiles: string[] = files.filter((f: string): f is string => f.endsWith('.json'));
       console.log(`📄 Job Artifacts: ${jobFiles.length} files available`);
       
@@ -347,7 +347,7 @@ function showStatus(): void {
 
   if (existsSync(logsDir)) {
     try {
-      const files: string[] = require('fs').readdirSync(logsDir);
+      const files: string[] = readdirSync(logsDir);
       const logFiles: string[] = files.filter((f: string): f is string => f.endsWith('.json'));
       console.log(`📋 Log Files: ${logFiles.length} files available`);
     } catch {

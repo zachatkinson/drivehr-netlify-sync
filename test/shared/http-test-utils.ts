@@ -56,6 +56,31 @@ export class HttpTestUtils {
   };
 
   /**
+   * HTTP client configuration for error testing scenarios
+   *
+   * Specialized configuration that disables retries to prevent timeout
+   * issues during error simulation tests. Network and timeout errors
+   * are retryable by default, which causes test timeouts when mocks
+   * consistently return the same error.
+   *
+   * @example
+   * ```typescript
+   * const client = new HttpClient(HttpTestUtils.TEST_CONFIG_NO_RETRIES);
+   * // Error tests will fail immediately without retries
+   * await expect(client.get('/test')).rejects.toThrow();
+   * ```
+   * @since 1.0.0
+   * @see {@link TEST_CONFIG} for standard configuration with retries
+   */
+  static readonly TEST_CONFIG_NO_RETRIES: HttpClientConfig = {
+    baseUrl: 'https://api.example.com',
+    timeout: 5000,
+    retries: 0,
+    userAgent: 'Test-Client/1.0',
+    headers: { 'X-Test-Header': 'test-value' },
+  };
+
+  /**
    * Mock Response Builders
    */
 

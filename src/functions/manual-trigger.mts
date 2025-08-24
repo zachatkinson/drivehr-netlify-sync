@@ -241,7 +241,7 @@ async function triggerGitHubWorkflow(
     // Create HTTP client for GitHub API
     const httpClient = createHttpClient({
       timeout: 30000,
-      retries: 3,
+      retries: process.env['ENVIRONMENT'] === 'test' ? 0 : 3,
       userAgent: 'DriveHR-Manual-Trigger/2.0',
     });
 

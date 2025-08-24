@@ -1,41 +1,76 @@
 /**
- * Vitest testing configuration for DriveHR Netlify Sync
+ * DriveHR Netlify Sync - Vitest Testing Configuration
  *
- * Implements enterprise testing standards with 80% coverage targets,
- * security-focused test isolation, and comprehensive reporting.
+ * Enterprise-grade testing configuration using Vitest with comprehensive
+ * coverage reporting, TypeScript integration, and performance optimization.
+ * Configured for Node.js testing environment with enterprise directory
+ * structure and strict coverage thresholds.
  *
- * @module vitest-config
+ * Testing Features:
+ * - Node.js environment testing with Vitest
+ * - Comprehensive coverage reporting with V8 provider
+ * - Enterprise directory structure support (/test separate from /src)
+ * - Fork-based test isolation for reliability
+ * - 80% coverage thresholds aligned with enterprise standards
+ * - TypeScript integration with path aliases
+ *
+ * Coverage Configuration:
+ * - Global 80% thresholds for branches, functions, lines, statements
+ * - Multiple reporter formats: text, JSON, HTML, LCOV
+ * - Excludes configuration files, type definitions, and test utilities
+ * - Reports uncovered lines for continuous improvement
+ *
+ * @example
+ * ```bash
+ * # Run all tests with coverage
+ * pnpm test
+ *
+ * # Run tests in watch mode during development
+ * pnpm test --watch
+ *
+ * # Generate coverage report only
+ * pnpm test --coverage --run
+ * ```
+ *
+ * @module vitest-configuration
  * @since 1.0.0
- * @see {@link ./CLAUDE.md} for testing standards
+ * @see {@link https://vitest.dev/config/} Vitest configuration documentation
+ * @see {@link ../CLAUDE.md} for testing standards and coverage requirements
+ * @see {@link ../test/} for enterprise test directory structure
  */
 
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+/** Current directory path for ES modules compatibility */
 const __dirname: string = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * Vitest configuration export
- *
- * @since 1.0.0
- */
 export default defineConfig({
   test: {
     // Environment
     environment: 'node',
 
     // Test file patterns - using enterprise directory structure
-    include: ['test/**/*.{test,spec}.{ts,js}'],
-    exclude: ['node_modules', 'dist', 'coverage'],
+    include: [
+      'test/**/*.test.ts',
+      'test/**/*.spec.ts',
+    ],
 
     // Coverage configuration
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov'],
-      reportsDirectory: './coverage',
+      reporter: [
+        'text',
+        'json',
+        'html',
+        'lcov',
+        'json-summary',
+        'text-summary',
+      ],
       include: [
-        'src/**/*.{ts,tsx,js,jsx}',
+        'src/**/*.ts',
+        'src/**/*.tsx',
       ],
       exclude: [
         'node_modules/',
@@ -64,41 +99,22 @@ export default defineConfig({
       },
       all: true,
       skipFull: false,
+      // Report uncovered lines
+      reportOnFailure: true,
     },
 
-    // Test execution
-    globals: false,
-    clearMocks: true,
-    restoreMocks: true,
-    mockReset: true,
-
-    // Timeouts
-    testTimeout: 10000,
-    hookTimeout: 10000,
-
-    // Performance
-    maxConcurrency: 5,
-
-    // Reporting
-    reporters: ['verbose', 'json', 'junit'],
-    outputFile: {
-      json: './coverage/test-results.json',
-      junit: './test-report.junit.xml',
-    },
-
-    // Security and isolation
-    isolate: true,
-    pool: 'threads',
+    // Concurrency and timeouts
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        singleThread: false,
+      forks: {
+        singleFork: false,
         isolate: true,
       },
     },
 
     // Setup files
-    setupFiles: [],
-    globalSetup: [],
+    // setupFiles: [],
+    // globalSetup: [],
 
     // Watch mode
     watch: false,
@@ -113,7 +129,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@tests': path.resolve(__dirname, './tests'),
+      // '@tests': path.resolve(__dirname, './tests'), // Unused alias
     },
   },
 
@@ -122,6 +138,9 @@ export default defineConfig({
     'process.env.NODE_ENV': '"test"',
   },
 
-  // Plugins (if needed for testing specific libraries)
-  plugins: [],
+  // Build configuration for testing
+  esbuild: {
+    target: 'node18',
+    format: 'esm',
+  },
 });

@@ -226,7 +226,7 @@ describe('HttpClient', () => {
     let client: HttpClient;
 
     beforeEach(() => {
-      client = new HttpClient(HttpTestUtils.TEST_CONFIG);
+      client = new HttpClient(HttpTestUtils.TEST_CONFIG_NO_RETRIES);
     });
 
     HttpTestUtils.getErrorTestScenarios().forEach(scenario => {
