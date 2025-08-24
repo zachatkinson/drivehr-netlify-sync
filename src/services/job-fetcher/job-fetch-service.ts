@@ -1,3 +1,66 @@
+/**
+ * Job Fetcher Service
+ *
+ * Enterprise-grade orchestration service implementing comprehensive Strategy pattern architecture
+ * for DriveHR job data fetching operations. Coordinates multiple job fetching strategies with
+ * automatic failover mechanisms, providing robust fault-tolerant job data retrieval with
+ * comprehensive telemetry integration and data normalization pipelines.
+ *
+ * This service acts as the main entry point for all job fetching operations, managing strategy
+ * selection, execution order, error handling, and result aggregation. The service automatically
+ * tries strategies in order of preference (API → JSON → HTML → Embedded) until one succeeds
+ * or all strategies are exhausted, ensuring maximum data retrieval reliability.
+ *
+ * Core Architecture Features:
+ * - Strategy Pattern: Pluggable job fetching strategies with automatic selection
+ * - Template Method: Consistent operation workflow across all strategies
+ * - Dependency Injection: Flexible component configuration and testing support
+ * - OpenTelemetry Integration: Comprehensive distributed tracing and metrics
+ * - Error Recovery: Automatic fallback mechanisms and graceful degradation
+ * - Data Normalization: Consistent job data format across all strategies
+ *
+ * @example
+ * ```typescript
+ * import { JobFetchService } from './job-fetcher/job-fetch-service.js';
+ * import { createHttpClient } from '../lib/http-client.js';
+ * import { CheerioHtmlParser } from '../html-parser.js';
+ *
+ * // Initialize dependencies
+ * const httpClient = createHttpClient({ timeout: 30000 });
+ * const htmlParser = new CheerioHtmlParser();
+ *
+ * // Create service with dependency injection
+ * const jobFetcher = new JobFetchService(httpClient, htmlParser);
+ *
+ * // Configure DriveHR endpoint
+ * const config = {
+ *   companyId: 'tech-startup',
+ *   apiBaseUrl: 'https://api.drivehr.app',
+ *   careersUrl: 'https://drivehr.app/careers/tech-startup/list'
+ * };
+ *
+ * // Execute job fetching with automatic strategy fallbacks
+ * const result = await jobFetcher.fetchJobs(config, 'webhook');
+ *
+ * if (result.success) {
+ *   console.log(`Successfully fetched ${result.totalCount} jobs using ${result.method}`);
+ *   result.jobs.forEach(job => {
+ *     console.log(`- ${job.title} at ${job.location} (${job.department})`);
+ *   });
+ * } else {
+ *   console.error('All job fetching strategies failed:', result.error);
+ *   // Implement fallback logic or alerting
+ * }
+ * ```
+ *
+ * @module job-fetch-service
+ * @since 1.0.0
+ * @see {@link IJobFetchStrategy} for strategy interface contract
+ * @see {@link DriveHrFetchOperation} for operation template implementation
+ * @see {@link JobNormalizer} for data normalization pipeline
+ * @see {@link DefaultFetchTelemetryStrategy} for telemetry integration
+ */
+
 import { isTelemetryInitialized, withSpan } from '../../lib/telemetry.js';
 import { SpanKind } from '@opentelemetry/api';
 import type { IHttpClient } from '../../lib/http-client.js';
@@ -10,36 +73,25 @@ import { HtmlJobFetchStrategy } from './html-strategy.js';
 import { DriveHrFetchOperation } from './fetch-operations.js';
 
 /**
- * Main job fetching service that orchestrates all strategies
+ * Main job fetching orchestration service
  *
- * Enterprise-grade service that coordinates multiple job fetching strategies
- * to provide robust, fault-tolerant job data retrieval. Automatically tries
- * strategies in order of preference (API -> JSON -> HTML -> Embedded) until
- * one succeeds or all fail.
+ * Central orchestrator for DriveHR job data retrieval operations implementing enterprise-grade
+ * Strategy pattern architecture with automatic failover mechanisms. This service coordinates
+ * multiple job fetching strategies, handles telemetry integration, manages error recovery,
+ * and ensures consistent data normalization across all retrieval methods.
  *
- * Includes comprehensive data normalization, validation, and error handling
- * to ensure consistent job data format regardless of the source strategy.
+ * The service uses dependency injection for flexibility and testability, allowing different
+ * HTTP clients and HTML parsers to be plugged in based on environment requirements.
+ * All operations are instrumented with OpenTelemetry for comprehensive observability
+ * in production environments.
  *
- * @example
- * ```typescript
- * const httpClient = createHttpClient();
- * const htmlParser = createHtmlParser();
- * const jobFetcher = new JobFetchService(httpClient, htmlParser);
+ * Strategy Execution Order:
+ * 1. HTML Strategy: Direct careers page scraping
+ * 2. Future strategies can be added through constructor injection
  *
- * const config = {
- *   companyId: 'acme-corp',
- *   apiBaseUrl: 'https://api.drivehr.app',
- *   careersUrl: 'https://drivehr.app/careers/acme-corp/list'
- * };
- *
- * const result = await jobFetcher.fetchJobs(config, 'manual');
- * if (result.success) {
- *   console.log(`Fetched ${result.jobs.length} jobs using ${result.method}`);
- * }
- * ```
  * @since 1.0.0
- * @see {@link IJobFetchStrategy} for individual strategy implementations
- * @see {@link JobFetchResult} for the result structure
+ * @see {@link DriveHrFetchOperation} for the underlying fetch operation template
+ * @see {@link IJobFetchStrategy} for strategy interface requirements
  */
 export class JobFetchService {
   private readonly strategies: readonly IJobFetchStrategy[];
@@ -48,8 +100,30 @@ export class JobFetchService {
   /**
    * Create job fetch service with dependency injection
    *
-   * @param httpClient - HTTP client for making requests
-   * @param htmlParser - HTML parser for scraping job data
+   * Initializes the service with pluggable dependencies for HTTP communication and HTML
+   * parsing. Sets up the strategy pipeline with available fetch strategies and configures
+   * the operation template with telemetry integration and job normalization capabilities.
+   *
+   * The service uses a composition pattern to aggregate multiple strategies while
+   * maintaining a clean separation of concerns between HTTP operations, HTML parsing,
+   * telemetry collection, and data normalization.
+   *
+   * @param httpClient - HTTP client implementation for API requests and content retrieval
+   * @param htmlParser - HTML parser implementation for structured data extraction
+   * @example
+   * ```typescript
+   * import { createHttpClient } from '../lib/http-client.js';
+   * import { CheerioHtmlParser } from '../html-parser.js';
+   *
+   * const httpClient = createHttpClient({
+   *   timeout: 30000,
+   *   retries: 3,
+   *   userAgent: 'DriveHR-Sync/1.0'
+   * });
+   *
+   * const htmlParser = new CheerioHtmlParser();
+   * const jobFetcher = new JobFetchService(httpClient, htmlParser);
+   * ```
    * @since 1.0.0
    */
   constructor(
@@ -58,7 +132,6 @@ export class JobFetchService {
   ) {
     this.strategies = [new HtmlJobFetchStrategy(htmlParser)] as const;
 
-    // Initialize with default telemetry strategy and job normalizer
     const telemetryStrategy = new DefaultFetchTelemetryStrategy();
     const jobNormalizer = new JobNormalizer();
     this.fetchOperation = new DriveHrFetchOperation(httpClient, jobNormalizer, telemetryStrategy);
@@ -67,40 +140,61 @@ export class JobFetchService {
   /**
    * Fetch jobs using all available strategies with automatic failover
    *
-   * Orchestrates multiple job fetching strategies using enterprise-grade Template
-   * Method pattern for maintainable, extensible, and well-tested fetch operations.
-   * Provides comprehensive error handling and automatic normalization of job data.
+   * Orchestrates comprehensive job data retrieval using multiple strategies with automatic
+   * failover mechanisms. This method implements enterprise-grade Template Method pattern
+   * execution with full OpenTelemetry instrumentation for production monitoring and
+   * debugging capabilities.
    *
-   * @param config - DriveHR API configuration with endpoint details
-   * @param source - Source identifier for tracking job origin
-   * @returns Promise resolving to job fetch result with success status and data
+   * The operation includes:
+   * 1. OpenTelemetry span creation with distributed tracing context
+   * 2. Strategy capability validation and selection
+   * 3. Sequential strategy execution with automatic failover
+   * 4. Comprehensive error handling and recovery mechanisms
+   * 5. Job data normalization and validation
+   * 6. Telemetry metrics recording and span completion
+   *
+   * @param config - DriveHR API configuration containing endpoint URLs and company details
+   * @param source - Source identifier for tracking job origin and analytics purposes
+   * @returns Promise resolving to comprehensive job fetch result with success status and data
    * @example
    * ```typescript
-   * const jobFetcher = new JobFetchService(httpClient, htmlParser);
    * const config = {
-   *   companyId: 'tech-startup',
+   *   companyId: 'innovative-tech',
    *   apiBaseUrl: 'https://api.drivehr.app',
-   *   careersUrl: 'https://drivehr.app/careers/tech-startup/list'
+   *   careersUrl: 'https://drivehr.app/careers/innovative-tech/list'
    * };
    *
-   * const result = await jobFetcher.fetchJobs(config, 'webhook');
+   * try {
+   *   const result = await jobFetcher.fetchJobs(config, 'manual');
    *
-   * if (result.success) {
-   *   console.log(`Fetched ${result.totalCount} jobs using ${result.method}`);
-   *   result.jobs.forEach(job => console.log(`${job.title} - ${job.location}`));
-   * } else {
-   *   console.error('All strategies failed:', result.error);
+   *   if (result.success) {
+   *     console.log(`✅ Success: Fetched ${result.totalCount} jobs using ${result.method}`);
+   *
+   *     // Process jobs
+   *     for (const job of result.jobs) {
+   *       console.log(`📋 ${job.title}`);
+   *       console.log(`🏢 ${job.department} • 📍 ${job.location}`);
+   *       console.log(`🔗 ${job.applyUrl}`);
+   *       console.log('---');
+   *     }
+   *   } else {
+   *     console.error('❌ All strategies failed:', result.error);
+   *     // Handle failure case - maybe retry later or use cached data
+   *   }
+   * } catch (error) {
+   *   console.error('🚨 Critical error during job fetching:', error);
+   *   // Handle unexpected errors
    * }
    * ```
    * @since 1.0.0
-   * @see {@link JobFetchResult} for the complete result structure
-   * @see {@link IJobFetchStrategy} for individual strategy implementations
+   * @see {@link JobFetchResult} for complete result structure documentation
+   * @see {@link DriveHrApiConfig} for configuration requirements
+   * @see {@link JobSource} for available source type values
    */
   public async fetchJobs(
     config: DriveHrApiConfig,
     source: JobSource = 'drivehr'
   ): Promise<JobFetchResult> {
-    // Use OpenTelemetry distributed tracing if available
     if (isTelemetryInitialized()) {
       return withSpan(
         'job-fetcher.fetch-jobs',
@@ -118,7 +212,6 @@ export class JobFetchService {
       );
     }
 
-    // Fallback to non-instrumented execution
     return this.fetchOperation.execute(config, source, this.strategies);
   }
 }
