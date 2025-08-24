@@ -511,6 +511,9 @@ describe('WordPress Payload Testing Tool', () => {
 
       try {
         vi.unstubAllEnvs();
+        // Explicitly clear CI environment variables
+        delete process.env.WEBHOOK_SECRET;
+        delete process.env.WP_API_URL;
         // Set WP_API_URL but don't set WEBHOOK_SECRET
         vi.stubEnv('WP_API_URL', 'https://test.example.com/webhook/drivehr-sync');
 
