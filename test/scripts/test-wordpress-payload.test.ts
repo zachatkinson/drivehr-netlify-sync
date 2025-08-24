@@ -130,18 +130,18 @@ class WordPressPayloadTestUtils extends BaseTestUtils {
       const childEnv = {
         ...process.env,
         // Explicitly ensure critical environment variables are passed
-        NODE_ENV: process.env.NODE_ENV || 'test',
-        PATH: process.env.PATH || '',
-        HOME: process.env.HOME || '',
+        NODE_ENV: process.env['NODE_ENV'] ?? 'test',
+        PATH: process.env['PATH'] ?? '',
+        HOME: process.env['HOME'] ?? '',
         // Include any CI-specific environment variables that might be needed
-        CI: process.env.CI || '',
-        GITHUB_ACTIONS: process.env.GITHUB_ACTIONS || '',
+        CI: process.env['CI'] ?? '',
+        GITHUB_ACTIONS: process.env['GITHUB_ACTIONS'] ?? '',
         // Ensure our app-specific variables are included
-        DRIVEHR_COMPANY_ID: process.env.DRIVEHR_COMPANY_ID || '',
-        WP_API_URL: process.env.WP_API_URL || '',
-        WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || '',
+        DRIVEHR_COMPANY_ID: process.env['DRIVEHR_COMPANY_ID'] ?? '',
+        WP_API_URL: process.env['WP_API_URL'] ?? '',
+        WEBHOOK_SECRET: process.env['WEBHOOK_SECRET'] ?? '',
       };
-      
+
       const child = spawn('tsx', ['scripts/test-wordpress-payload.mts', ...args], {
         cwd: process.cwd(),
         stdio: 'pipe',
