@@ -45,19 +45,19 @@ import * as utils from '../../src/lib/utils.js';
 import { SpanKind } from '@opentelemetry/api';
 
 /**
- * Specialized test utilities for WordPress client testing
+ * WordPress Client test utilities
  *
  * Extends BaseTestUtils with WordPress-client-specific testing capabilities including
  * mock configuration generation, job data creation, HTTP response simulation,
  * and comprehensive test data management. Implements DRY principles for
  * consistent test patterns across all WordPress client test scenarios.
  *
- * @extends BaseTestUtils
  * @since 1.0.0
  */
 class WordPressClientTestUtils extends BaseTestUtils {
   /**
    * Mock logger for testing logging behavior
+   *
    * @since 1.0.0
    */
   static mockLogger = {
@@ -70,6 +70,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Mock HTTP client for testing network operations
+   *
    * @since 1.0.0
    */
   static mockHttpClient = {
@@ -81,6 +82,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Valid WordPress API configurations for testing
+   *
    * @since 1.0.0
    */
   static readonly VALID_CONFIGS = {
@@ -105,6 +107,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Invalid configurations for testing validation
+   *
    * @since 1.0.0
    */
   static readonly INVALID_CONFIGS = {
@@ -115,26 +118,28 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Valid webhook secrets for testing
+   *
    * @since 1.0.0
    */
   static readonly VALID_SECRETS = {
     standard: 'this-is-a-valid-webhook-secret-key-that-is-long-enough',
     custom: 'custom-webhook-secret-key-for-advanced-testing-scenarios',
-    minimal: '12345678901234567890123456789012', // exactly 32 chars
+    minimal: '12345678901234567890123456789012',
   } as const;
 
   /**
    * Invalid webhook secrets for validation testing
+   *
    * @since 1.0.0
    */
   static readonly INVALID_SECRETS = {
     empty: '',
     short: 'too-short',
-    almostLong: '1234567890123456789012345678901', // 31 chars
   } as const;
 
   /**
    * Sample normalized job data for testing
+   *
    * @since 1.0.0
    */
   static readonly SAMPLE_JOBS = {
@@ -193,6 +198,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Sample HTTP responses for testing
+   *
    * @since 1.0.0
    */
   static readonly SAMPLE_RESPONSES = {
@@ -267,18 +273,21 @@ class WordPressClientTestUtils extends BaseTestUtils {
       headers: {},
       data: { error: 'Invalid authentication token' },
     },
-
-    timeoutError: {
-      success: false,
-      status: 0,
-      statusText: 'Timeout',
-      headers: {},
-      data: null,
-    },
   } as const;
 
   /**
    * Setup mocks for testing
+   *
+   * Initializes all mock objects with default behavior for WordPress client testing.
+   * Configures logger, utility functions, and HTTP client mocks with consistent
+   * return values for predictable test execution.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * WordPressClientTestUtils.setupMocks();
+   * const client = WordPressClientTestUtils.createTestClient();
+   * ```
    * @since 1.0.0
    */
   static setupMocks(): void {
@@ -287,7 +296,6 @@ class WordPressClientTestUtils extends BaseTestUtils {
     vi.spyOn(utils.SecurityUtils, 'generateHmacSignature').mockReturnValue('sha256=test-signature');
     vi.spyOn(utils.SecurityUtils, 'validateHmacSignature').mockReturnValue(true);
 
-    // Reset mock HTTP client
     Object.values(this.mockHttpClient).forEach(mock => {
       if (typeof mock === 'function') {
         mock.mockReset();
@@ -297,6 +305,17 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Restore mocks after testing
+   *
+   * Cleans up all mock objects and restores original implementations.
+   * Should be called after each test to prevent test interference.
+   *
+   * @returns {void} No return value
+   * @example
+   * ```typescript
+   * afterEach(() => {
+   *   WordPressClientTestUtils.restoreMocks();
+   * });
+   * ```
    * @since 1.0.0
    */
   static restoreMocks(): void {
@@ -311,6 +330,21 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Create a configured WordPress client for testing
+   *
+   * Factory method that creates a WordPress client instance with test configuration
+   * and mock HTTP client. Uses default valid configuration unless overridden.
+   *
+   * @param config - WordPress API configuration (defaults to basic valid config)
+   * @param secret - Webhook secret for HMAC signing (defaults to standard valid secret)
+   * @returns Configured WordPress client instance ready for testing
+   * @example
+   * ```typescript
+   * const client = WordPressClientTestUtils.createTestClient();
+   * const customClient = WordPressClientTestUtils.createTestClient(
+   *   WordPressClientTestUtils.VALID_CONFIGS.custom,
+   *   WordPressClientTestUtils.VALID_SECRETS.custom
+   * );
+   * ```
    * @since 1.0.0
    */
   static createTestClient(
@@ -322,6 +356,23 @@ class WordPressClientTestUtils extends BaseTestUtils {
 
   /**
    * Verify job sync response structure and content
+   *
+   * Comprehensive validation of JobSyncResponse objects to ensure they match
+   * expected structure and values. Validates all required fields and provides
+   * flexible partial matching for test scenarios.
+   *
+   * @param actual - The actual response object to validate
+   * @param expected - Partial expected response for comparison
+   * @returns {void} No return value, throws assertion errors on mismatch
+   * @example
+   * ```typescript
+   * const result = await client.syncJobs(jobs, 'webhook');
+   * WordPressClientTestUtils.verifyJobSyncResponse(result, {
+   *   success: true,
+   *   syncedCount: 3,
+   *   errorCount: 0
+   * });
+   * ```
    * @since 1.0.0
    */
   static verifyJobSyncResponse(actual: JobSyncResponse, expected: Partial<JobSyncResponse>): void {
@@ -347,7 +398,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
    * Configures the mock HTTP client to return a successful sync response
    * for testing positive sync scenarios.
    *
-   * @param {object} [response] - Mock response object to return
+   * @param response - Mock response object to return (defaults to syncSuccess)
    * @returns {void} No return value
    * @example
    * ```typescript
@@ -367,7 +418,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
    * Configures the mock HTTP client to return a failed sync response
    * for testing error handling scenarios.
    *
-   * @param {object} [response] - Mock error response object to return
+   * @param response - Mock error response object to return (defaults to serverError)
    * @returns {void} No return value
    * @example
    * ```typescript
@@ -424,7 +475,7 @@ class WordPressClientTestUtils extends BaseTestUtils {
    * Configures the mock HTTP client to reject with a network error
    * for testing network failure and timeout scenarios.
    *
-   * @param {string} [errorMessage] - Custom error message
+   * @param errorMessage - Custom error message (defaults to 'Network timeout')
    * @returns {void} No return value
    * @example
    * ```typescript
@@ -443,9 +494,9 @@ class WordPressClientTestUtils extends BaseTestUtils {
    * Validates that the mock HTTP client was invoked with the expected
    * URL, payload, and headers for comprehensive test verification.
    *
-   * @param {string} url - Expected request URL
-   * @param {unknown} payload - Expected request payload
-   * @param {Record<string, string>} expectedHeaders - Expected HTTP headers
+   * @param url - Expected request URL
+   * @param payload - Expected request payload
+   * @param expectedHeaders - Expected HTTP headers
    * @returns {void} No return value, throws assertion errors on mismatch
    * @example
    * ```typescript
@@ -472,8 +523,8 @@ class WordPressClientTestUtils extends BaseTestUtils {
    * Validates that the HMAC signature utility was called with the
    * expected payload and secret for security verification.
    *
-   * @param {string} expectedPayload - Expected payload string
-   * @param {string} expectedSecret - Expected webhook secret
+   * @param expectedPayload - Expected payload string
+   * @param expectedSecret - Expected webhook secret
    * @returns {void} No return value, throws assertion errors on mismatch
    * @example
    * ```typescript
@@ -1013,7 +1064,7 @@ describe('WordPress Client Service', () => {
       expect(isHealthy).toBe(true);
 
       // Perform sync operation
-      const syncResult = await client.syncJobs(jobs, 'integration-test' as JobSource);
+      const syncResult = await client.syncJobs(jobs, 'manual');
 
       WordPressClientTestUtils.verifyJobSyncResponse(syncResult, {
         success: true,
@@ -1035,7 +1086,7 @@ describe('WordPress Client Service', () => {
         2,
         WordPressClientTestUtils.VALID_CONFIGS.custom.baseUrl,
         expect.objectContaining({
-          source: 'integration-test',
+          source: 'manual',
           jobs: jobs,
         }),
         expect.any(Object)
@@ -1056,7 +1107,7 @@ describe('WordPress Client Service', () => {
       expect(isHealthy).toBe(false);
 
       // But sync still works (WordPress recovered)
-      const syncResult = await client.syncJobs(jobs, 'retry' as JobSource);
+      const syncResult = await client.syncJobs(jobs, 'automated');
       expect(syncResult.success).toBe(true);
     });
 
@@ -1069,8 +1120,8 @@ describe('WordPress Client Service', () => {
 
       // Perform multiple operations
       const results = await Promise.all([
-        client.syncJobs(jobs, 'batch-1' as JobSource),
-        client.syncJobs(jobs, 'batch-2' as JobSource),
+        client.syncJobs(jobs, 'drivehr'),
+        client.syncJobs(jobs, 'github-actions'),
         client.healthCheck(),
         client.healthCheck(),
       ]);
