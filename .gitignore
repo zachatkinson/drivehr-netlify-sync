@@ -120,6 +120,14 @@ lcov-viewer/
 test-report.junit.xml
 *.junit.xml
 
+# Debug and temporary testing files
+debug-*.mts
+debug-*.ts
+debug-*.js
+test-results.json
+test-output.json
+*.debug.html
+
 # Husky
 .husky/_
 
