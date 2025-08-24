@@ -201,6 +201,15 @@ class ServiceTestUtils extends BaseTestUtils {
 - `no-var`: error
 - Security-focused rules for preventing common vulnerabilities
 
+#### Operator Safety Rules
+
+- **ALWAYS use nullish coalescing operator (`??`) instead of logical OR (`||`)**
+  - Safer for handling `null` and `undefined` values
+  - Prevents false positives with falsy values like `0`, `false`, `""`
+  - **Bad**: `const value = config.timeout || 5000;` (fails if timeout is 0)
+  - **Good**: `const value = config.timeout ?? 5000;` (only uses default for
+    null/undefined)
+
 ### 4. Security Requirements (2025 Standards)
 
 #### Input Validation & Sanitization

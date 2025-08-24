@@ -1,11 +1,12 @@
 /**
- * @fileoverview Comprehensive test suite for job fetching utilities
+ * Job Fetching Utilities Test Suite
  *
- * Tests all job fetching utility classes including URL building, error handling,
- * and data validation. Uses DRY principles with shared utilities for consistent
- * test patterns and maintainable code.
+ * Comprehensive test coverage for job fetching utility classes following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates all job fetching utility classes including URL
+ * building, error handling, and data validation.
  *
- * Key test areas:
+ * Test Features:
  * - DRIVEHR_CONSTANTS: Base URL constants
  * - DriveHrUrlBuilder: Careers page URL construction
  * - JobFetchErrorHandler: Error logging and strategy failure handling
@@ -13,8 +14,16 @@
  * - Edge cases and error conditions for all utility functions
  * - Integration patterns between utilities
  *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/lib/job-fetch-utils.test.ts -- --grep "DriveHrUrlBuilder"
+ * ```
+ *
+ * @module job-fetch-utils-test-suite
  * @since 1.0.0
- * @see {@link ../../src/lib/job-fetch-utils.ts} for implementation details
+ * @see {@link ../../src/lib/job-fetch-utils.ts} for the utilities being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

@@ -1,11 +1,31 @@
 /**
- * @fileoverview Integration tests for manual-trigger Netlify function
+ * Manual Trigger Integration Test Suite
  *
- * Tests the actual manual-trigger function implementation rather than mocks.
- * These tests focus on real function behavior, error handling, and integration
- * with dependencies like GitHub API, environment configuration, and logging.
+ * Comprehensive integration test coverage for manual-trigger Netlify function
+ * following enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the actual manual-trigger function implementation
+ * rather than mocks, focusing on real function behavior, error handling,
+ * and integration with dependencies like GitHub API, environment configuration,
+ * and logging.
  *
+ * Test Features:
+ * - Real function implementation testing
+ * - GitHub API integration patterns
+ * - Environment configuration validation
+ * - Error handling and recovery mechanisms
+ * - Logging and monitoring integration
+ * - End-to-end workflow testing
+ *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/functions/manual-trigger-integration.test.ts -- --grep "GitHub API"
+ * ```
+ *
+ * @module manual-trigger-integration-test-suite
  * @since 2.0.0
+ * @see {@link ../../src/functions/manual-trigger.mts} for the function being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

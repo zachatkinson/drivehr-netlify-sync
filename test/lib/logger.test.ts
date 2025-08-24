@@ -1,11 +1,12 @@
 /**
- * @fileoverview Comprehensive test suite for ApplicationLogger service
+ * ApplicationLogger Service Test Suite
  *
- * Tests the complete logging functionality including log levels, structured output,
- * singleton management, and proper console integration. Uses DRY principles with
- * shared utilities for consistent test patterns and maintainable code.
+ * Comprehensive test coverage for ApplicationLogger service following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the complete logging functionality including log
+ * levels, structured output, singleton management, and proper console integration.
  *
- * Key test areas:
+ * Test Features:
  * - Logger interface implementation and contract compliance
  * - Log level filtering and hierarchical behavior
  * - Structured JSON vs plain text output formats
@@ -13,10 +14,17 @@
  * - Factory function behavior with createLogger
  * - Console output verification and format validation
  * - Context data handling and serialization
- * - Log level mapping and priority enforcement
  *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/lib/logger.test.ts -- --grep "structured"
+ * ```
+ *
+ * @module logger-test-suite
  * @since 1.0.0
- * @see {@link ../../src/lib/logger.ts} for implementation details
+ * @see {@link ../../src/lib/logger.ts} for the service being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';

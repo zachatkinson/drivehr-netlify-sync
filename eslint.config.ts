@@ -1,3 +1,14 @@
+/**
+ * ESLint configuration for DriveHR Netlify Sync project
+ *
+ * Implements enterprise-grade linting rules enforcing CLAUDE.md standards including
+ * zero-tolerance for any types, security-focused rules, and TypeScript strict mode.
+ *
+ * @module eslint-config
+ * @since 1.0.0
+ * @see {@link ./CLAUDE.md} for complete development standards
+ */
+
 import js from '@eslint/js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
@@ -116,7 +127,35 @@ const config: Linter.Config[] = [
       complexity: 'off',
     },
   },
+  // Browser-side modules (for page.evaluate context)
+  {
+    files: ['src/services/browser/**/*.ts'],
+    languageOptions: {
+      globals: {
+        // Browser globals
+        document: 'readonly',
+        window: 'readonly',
+        Element: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLAnchorElement: 'readonly',
+        NodeList: 'readonly',
+        globalThis: 'readonly',
+        JSON: 'readonly',
+        Date: 'readonly',
+        URL: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'warn', // Allow console in browser modules for debugging
+    },
+  },
   prettierConfig,
 ];
 
+/**
+ * ESLint configuration export
+ *
+ * @since 1.0.0
+ */
 export default config;

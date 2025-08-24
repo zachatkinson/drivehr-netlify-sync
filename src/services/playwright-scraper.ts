@@ -35,7 +35,7 @@ import type { RawJobData, NormalizedJob, JobSource } from '../types/job.js';
  * const config: PlaywrightScraperConfig = {
  *   headless: true,
  *   timeout: 30000,
- *   waitForSelector: '.job-listing',
+ *   waitForSelector: '.el-collapse-item',
  *   retries: 3,
  *   debug: false
  * };
@@ -47,7 +47,7 @@ export interface PlaywrightScraperConfig {
   headless?: boolean;
   /** Navigation timeout in milliseconds (default: 30000) */
   timeout?: number;
-  /** Selector to wait for before scraping (default: '.job-listing, .job-item, .career-listing') */
+  /** Selector to wait for before scraping (default: Element UI components) */
   waitForSelector?: string;
   /** Number of retry attempts on failure (default: 3) */
   retries?: number;
@@ -139,7 +139,7 @@ export class PlaywrightScraper {
     this.config = {
       headless: config.headless ?? true,
       timeout: config.timeout ?? 30000,
-      waitForSelector: config.waitForSelector ?? '.job-listing, .job-item, .career-listing',
+      waitForSelector: config.waitForSelector ?? '.el-collapse-item',
       retries: config.retries ?? 3,
       debug: config.debug ?? false,
       userAgent: config.userAgent ?? 'DriveHR-Scraper/2.0 (GitHub Actions)',
@@ -304,6 +304,20 @@ export class PlaywrightScraper {
         Connection: 'keep-alive',
       },
     });
+
+    // Add __name helper to fix TSX browser evaluation errors
+    // TSX >=4.15.0 injects __name calls for functions, but this helper doesn't exist in browser context
+    await this.context.addInitScript(() => {
+      /* eslint-disable no-undef */
+      if (typeof window !== 'undefined') {
+        (
+          window as unknown as Window & { __name: (func: Function, _name: string) => Function }
+        ).__name = (func: Function, _name: string): Function => {
+          return func;
+        };
+      }
+      /* eslint-enable no-undef */
+    });
   }
 
   /**
@@ -322,10 +336,10 @@ export class PlaywrightScraper {
     page.setDefaultTimeout(this.config.timeout);
     page.setDefaultNavigationTimeout(this.config.timeout);
 
-    // Block unnecessary resources to speed up loading
+    // Block unnecessary resources to speed up loading (but keep stylesheets for Element UI)
     await page.route('**/*', route => {
       const resourceType = route.request().resourceType();
-      if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+      if (['image', 'font', 'media'].includes(resourceType)) {
         route.abort();
       } else {
         route.continue();
@@ -421,13 +435,6 @@ export class PlaywrightScraper {
       return jsonLdJobs;
     }
 
-    // Strategy 3: Extract from page text patterns
-    const textJobs = await this.extractFromTextPatterns(page, baseUrl);
-    if (textJobs.length > 0) {
-      logger.debug(`Found ${textJobs.length} jobs from text patterns`);
-      return textJobs;
-    }
-
     logger.warn('No job data could be extracted from page');
     return [];
   }
@@ -442,116 +449,290 @@ export class PlaywrightScraper {
    * @since 2.0.0
    */
   private async extractFromStructuredElements(page: Page, baseUrl: string): Promise<RawJobData[]> {
-    return await page.evaluate(url => {
+    // DriveHR uses Element UI exclusively - no fallback needed
+    const logger = getLogger();
+    logger.debug('DriveHR extraction: Using Element UI collapse extraction');
+    return this.extractFromElementUICollapse(page, baseUrl);
+  }
+
+  /**
+   * Extract jobs from Element UI collapse components (DriveHR specific)
+   *
+   * Uses a two-part extraction strategy:
+   * 1. Extract basic job info from always-visible headers
+   * 2. Expand each job dropdown to extract full descriptions from iframes
+   *
+   * @private
+   * @param page - Playwright page instance
+   * @param baseUrl - Base URL for resolving relative links
+   * @returns Promise resolving to array of raw job data
+   * @since 2.0.0
+   */
+  private async extractFromElementUICollapse(page: Page, baseUrl: string): Promise<RawJobData[]> {
+    const logger = getLogger();
+    logger.info('🔍 Starting Element UI collapse extraction (expand-all-first approach)');
+    logger.info(`📄 Page URL: ${page.url()}`);
+    logger.info(`🔗 Base URL: ${baseUrl}`);
+
+    // Wait for SPA content to fully load
+    logger.info('⏳ Waiting 3000ms for SPA content to load...');
+    await page.waitForTimeout(3000);
+    logger.info('✅ SPA content wait completed');
+
+    // Step 1: Diagnostic check - what does the page actually contain?
+    const pageState = await page.evaluate(() => {
       /* eslint-disable no-undef */
-      // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
-      // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
-      // executes this code in the browser context where these globals are standard and safe.
-      //
-      // ALTERNATIVES CONSIDERED:
-      // 1. External DOM library (jsdom): Would require significant refactoring and lose browser
-      //    context benefits like actual rendering, JavaScript execution, and CSS application
-      // 2. Type declarations for browser globals: Cannot be used as this code runs in dual
-      //    contexts (Node.js compilation + browser execution) with conflicting global types
-      // 3. Separate browser-only TypeScript files: Would break the cohesive scraping logic
-      //    and complicate the build process with multiple compilation targets
-      //
-      // CONCLUSION: eslint-disable is architecturally necessary for browser context code
-      // execution within Playwright's page.evaluate() method.
+      return {
+        url: window.location.href,
+        title: document.title,
+        readyState: document.readyState,
+        collapseItems: document.querySelectorAll('.el-collapse-item').length,
+        collapseButtons: document.querySelectorAll('button.el-collapse-item__header').length,
+        titleLinks: document.querySelectorAll('a.list-title-link').length,
+        bodyTextLength: document.body.textContent?.length ?? 0,
+        hasElementUI: document.querySelectorAll('[class*="el-"]').length > 0,
+        firstJobText:
+          document
+            .querySelector('button.el-collapse-item__header')
+            ?.textContent?.substring(0, 100) ?? 'No job found',
+      };
+      /* eslint-enable no-undef */
+    });
+
+    logger.info('🔍 Page State Analysis:');
+    logger.info(`  URL: ${pageState.url}`);
+    logger.info(`  Title: ${pageState.title}`);
+    logger.info(`  Ready State: ${pageState.readyState}`);
+    logger.info(`  .el-collapse-item elements: ${pageState.collapseItems}`);
+    logger.info(`  button.el-collapse-item__header elements: ${pageState.collapseButtons}`);
+    logger.info(`  a.list-title-link elements: ${pageState.titleLinks}`);
+    logger.info(`  Body text length: ${pageState.bodyTextLength}`);
+    logger.info(`  Has Element UI: ${pageState.hasElementUI}`);
+    logger.info(`  First job text: "${pageState.firstJobText}"`);
+
+    if (pageState.collapseButtons === 0) {
+      logger.error('❌ CRITICAL: No Element UI job buttons found on page');
+      logger.error('❌ This indicates page loading or timing issue');
+      return [];
+    }
+
+    // Step 2: Expand all Element UI jobs by clicking buttons
+    logger.info('🖱️ Expanding all Element UI job buttons...');
+    const expandResult = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const jobButtons = document.querySelectorAll('button.el-collapse-item__header');
+      let clickedCount = 0;
+
+      Array.from(jobButtons).forEach((button, index) => {
+        try {
+          (button as HTMLButtonElement).click();
+          clickedCount++;
+        } catch (e) {
+          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging requires console statements for troubleshooting Element UI interactions. This runs in Playwright's page.evaluate() where console is the only debugging mechanism available, and the output is captured by Playwright for diagnostic purposes.
+          console.error(
+            `Failed to click button ${index}: ${e instanceof Error ? e.message : String(e)}`
+          );
+        }
+      });
+
+      return { totalButtons: jobButtons.length, clickedCount };
+      /* eslint-enable no-undef */
+    });
+
+    logger.info(
+      `🖱️ Clicked ${expandResult.clickedCount} of ${expandResult.totalButtons} job buttons`
+    );
+
+    // Wait for all expansions to complete (critical for Element UI animations)
+    logger.info('⏳ Waiting 3000ms for expansion animations to complete...');
+    await page.waitForTimeout(3000);
+    logger.info('✅ Job expansion completed');
+
+    // Step 3: Extract job data from expanded content (proven working approach)
+    logger.info('🔍 Starting job data extraction...');
+    const extractionResult = await page.evaluate(() => {
+      /* eslint-disable no-undef */
       const jobs: RawJobData[] = [];
 
-      // Common selectors for job listings
-      const jobSelectors = [
-        '.job-listing',
-        '.job-item',
-        '.career-listing',
-        '.position',
-        '.opening',
-        '[data-job]',
-        '.job-card',
-      ];
+      // Step 1: Find all job buttons (Element UI collapse headers)
+      const jobButtons = document.querySelectorAll('button.el-collapse-item__header');
+      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() requires console statements for diagnostic logging. This provides essential debugging information for Element UI component discovery and is captured by Playwright's debugging infrastructure.
+      console.log(`Found ${jobButtons.length} job buttons for extraction`);
 
-      for (const selector of jobSelectors) {
-        const elements = document.querySelectorAll(selector);
-        if (elements.length === 0) continue;
-
-        elements.forEach((element, index) => {
-          const job = extractJobFromElement(element, url, index);
-          if (job.title) {
-            jobs.push(job);
-          }
-        });
-
-        if (jobs.length > 0) break; // Found jobs with this selector
+      if (jobButtons.length === 0) {
+        return [];
       }
 
-      // Helper function to extract job data from a single element
-      function extractJobFromElement(element: Element, url: string, index: number): RawJobData {
-        const job: RawJobData = {};
+      // Step 2: Extract job button information
+      const buttonData: Array<{
+        index: number;
+        buttonId: string;
+        title: string;
+        fullButtonText: string;
+      }> = [];
 
-        job.title = extractFieldFromElement(element, [
-          'h1',
-          'h2',
-          'h3',
-          '.title',
-          '.job-title',
-          '.position-title',
-        ]);
-        job.location = extractFieldFromElement(element, [
-          '.location',
-          '.job-location',
-          '.city',
-          '[data-location]',
-        ]);
-        job.department = extractFieldFromElement(element, [
-          '.department',
-          '.category',
-          '.team',
-          '[data-department]',
-        ]);
-        job.description = extractFieldFromElement(element, [
-          '.description',
-          '.summary',
-          '.job-description',
-          'p',
-        ]);
-        job.apply_url = extractApplyUrl(element, url);
+      Array.from(jobButtons).forEach((button, index) => {
+        const text = button.textContent || '';
+        // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for job extraction diagnostics. Console logging is the only available debugging mechanism in browser context for tracking job processing iterations.
+        console.log(`Processing button ${index}: ${text.substring(0, 50)}...`);
 
-        if (job.title) {
-          job.id = generateJobId(job.title, index);
+        // Extract title from button text - use the link text or first meaningful part
+        let title = '';
+        const titleLink = button.querySelector('a.list-title-link');
+        if (titleLink) {
+          title = titleLink.textContent?.trim() || '';
         }
 
-        return job;
-      }
-
-      // Helper to extract field using multiple selectors
-      function extractFieldFromElement(element: Element, selectors: string[]): string {
-        for (const selector of selectors) {
-          const el = element.querySelector(selector);
-          if (el?.textContent?.trim()) {
-            return el.textContent.trim();
+        // Fallback: extract from button text if no link found
+        if (!title) {
+          const match = text.match(/^([^,]+)/); // Take everything before first comma
+          if (match?.[1]) {
+            title = match[1].trim();
           }
         }
-        return '';
-      }
 
-      // Helper to extract apply URL
-      function extractApplyUrl(element: Element, url: string): string {
-        const linkEl = element.querySelector('a[href]') as HTMLAnchorElement;
-        if (linkEl?.href) {
-          return linkEl.href.startsWith('http') ? linkEl.href : new URL(linkEl.href, url).href;
+        if (title) {
+          buttonData.push({
+            index,
+            buttonId: (button as HTMLButtonElement).id,
+            title,
+            fullButtonText: text.trim(),
+          });
+          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for tracking successful job data extraction. Console logging provides essential feedback for job discovery validation in browser context.
+          console.log(`Added job: ${title}`);
         }
-        return '';
+      });
+
+      // Step 3: Extract from each specific .el-collapse-item__content (now expanded)
+      const allCollapseContents = document.querySelectorAll('.el-collapse-item__content');
+      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for Element UI component expansion validation. Console logging provides critical diagnostic information for verifying collapse animations completed successfully.
+      console.log(`Found ${allCollapseContents.length} expanded content areas`);
+
+      // Helper function to process individual button data items
+      function processButtonDataItem(
+        buttonInfo: (typeof buttonData)[0],
+        buttonIndex: number,
+        allCollapseContents: NodeListOf<Element>
+      ): RawJobData | null {
+        try {
+          // Get the specific content area for this job (by index)
+          if (buttonIndex >= allCollapseContents.length) {
+            return null; // Skip if no corresponding content area
+          }
+
+          const specificContent = allCollapseContents[buttonIndex];
+          if (!specificContent) {
+            return null; // Skip if content not found
+          }
+
+          const elementText = specificContent.textContent ?? '';
+
+          if (elementText.length < 10) {
+            return null; // Skip if content too short
+          }
+
+          // Extract location from specific content
+          const locationMatch = elementText.match(/([A-Za-z\s]+,\s*[A-Z]{2})/);
+          const location = locationMatch?.[1]?.trim() ?? 'Truro, NS';
+
+          // Extract date from specific content
+          const dateMatch = elementText.match(/\d{2}\/\d{2}\/\d{4}/);
+          const posted_date = dateMatch?.[0] ?? '';
+
+          // Extract work type from specific content
+          const workTypeMatch = elementText.match(/Full-Time|Part-Time|Contract/i);
+          const type = workTypeMatch?.[0] ?? 'Full-Time';
+
+          // Extract pay type from specific content
+          const payTypeMatch = elementText.match(/Hourly|Salary|Salary yearly/i);
+          const payType = payTypeMatch?.[0] ?? '';
+
+          // Extract department from button text
+          const deptMatch = buttonInfo.fullButtonText.match(
+            /Pye Chevrolet|[A-Za-z\s]+(?=\s*\||\s*,|\s*-)/
+          );
+          const department = deptMatch?.[0]?.trim() ?? '';
+
+          // Extract apply URL
+          let apply_url = '';
+          try {
+            const linkEl = specificContent.querySelector('a[href]') as HTMLAnchorElement;
+            apply_url = linkEl?.href ?? '';
+          } catch {
+            apply_url = '';
+          }
+
+          // Create comprehensive description
+          const buttonText = buttonInfo.fullButtonText.replace(/\s+/g, ' ').trim();
+          const contentText = elementText.replace(/\s+/g, ' ').trim();
+          let description = '';
+          if (buttonText && contentText) {
+            if (contentText.toLowerCase().includes(buttonText.toLowerCase())) {
+              description = contentText;
+            } else {
+              description = `${buttonText}. ${contentText}`;
+            }
+          } else {
+            description = buttonText || contentText || '';
+          }
+
+          // Generate ID
+          const normalizedTitle = buttonInfo.title
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '')
+            .replace(/\s+/g, '-')
+            .substring(0, 30);
+          const timestamp = Date.now();
+          const fullId = `scraped-${normalizedTitle}-${buttonIndex}-${timestamp}`;
+          const jobId = fullId.length > 70 ? fullId.substring(0, 67) + '...' : fullId;
+
+          // Return complete job object
+          return {
+            id: jobId,
+            title: buttonInfo.title,
+            location,
+            department,
+            description,
+            type,
+            posted_date,
+            apply_url,
+            payType,
+          };
+        } catch {
+          // Skip problematic elements
+          return null;
+        }
       }
 
-      // Helper to generate job ID
-      function generateJobId(title: string, index: number): string {
-        return `scraped-${title.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}-${index}`;
-      }
+      buttonData.forEach((buttonInfo, buttonIndex) => {
+        const job = processButtonDataItem(buttonInfo, buttonIndex, allCollapseContents);
+        if (job) {
+          jobs.push(job);
+          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for job creation validation. Console logging provides essential feedback for successful job object construction with extracted data.
+          console.log(
+            `Created job: ${job.title} (${job.description?.length ?? 0} chars description)`
+          );
+        }
+      });
 
+      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for final extraction summary. Console logging provides critical validation of total job extraction results for debugging and monitoring purposes.
+      console.log(`Total jobs extracted: ${jobs.length}`);
       return jobs;
       /* eslint-enable no-undef */
-    }, baseUrl);
+    });
+
+    logger.info(`📊 Extraction completed: ${extractionResult.length} jobs found`);
+    if (extractionResult.length === 0) {
+      logger.error('❌ CRITICAL: Zero jobs extracted despite finding Element UI components');
+      logger.error('❌ This indicates an issue with the extraction logic');
+    } else {
+      logger.info('✅ SUCCESS: Jobs successfully extracted');
+      extractionResult.forEach((job, index) => {
+        logger.info(`  Job ${index + 1}: ${job.title} (${job.department})`);
+      });
+    }
+
+    return extractionResult;
   }
 
   /**
@@ -636,58 +817,6 @@ export class PlaywrightScraper {
       });
 
       return jobs;
-      /* eslint-enable no-undef */
-    });
-  }
-
-  /**
-   * Extract jobs from text patterns
-   *
-   * @private
-   * @param page - Playwright page instance
-   * @param baseUrl - Base URL for resolving relative links
-   * @returns Promise resolving to array of raw job data
-   * @since 2.0.0
-   */
-  private async extractFromTextPatterns(page: Page, _baseUrl: string): Promise<RawJobData[]> {
-    return await page.evaluate(() => {
-      /* eslint-disable no-undef */
-      // ARCHITECTURAL JUSTIFICATION: Browser context execution requires DOM globals (document, window)
-      // that are not available in Node.js TypeScript environment. Playwright's page.evaluate()
-      // executes this code in the browser context where these globals are standard and safe.
-      //
-      // ALTERNATIVES CONSIDERED:
-      // 1. External DOM library (jsdom): Would require significant refactoring and lose browser
-      //    context benefits like actual rendering, JavaScript execution, and CSS application
-      // 2. Type declarations for browser globals: Cannot be used as this code runs in dual
-      //    contexts (Node.js compilation + browser execution) with conflicting global types
-      // 3. Separate browser-only TypeScript files: Would break the cohesive scraping logic
-      //    and complicate the build process with multiple compilation targets
-      //
-      // CONCLUSION: eslint-disable is architecturally necessary for browser context code
-      // execution within Playwright's page.evaluate() method.
-      const jobs: RawJobData[] = [];
-      const text = document.body.textContent || '';
-
-      // Simple pattern matching for job titles
-      const jobTitlePatterns = [
-        /(?:engineer|developer|manager|analyst|specialist|coordinator|director|lead|senior|junior)\s+[a-z\s]{5,50}/gi,
-      ];
-
-      for (const pattern of jobTitlePatterns) {
-        const matches = text.match(pattern);
-        if (matches) {
-          matches.forEach((match, index) => {
-            jobs.push({
-              id: `pattern-${match.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}-${index}`,
-              title: match.trim(),
-              description: 'Job details extracted from page content',
-            });
-          });
-        }
-      }
-
-      return jobs.slice(0, 20); // Limit to prevent spam
       /* eslint-enable no-undef */
     });
   }

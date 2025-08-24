@@ -1,17 +1,15 @@
 #!/usr/bin/env tsx
 /**
- * Test Data Inspector
+ * Test Data Inspector for DriveHR Netlify Sync
  *
- * Utility script to inspect and display mock job data used in tests.
- * Provides formatted output of sample jobs, validation, and comparison
- * between test data structures and expected production data formats.
+ * Enterprise-grade utility script for inspecting and validating mock job data
+ * used in test suites. Provides comprehensive analysis of test data quality,
+ * structure validation, and formatted output supporting multiple presentation
+ * formats for development and debugging workflows.
  *
- * Usage:
- *   pnpm tsx scripts/inspect-test-data.mts
- *   pnpm tsx scripts/inspect-test-data.mts --format json
- *   pnpm tsx scripts/inspect-test-data.mts --validate
- *
+ * @module test-data-inspector
  * @since 1.0.0
+ * @see {@link ../CLAUDE.md} for development standards
  */
 
 import { readFileSync } from 'fs';
@@ -19,8 +17,9 @@ import { join } from 'path';
 import type { NormalizedJob } from '../src/types/job.js';
 
 /**
- * Sample normalized job data from tests
- * Extracted from test/services/wordpress-client.test.ts
+ * Sample normalized job data collections for comprehensive testing
+ *
+ * @since 1.0.0
  */
 const SAMPLE_JOBS = {
   single: [
@@ -77,7 +76,18 @@ const SAMPLE_JOBS = {
 } as const;
 
 /**
- * Command line arguments interface
+ * Command line arguments interface for test data inspection
+ *
+ * Defines the structure for CLI arguments that control test data inspection
+ * behavior, output formatting, and validation options. Supports flexible
+ * workflows for developers and CI/CD processes.
+ *
+ * @since 1.0.0
+ */
+/**
+ * Command line arguments interface for the test data inspector
+ *
+ * @since 1.0.0
  */
 interface CliArgs {
   format: 'table' | 'json' | 'yaml';
@@ -87,7 +97,33 @@ interface CliArgs {
 }
 
 /**
- * Parse command line arguments
+ * Parse command line arguments for test data inspection
+ *
+ * Processes CLI arguments to configure inspection behavior, output formats,
+ * and validation options. Provides sensible defaults while allowing flexible
+ * customization for different development and debugging workflows.
+ *
+ * @returns Parsed CLI arguments with defaults applied
+ * @example
+ * ```typescript
+ * const args = parseArgs();
+ * console.log(`Format: ${args.format}, Validate: ${args.validate}`);
+ * ```
+ * @since 1.0.0
+ */
+/**
+ * Parse command line arguments into structured configuration
+ *
+ * @returns Parsed command line arguments with defaults applied
+ * @example
+ * ```typescript
+ * const args = parseArgs();
+ * if (args.help) {
+ *   showHelp();
+ *   return;
+ * }
+ * ```
+ * @since 1.0.0
  */
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
@@ -123,7 +159,14 @@ function parseArgs(): CliArgs {
 }
 
 /**
- * Display help information
+ * Display comprehensive help information for test data inspector
+ *
+ * @returns No return value, outputs help text to console
+ * @example
+ * ```typescript
+ * showHelp();
+ * ```
+ * @since 1.0.0
  */
 function showHelp(): void {
   console.log(`
@@ -149,7 +192,19 @@ Examples:
 }
 
 /**
- * Validate job data structure
+ * Validate individual job data against NormalizedJob schema
+ *
+ * @param job - The job data object to validate
+ * @param index - The job index for error reporting context
+ * @returns Array of validation error messages, empty if valid
+ * @example
+ * ```typescript
+ * const errors = validateJob(jobData, 0);
+ * if (errors.length > 0) {
+ *   console.log('Validation errors:', errors);
+ * }
+ * ```
+ * @since 1.0.0
  */
 function validateJob(job: NormalizedJob, index: number): string[] {
   const errors: string[] = [];
@@ -180,7 +235,8 @@ function validateJob(job: NormalizedJob, index: number): string[] {
   }
 
   const validTypes = ['Full-time', 'Part-time', 'Contract', 'Internship'] as const;
-  if (job.type && !validTypes.includes(job.type as any)) {
+  type ValidJobType = typeof validTypes[number];
+  if (job.type && !validTypes.includes(job.type as ValidJobType)) {
     errors.push(`Job ${index}: Field 'type' should be one of: ${validTypes.join(', ')}`);
   }
 
@@ -188,7 +244,16 @@ function validateJob(job: NormalizedJob, index: number): string[] {
 }
 
 /**
- * Validate an array of jobs
+ * Validate an entire dataset of job records
+ *
+ * @param jobs - Array of normalized job data to validate
+ * @param datasetName - Name of the dataset for reporting context
+ * @returns No return value, outputs validation results to console
+ * @example
+ * ```typescript
+ * validateJobs(SAMPLE_JOBS.multiple, 'multiple');
+ * ```
+ * @since 1.0.0
  */
 function validateJobs(jobs: NormalizedJob[], datasetName: string): void {
   console.log(`🔍 Validating ${datasetName} dataset (${jobs.length} jobs)...\n`);
@@ -215,7 +280,16 @@ function validateJobs(jobs: NormalizedJob[], datasetName: string): void {
 }
 
 /**
- * Display jobs in table format
+ * Display job data in formatted table layout
+ *
+ * @param jobs - Array of job data to display
+ * @param title - Display title for the table section
+ * @returns No return value, outputs formatted table to console
+ * @example
+ * ```typescript
+ * displayTable(SAMPLE_JOBS.single, 'Single Job Dataset');
+ * ```
+ * @since 1.0.0
  */
 function displayTable(jobs: NormalizedJob[], title: string): void {
   console.log(`📋 ${title}`);
@@ -280,7 +354,16 @@ function displayTable(jobs: NormalizedJob[], title: string): void {
 }
 
 /**
- * Display jobs in JSON format
+ * Display job data in JSON format for programmatic consumption
+ *
+ * @param jobs - Array of job data to serialize
+ * @param title - Descriptive title for the JSON output
+ * @returns No return value, outputs JSON to console
+ * @example
+ * ```typescript
+ * displayJson(SAMPLE_JOBS.multiple, 'Multiple Jobs Dataset');
+ * ```
+ * @since 1.0.0
  */
 function displayJson(jobs: NormalizedJob[], title: string): void {
   console.log(`// ${title}`);
@@ -289,7 +372,14 @@ function displayJson(jobs: NormalizedJob[], title: string): void {
 }
 
 /**
- * Get schema information for NormalizedJob
+ * Display comprehensive NormalizedJob schema documentation
+ *
+ * @returns No return value, outputs schema documentation to console
+ * @example
+ * ```typescript
+ * displaySchema();
+ * ```
+ * @since 1.0.0
  */
 function displaySchema(): void {
   console.log(`📋 NormalizedJob Schema`);
@@ -328,7 +418,14 @@ function displaySchema(): void {
 }
 
 /**
- * Main execution function
+ * Main execution function orchestrating test data inspection workflow
+ *
+ * @returns No return value, orchestrates console output
+ * @example
+ * ```typescript
+ * main();
+ * ```
+ * @since 1.0.0
  */
 function main(): void {
   const args = parseArgs();
@@ -376,4 +473,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
 
+/**
+ * Export test data inspection utilities for external use
+ *
+ * @since 1.0.0
+ */
 export { SAMPLE_JOBS, validateJob, validateJobs };

@@ -1,18 +1,40 @@
 #!/usr/bin/env tsx
 /**
- * Live Scraping Inspector
+ * Live Scraping Inspector - Development Tool for DriveHR Job Scraping
  *
- * Development utility to run the job scraper locally and immediately display
- * results with debug information, screenshots, and detailed logging.
- * Perfect for development, testing, and debugging scraping issues.
+ * Enterprise-grade development utility for executing Playwright-based job scraper
+ * locally with real-time debugging, performance metrics, and immediate result
+ * visualization. Serves as primary development interface for testing, debugging,
+ * and validating job scraping functionality before production deployment.
  *
- * Usage:
- *   pnpm tsx scripts/live-scraper.mts
- *   pnpm tsx scripts/live-scraper.mts --company-id <id>
- *   pnpm tsx scripts/live-scraper.mts --debug --screenshots
- *   pnpm tsx scripts/live-scraper.mts --no-headless
+ * Features:
+ * - Real-time scraping execution with progress indicators
+ * - Configurable browser modes (headless/visible) for debugging
+ * - Screenshot capture and debug artifact generation
+ * - Multiple output formats (detailed, table, JSON)
+ * - Comprehensive error reporting with actionable suggestions
+ * - CLI argument parsing for flexible configuration
+ * - Results persistence with structured metadata
  *
+ * @example
+ * ```typescript
+ * // Basic scraping with default settings
+ * pnpm tsx scripts/live-scraper.mts
+ *
+ * // Debug mode with screenshots
+ * pnpm tsx scripts/live-scraper.mts --company-id abc123 --debug --screenshots
+ *
+ * // Visible browser for development
+ * pnpm tsx scripts/live-scraper.mts --no-headless --debug
+ *
+ * // Export results to JSON
+ * pnpm tsx scripts/live-scraper.mts --format json --output results.json
+ * ```
+ *
+ * @module live-scraper-inspector
  * @since 1.0.0
+ * @see {@link ../src/services/playwright-scraper.ts} for core scraping service
+ * @see {@link ../CLAUDE.md} for development standards
  */
 
 import { mkdir, writeFile } from 'fs/promises';
@@ -25,7 +47,13 @@ import type { PlaywrightScraperConfig, PlaywrightScrapeResult } from '../src/ser
 import type { DriveHrApiConfig } from '../src/types/api.js';
 
 /**
- * CLI arguments interface
+ * Command-line interface arguments configuration
+ *
+ * Defines complete set of CLI parameters for configuring live scraper
+ * execution, including debugging options, output formatting, and browser
+ * behavior customization.
+ *
+ * @since 1.0.0
  */
 interface CliArgs {
   companyId?: string;
@@ -40,7 +68,14 @@ interface CliArgs {
 }
 
 /**
- * Live scraping result with enhanced debugging info
+ * Enhanced scraping result with debugging and performance data
+ *
+ * Extends base PlaywrightScrapeResult with additional metadata for
+ * development debugging, performance analysis, and result persistence.
+ * Provides complete context about scraping execution including
+ * configuration, timing, and debug artifacts.
+ *
+ * @since 1.0.0
  */
 interface LiveScrapeResult extends PlaywrightScrapeResult {
   config: {
@@ -62,7 +97,19 @@ interface LiveScrapeResult extends PlaywrightScrapeResult {
 }
 
 /**
- * Parse command line arguments
+ * Parse and validate command-line arguments into structured configuration
+ *
+ * Processes process.argv to extract CLI parameters and construct typed
+ * CliArgs object with validated values and appropriate defaults. Handles
+ * argument validation, type conversion, and provides fallback values.
+ *
+ * @returns Parsed and validated CLI arguments with defaults applied
+ * @example
+ * ```typescript
+ * const args = parseArgs();
+ * console.log(`Company ID: ${args.companyId}, Debug: ${args.debug}`);
+ * ```
+ * @since 1.0.0
  */
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
@@ -105,7 +152,10 @@ function parseArgs(): CliArgs {
         i++;
         break;
       case '--format':
-        parsed.format = args[i + 1] as 'table' | 'json' | 'detailed';
+        const format = args[i + 1];
+        if (format === 'table' || format === 'json' || format === 'detailed') {
+          parsed.format = format;
+        }
         i++;
         break;
       case '--help':
@@ -119,7 +169,20 @@ function parseArgs(): CliArgs {
 }
 
 /**
- * Display help information
+ * Display comprehensive CLI help documentation
+ *
+ * Shows detailed usage instructions, parameter descriptions, and practical
+ * examples to guide users in effectively utilizing the live scraper tool.
+ * Serves as primary user documentation interface.
+ *
+ * @example
+ * ```typescript
+ * if (args.help) {
+ *   showHelp();
+ *   return;
+ * }
+ * ```
+ * @since 1.0.0
  */
 function showHelp(): void {
   console.log(`
@@ -154,7 +217,19 @@ Environment Variables:
 }
 
 /**
- * Create output directories
+ * Create necessary output directories for debug artifacts and results
+ *
+ * Ensures required directories exist for storing screenshots, debug logs,
+ * and other scraping artifacts. Creates directories recursively and handles
+ * existing directory scenarios gracefully.
+ *
+ * @throws {Error} When directory creation fails due to permissions
+ * @example
+ * ```typescript
+ * await createOutputDirs();
+ * // Directories ./debug, ./debug/screenshots, ./debug/logs now exist
+ * ```
+ * @since 1.0.0
  */
 async function createOutputDirs(): Promise<void> {
   const dirs = ['./debug', './debug/screenshots', './debug/logs'];
@@ -168,7 +243,21 @@ async function createOutputDirs(): Promise<void> {
 }
 
 /**
- * Configure scraper with debug settings
+ * Create Playwright scraper configuration from CLI arguments
+ *
+ * Transforms user-provided CLI arguments into properly structured
+ * PlaywrightScraperConfig object with appropriate browser settings,
+ * debug options, and performance parameters.
+ *
+ * @param args - Parsed CLI arguments containing user preferences
+ * @returns Configured scraper settings optimized for development use
+ * @example
+ * ```typescript
+ * const args = parseArgs();
+ * const config = createScraperConfig(args);
+ * const scraper = new PlaywrightScraper(config);
+ * ```
+ * @since 1.0.0
  */
 function createScraperConfig(args: CliArgs): PlaywrightScraperConfig {
   return {
@@ -190,7 +279,20 @@ function createScraperConfig(args: CliArgs): PlaywrightScraperConfig {
 }
 
 /**
- * Create API configuration
+ * Generate DriveHR API configuration for specified company
+ *
+ * Constructs complete DriveHrApiConfig object with proper URLs and
+ * timeout settings for target company. Defines API endpoints and
+ * connection parameters used during scraping.
+ *
+ * @param companyId - DriveHR company identifier for URL construction
+ * @returns Complete API configuration with endpoints and timeouts
+ * @example
+ * ```typescript
+ * const config = createApiConfig('abc123');
+ * // config.careersUrl = 'https://drivehris.app/careers/abc123/list'
+ * ```
+ * @since 1.0.0
  */
 function createApiConfig(companyId: string): DriveHrApiConfig {
   return {
@@ -203,7 +305,21 @@ function createApiConfig(companyId: string): DriveHrApiConfig {
 }
 
 /**
- * Display scraping progress
+ * Display real-time scraping progress with visual progress bar
+ *
+ * Renders dynamic progress indicator in terminal showing current step
+ * completion with percentage and descriptive message. Uses Unicode
+ * block characters for visual progress bar that updates in-place.
+ *
+ * @param message - Descriptive text explaining current operation
+ * @param step - Current step number (1-based)
+ * @param total - Total number of steps in process
+ * @example
+ * ```typescript
+ * displayProgress('Loading careers page...', 2, 6);
+ * // Output: 🔄 [████░░░░░░░░░░░░░░░░] 33% - Loading careers page...
+ * ```
+ * @since 1.0.0
  */
 function displayProgress(message: string, step: number, total: number): void {
   const progress = Math.round((step / total) * 100);
@@ -216,7 +332,20 @@ function displayProgress(message: string, step: number, total: number): void {
 }
 
 /**
- * Display detailed scraping results
+ * Display comprehensive scraping results with detailed analysis
+ *
+ * Renders complete report of scraping execution including success status,
+ * performance metrics, configuration details, debug information, job
+ * statistics, and error details. Provides primary result visualization.
+ *
+ * @param result - Complete scraping result with enhanced debugging data
+ * @example
+ * ```typescript
+ * const result = await scraper.scrapeJobs(config, 'manual');
+ * displayDetailedResults(enhancedResult);
+ * // Outputs formatted report with status, metrics, job table
+ * ```
+ * @since 1.0.0
  */
 function displayDetailedResults(result: LiveScrapeResult): void {
   console.log('\n🎯 Live Scraping Results');
@@ -288,7 +417,20 @@ function displayDetailedResults(result: LiveScrapeResult): void {
 }
 
 /**
- * Display jobs in table format
+ * Display job listings in formatted table with responsive columns
+ *
+ * Renders job data in clean, readable table format with dynamic column
+ * widths based on content length. Handles text truncation for long values
+ * and provides consistent formatting for easy scanning.
+ *
+ * @param jobs - Array of normalized job objects to display
+ * @example
+ * ```typescript
+ * displayJobTable(result.jobs.slice(0, 10));
+ * // TITLE                   | DEPT      | LOCATION    | TYPE
+ * // Senior Developer        | Tech      | Remote      | Full-time
+ * ```
+ * @since 1.0.0
  */
 function displayJobTable(jobs: NormalizedJob[]): void {
   if (jobs.length === 0) {
@@ -343,7 +485,21 @@ function displayJobTable(jobs: NormalizedJob[]): void {
 }
 
 /**
- * Save results to file
+ * Persist scraping results to JSON file with comprehensive metadata
+ *
+ * Serializes complete scraping result including job data, configuration,
+ * performance metrics, and debug information to structured JSON file.
+ * Enables result analysis, comparison, and integration with other tools.
+ *
+ * @param result - Complete scraping result with all metadata
+ * @param outputPath - File system path where results should be saved
+ * @throws {Error} When file writing fails due to permissions or disk space
+ * @example
+ * ```typescript
+ * await saveResults(result, './output/scraping-results.json');
+ * console.log('Results saved successfully');
+ * ```
+ * @since 1.0.0
  */
 async function saveResults(result: LiveScrapeResult, outputPath: string): Promise<void> {
   const timestamp = new Date().toISOString();
@@ -367,7 +523,25 @@ async function saveResults(result: LiveScrapeResult, outputPath: string): Promis
 }
 
 /**
- * Main execution function
+ * Main execution orchestrator for live scraping operations
+ *
+ * Coordinates complete scraping workflow from argument parsing through
+ * result display and persistence. Handles configuration setup, environment
+ * validation, scraper initialization, progress tracking, and comprehensive
+ * error handling with proper error boundaries.
+ *
+ * @throws {Error} When critical configuration or execution failures occur
+ * @example
+ * ```typescript
+ * // Execute from CLI
+ * if (import.meta.url === `file://${process.argv[1]}`) {
+ *   main().catch(error => {
+ *     console.error('Fatal error:', error);
+ *     process.exit(1);
+ *   });
+ * }
+ * ```
+ * @since 1.0.0
  */
 async function main(): Promise<void> {
   const args = parseArgs();

@@ -1,20 +1,32 @@
 /**
- * @fileoverview Test suite for sync-jobs webhook receiver function
+ * Sync Jobs Function Test Suite
  *
- * Tests the lightweight webhook receiver that handles job data from GitHub Actions
- * and forwards it to WordPress. This function replaces the old job fetcher with
- * a simple webhook endpoint for the new GitHub Actions-based architecture.
+ * Comprehensive test coverage for sync-jobs webhook receiver function following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the lightweight webhook receiver that handles job
+ * data from GitHub Actions and forwards it to WordPress, replacing the old job
+ * fetcher with a simple webhook endpoint for the new GitHub Actions-based
+ * architecture.
  *
- * Test Coverage:
+ * Test Features:
  * - OPTIONS requests (CORS preflight)
  * - GET requests (health checks)
  * - POST requests (webhook data processing)
  * - HTTP method validation
  * - Error handling and security headers
  * - HMAC signature validation
- * - WordPress integration
+ * - WordPress integration patterns
  *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/functions/sync-jobs.test.ts -- --grep "webhook"
+ * ```
+ *
+ * @module sync-jobs-test-suite
  * @since 2.0.0
+ * @see {@link ../../src/functions/sync-jobs.mts} for the function being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

@@ -1,40 +1,12 @@
 /**
- * API and HTTP Client Types
- *
- * Comprehensive type definitions for HTTP communication, API responses, and client interfaces.
- * Ensures type safety across all external communication including DriveHR API integration,
- * WordPress webhook communication, and general HTTP client operations.
- *
- * These types provide strong typing for:
- * - HTTP client configuration and responses
- * - API credentials and authentication
- * - Webhook security and CORS configuration
- * - Rate limiting and retry mechanisms
- *
- * @module api-types
- * @since 1.0.0
- */
-
-/**
  * HTTP client configuration interface
  *
- * Defines configuration options for HTTP client instances with support
- * for timeouts, retries, custom headers, and user agent strings.
+ * Defines the configuration options for HTTP client instances, providing
+ * control over request behavior, timeouts, retries, and default headers.
+ * Supports both global and per-request configuration overrides.
  *
- * @example
- * ```typescript
- * const config: HttpClientConfig = {
- *   baseUrl: 'https://api.example.com',
- *   timeout: 30000,
- *   retries: 3,
- *   userAgent: 'MyApp/1.0',
- *   headers: {
- *     'Authorization': 'Bearer token123',
- *     'Content-Type': 'application/json'
- *   }
- * };
- * ```
  * @since 1.0.0
+ * @see {@link ../lib/http-client.ts} for HTTP client implementation
  */
 export interface HttpClientConfig {
   /** Base URL for all requests (optional, can be provided per request) */
@@ -50,27 +22,15 @@ export interface HttpClientConfig {
 }
 
 /**
- * HTTP response interface with generic data typing
+ * HTTP response data structure with generic typing support
  *
- * Standardized HTTP response structure that wraps all HTTP responses
- * with consistent metadata and strongly-typed data payloads.
+ * Represents a complete HTTP response with status information, headers,
+ * and typed response data. Provides success flag for quick status checking
+ * and supports generic typing for response data validation.
  *
  * @template T - Type of the response data payload
- * @example
- * ```typescript
- * // Typed API response
- * const response: HttpResponse<JobData[]> = await httpClient.get('/jobs');
- * if (response.success && response.status === 200) {
- *   const jobs = response.data; // Type: JobData[]
- *   console.log(`Received ${jobs.length} jobs`);
- * }
- *
- * // Error handling
- * if (!response.success) {
- *   console.error(`HTTP ${response.status}: ${response.statusText}`);
- * }
- * ```
  * @since 1.0.0
+ * @see {@link HttpError} for error response handling
  */
 export interface HttpResponse<T = unknown> {
   /** HTTP status code (200, 404, 500, etc.) */
@@ -86,30 +46,14 @@ export interface HttpResponse<T = unknown> {
 }
 
 /**
- * HTTP error interface for enhanced error handling
+ * HTTP error interface extending native Error
  *
- * Extended error interface that provides detailed information about
- * HTTP request failures, including status codes, response data,
- * and error categorization for proper error handling.
+ * Provides detailed error information for HTTP requests including status codes,
+ * response data, and error classification for proper error handling and retry logic.
+ * Distinguishes between network errors, timeouts, and server errors.
  *
- * @example
- * ```typescript
- * try {
- *   await httpClient.post('/api/data', payload);
- * } catch (error) {
- *   if (error instanceof Error && 'status' in error) {
- *     const httpError = error as HttpError;
- *     if (httpError.isTimeoutError) {
- *       console.log('Request timed out, retrying...');
- *     } else if (httpError.status === 429) {
- *       console.log('Rate limited, backing off...');
- *     } else if (httpError.isNetworkError) {
- *       console.log('Network connectivity issue');
- *     }
- *   }
- * }
- * ```
  * @since 1.0.0
+ * @see {@link HttpResponse} for successful response structure
  */
 export interface HttpError extends Error {
   /** HTTP status code (if the request reached the server) */
@@ -125,62 +69,16 @@ export interface HttpError extends Error {
 }
 
 /**
- * Generic API credentials interface
- *
- * Flexible credential structure that supports various authentication
- * methods including tokens, basic auth, and API keys. Used as a base
- * for more specific API configuration interfaces.
- *
- * @example
- * ```typescript
- * // Token-based authentication
- * const tokenAuth: ApiCredentials = {
- *   token: 'jwt-token-here'
- * };
- *
- * // Basic authentication
- * const basicAuth: ApiCredentials = {
- *   username: 'user@example.com',
- *   password: 'secure-password'
- * };
- *
- * // API key authentication
- * const apiKeyAuth: ApiCredentials = {
- *   apiKey: 'api-key-12345'
- * };
- * ```
- * @since 1.0.0
- */
-export interface ApiCredentials {
-  /** Bearer token for JWT or OAuth authentication */
-  readonly token?: string;
-  /** Username for basic authentication */
-  readonly username?: string;
-  /** Password for basic authentication */
-  readonly password?: string;
-  /** API key for key-based authentication */
-  readonly apiKey?: string;
-}
-
-/**
  * WordPress API configuration interface
  *
- * Configuration for WordPress webhook communication including
- * endpoint URLs and request settings. Used for secure webhook
- * delivery with HMAC signature verification.
+ * Defines WordPress webhook endpoint configuration including URL and request
+ * behavior settings. Used for WordPress webhook client initialization without
+ * authentication since webhooks use HMAC signature validation.
  *
- * @example
- * ```typescript
- * const wpConfig: WordPressApiConfig = {
- *   baseUrl: 'https://mysite.com/webhook/drivehr-sync',
- *   timeout: 30000,
- *   retries: 3
- * };
- * ```
  * @since 1.0.0
- * @see {@link ApiCredentials} for authentication options
+ * @see {@link ../services/wordpress-client.ts} for WordPress client implementation
  */
-export interface WordPressApiConfig extends ApiCredentials {
+export interface WordPressApiConfig {
   /** WordPress webhook endpoint URL */
   readonly baseUrl: string;
   /** Request timeout in milliseconds (default: 30000) */
@@ -192,21 +90,12 @@ export interface WordPressApiConfig extends ApiCredentials {
 /**
  * DriveHR API configuration interface
  *
- * Configuration for DriveHR API integration including company-specific
- * URLs, identifiers, and request settings. Used for job data fetching
- * from various DriveHR endpoints and formats.
+ * Defines configuration for DriveHR career site scraping including URLs,
+ * company identification, and request behavior. Used for job fetching
+ * operations from DriveHR career pages.
  *
- * @example
- * ```typescript
- * const driveHrConfig: DriveHrApiConfig = {
- *   careersUrl: 'https://drivehris.app/careers/acme-corp/list',
- *   companyId: 'acme-corp-uuid-here',
- *   apiBaseUrl: 'https://drivehris.app/careers/acme-corp',
- *   timeout: 30000,
- *   retries: 3
- * };
- * ```
  * @since 1.0.0
+ * @see {@link ../services/playwright-scraper.ts} for DriveHR scraping implementation
  */
 export interface DriveHrApiConfig {
   /** URL to the company's careers page for HTML scraping */
@@ -222,21 +111,14 @@ export interface DriveHrApiConfig {
 }
 
 /**
- * Webhook security configuration interface
+ * Webhook configuration interface for HMAC signature validation
  *
- * Configuration for webhook signature verification including HMAC
- * algorithm, secret key, and header naming conventions for secure
- * webhook communication.
+ * Defines webhook security configuration including secret keys, HMAC algorithms,
+ * and header naming for webhook signature validation. Used to ensure webhook
+ * request authenticity and prevent unauthorized webhook calls.
  *
- * @example
- * ```typescript
- * const webhookConfig: WebhookConfig = {
- *   secret: 'super-secret-webhook-key-min-32-chars',
- *   algorithm: 'sha256',
- *   headerName: 'x-webhook-signature'
- * };
- * ```
  * @since 1.0.0
+ * @see {@link ../lib/utils.ts} for HMAC signature validation utilities
  */
 export interface WebhookConfig {
   /** Secret key for HMAC signature generation (minimum 16 characters) */
@@ -250,23 +132,12 @@ export interface WebhookConfig {
 /**
  * Security headers interface for HTTP responses
  *
- * Defines required security headers for HTTP responses to protect
- * against common web vulnerabilities including XSS, clickjacking,
- * and content sniffing attacks.
+ * Defines required security headers for all HTTP responses to prevent
+ * common web vulnerabilities including XSS, clickjacking, and MIME sniffing.
+ * Implements enterprise-grade security standards for web applications.
  *
- * @example
- * ```typescript
- * const securityHeaders: SecurityHeaders = {
- *   'Content-Type': 'application/json',
- *   'Content-Security-Policy': "default-src 'self'",
- *   'X-Frame-Options': 'DENY',
- *   'X-Content-Type-Options': 'nosniff',
- *   'Referrer-Policy': 'strict-origin-when-cross-origin',
- *   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
- * };
- * ```
  * @since 1.0.0
- * @see {@link https://owasp.org/www-project-secure-headers/} for security header best practices
+ * @see {@link https://owasp.org/www-project-secure-headers/} OWASP Secure Headers
  */
 export interface SecurityHeaders extends Record<string, string> {
   /** MIME type of the response content */
@@ -286,29 +157,12 @@ export interface SecurityHeaders extends Record<string, string> {
 /**
  * CORS (Cross-Origin Resource Sharing) configuration interface
  *
- * Configuration for handling cross-origin requests including allowed
- * origins, HTTP methods, headers, and preflight cache duration.
+ * Defines CORS policy settings for cross-origin HTTP requests including
+ * allowed origins, methods, headers, and preflight cache duration. Used
+ * to configure secure cross-origin access for web applications.
  *
- * @example
- * ```typescript
- * // Allow specific origins
- * const strictCors: CorsConfig = {
- *   origin: ['https://myapp.com', 'https://admin.myapp.com'],
- *   methods: ['GET', 'POST'],
- *   headers: ['Content-Type', 'Authorization'],
- *   maxAge: 86400 // 24 hours
- * };
- *
- * // Allow all origins (development only)
- * const permissiveCors: CorsConfig = {
- *   origin: '*',
- *   methods: ['GET', 'POST', 'PUT', 'DELETE'],
- *   headers: ['*'],
- *   maxAge: 3600 // 1 hour
- * };
- * ```
  * @since 1.0.0
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS} for CORS documentation
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS} MDN CORS documentation
  */
 export interface CorsConfig {
   /** Allowed origins (specific URLs or '*' for all) */
@@ -324,30 +178,12 @@ export interface CorsConfig {
 /**
  * HTTP request retry configuration interface
  *
- * Configuration for automatic retry logic including exponential backoff,
- * jitter, and delay limits to handle transient failures gracefully.
+ * Defines exponential backoff retry strategy for failed HTTP requests
+ * including maximum attempts, delays, and jitter settings. Used to
+ * implement resilient HTTP client behavior with configurable retry logic.
  *
- * @example
- * ```typescript
- * // Standard retry configuration
- * const retryConfig: RetryConfig = {
- *   maxAttempts: 3,
- *   baseDelay: 1000, // Start with 1 second
- *   maxDelay: 10000, // Cap at 10 seconds
- *   exponentialBase: 2, // Double delay each time
- *   jitter: true // Add randomness to prevent thundering herd
- * };
- *
- * // Aggressive retry for critical operations
- * const aggressiveRetry: RetryConfig = {
- *   maxAttempts: 5,
- *   baseDelay: 500,
- *   maxDelay: 30000,
- *   exponentialBase: 1.5,
- *   jitter: true
- * };
- * ```
  * @since 1.0.0
+ * @see {@link ../lib/http-client.ts} for retry implementation
  */
 export interface RetryConfig {
   /** Maximum number of retry attempts (including initial request) */

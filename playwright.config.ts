@@ -1,8 +1,20 @@
+/**
+ * Playwright configuration for DriveHR job scraping automation
+ *
+ * Optimized for headless browser automation in CI/CD environments with
+ * enterprise-grade settings for timeout, retry logic, and reporting.
+ *
+ * @module playwright-config
+ * @since 1.0.0
+ * @see {@link ./CLAUDE.md} for development standards
+ */
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright configuration for job scraping
- * Optimized for headless browser automation and CI/CD environments
+ * Playwright configuration export
+ *
+ * @since 1.0.0
  */
 export default defineConfig({
   // Test directory (for any browser tests we might add later)
@@ -85,5 +97,5 @@ export default defineConfig({
   ],
 
   // Run your local dev server before starting the tests
-  webServer: undefined, // We don't need a local server for scraping external sites
+  // webServer: undefined, // We don't need a local server for scraping external sites
 });

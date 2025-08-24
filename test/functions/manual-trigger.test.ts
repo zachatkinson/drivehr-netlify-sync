@@ -1,10 +1,29 @@
 /**
- * @fileoverview Test suite for manual-trigger Netlify function
+ * Manual Trigger Function Test Suite
  *
- * Tests the manual trigger endpoint that initiates GitHub Actions
- * job scraping workflows via the GitHub API.
+ * Comprehensive test coverage for manual-trigger Netlify function following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the manual trigger endpoint that initiates
+ * GitHub Actions job scraping workflows via the GitHub API.
  *
+ * Test Features:
+ * - HTTP method validation and security
+ * - Authentication with webhook signatures
+ * - Payload validation and parsing
+ * - GitHub API integration patterns
+ * - Error handling and recovery
+ * - Response formatting and headers
+ *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/functions/manual-trigger.test.ts -- --grep "authentication"
+ * ```
+ *
+ * @module manual-trigger-test-suite
  * @since 2.0.0
+ * @see {@link ../../src/functions/manual-trigger.mts} for the function being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

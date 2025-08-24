@@ -1,11 +1,13 @@
 /**
- * @fileoverview Comprehensive test suite for WordPress webhook client
+ * WordPress Client Service Test Suite
  *
- * Tests the WordPress client service that handles secure job synchronization
- * with WordPress via webhooks using HMAC signature verification. Uses DRY
- * principles with specialized utilities for consistent test patterns.
+ * Comprehensive test coverage for WordPress webhook client following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the WordPress client service that handles secure
+ * job synchronization with WordPress via webhooks using HMAC signature
+ * verification.
  *
- * Key test areas:
+ * Test Features:
  * - WordPressWebhookClient: Main client class with sync and health operations
  * - createWordPressClient: Factory function with configuration validation
  * - syncJobs: Core synchronization logic with various scenarios
@@ -14,8 +16,16 @@
  * - Security: HMAC signature generation and validation
  * - Integration patterns: End-to-end workflow testing
  *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/services/wordpress-client.test.ts -- --grep "syncJobs"
+ * ```
+ *
+ * @module wordpress-client-test-suite
  * @since 1.0.0
- * @see {@link ../../src/services/wordpress-client.ts} for implementation details
+ * @see {@link ../../src/services/wordpress-client.ts} for the service being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

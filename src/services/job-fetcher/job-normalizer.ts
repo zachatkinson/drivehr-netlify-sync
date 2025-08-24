@@ -1,6 +1,36 @@
 import { StringUtils, DateUtils } from '../../lib/utils.js';
 import type { RawJobData, NormalizedJob, JobSource } from '../../types/job.js';
 
+/**
+ * Job data normalization service
+ *
+ * Provides comprehensive normalization of raw job data from various sources
+ * into a consistent, validated format. Handles field mapping variations,
+ * data cleaning, type coercion, and validation to ensure reliable job data
+ * processing regardless of the original data source format.
+ *
+ * The normalizer follows enterprise data processing standards with robust
+ * error handling, fallback value generation, and comprehensive validation
+ * to prevent malformed data from entering the system.
+ *
+ * @example
+ * ```typescript
+ * const normalizer = new JobNormalizer();
+ * const rawJobs = [{
+ *   title: '  Software Engineer  ',
+ *   position_title: 'Backend Developer',
+ *   location: 'Remote',
+ *   posted_date: '2024-01-15'
+ * }];
+ *
+ * const normalized = await normalizer.normalizeJobs(rawJobs, 'drivehr');
+ * console.log(normalized[0].title); // 'Software Engineer'
+ * console.log(normalized[0].source); // 'drivehr'
+ * ```
+ * @since 1.0.0
+ * @see {@link NormalizedJob} for the output structure
+ * @see {@link RawJobData} for supported input formats
+ */
 export class JobNormalizer {
   /**
    * Normalize raw job data into consistent format
@@ -92,21 +122,61 @@ export class JobNormalizer {
     return rawJob.id ?? rawJob.job_id ?? this.generateJobId(title);
   }
 
+  /**
+   * Extract job department from raw job data
+   *
+   * Handles various field name variations for departments across different
+   * data sources and normalizes whitespace.
+   *
+   * @param rawJob - Raw job data from any source
+   * @returns Normalized department string
+   * @since 1.0.0
+   */
   private extractJobDepartment(rawJob: RawJobData): string {
     const department = rawJob.department ?? rawJob.category ?? rawJob.division ?? '';
     return department.trim();
   }
 
+  /**
+   * Extract job location from raw job data
+   *
+   * Handles various field name variations for locations across different
+   * data sources and normalizes whitespace.
+   *
+   * @param rawJob - Raw job data from any source
+   * @returns Normalized location string
+   * @since 1.0.0
+   */
   private extractJobLocation(rawJob: RawJobData): string {
     const location = rawJob.location ?? rawJob.city ?? rawJob.office ?? '';
     return location.trim();
   }
 
+  /**
+   * Extract job type from raw job data
+   *
+   * Handles various field name variations for job types across different
+   * data sources and provides sensible defaults.
+   *
+   * @param rawJob - Raw job data from any source
+   * @returns Normalized job type string, defaults to 'Full-time'
+   * @since 1.0.0
+   */
   private extractJobType(rawJob: RawJobData): string {
     const type = rawJob.type ?? rawJob.employment_type ?? rawJob.schedule ?? 'Full-time';
     return type.trim();
   }
 
+  /**
+   * Extract job description from raw job data
+   *
+   * Handles various field name variations for job descriptions across
+   * different data sources and normalizes whitespace.
+   *
+   * @param rawJob - Raw job data from any source
+   * @returns Normalized job description string
+   * @since 1.0.0
+   */
   private extractJobDescription(rawJob: RawJobData): string {
     const description = rawJob.description ?? rawJob.summary ?? rawJob.overview ?? '';
     return description.trim();
@@ -127,6 +197,16 @@ export class JobNormalizer {
     return dateString ? DateUtils.toIsoString(dateString) : DateUtils.getCurrentIsoTimestamp();
   }
 
+  /**
+   * Extract job application URL from raw job data
+   *
+   * Handles various field name variations for application URLs across
+   * different data sources.
+   *
+   * @param rawJob - Raw job data from any source
+   * @returns Job application URL string
+   * @since 1.0.0
+   */
   private extractJobApplyUrl(rawJob: RawJobData): string {
     return rawJob.apply_url ?? rawJob.application_url ?? rawJob.url ?? '';
   }

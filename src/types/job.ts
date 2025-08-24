@@ -318,7 +318,9 @@ export type JobSource =
   /** Job data fetched via automated webhook trigger */
   | 'webhook'
   /** Job data fetched via GitHub Actions scraping */
-  | 'github-actions';
+  | 'github-actions'
+  /** Job data fetched via automated system processes */
+  | 'automated';
 
 /**
  * Job fetching method enumeration

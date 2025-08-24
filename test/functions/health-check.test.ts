@@ -1,10 +1,30 @@
 /**
- * @fileoverview Test suite for health-check Netlify function
+ * Health Check Function Test Suite
  *
- * Tests the health check endpoint that monitors system status and
- * external service connectivity for the new GitHub Actions architecture.
+ * Comprehensive test coverage for health-check Netlify function following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the health check endpoint that monitors system
+ * status and external service connectivity for the new GitHub Actions
+ * architecture.
  *
+ * Test Features:
+ * - System status monitoring
+ * - External service connectivity checks
+ * - Error handling and recovery
+ * - Response formatting and status codes
+ * - Performance and reliability testing
+ * - Integration with monitoring systems
+ *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/functions/health-check.test.ts -- --grep "connectivity"
+ * ```
+ *
+ * @module health-check-test-suite
  * @since 2.0.0
+ * @see {@link ../../src/functions/health-check.mts} for the function being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

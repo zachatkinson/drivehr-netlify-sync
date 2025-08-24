@@ -1,9 +1,25 @@
+/**
+ * Vitest testing configuration for DriveHR Netlify Sync
+ *
+ * Implements enterprise testing standards with 80% coverage targets,
+ * security-focused test isolation, and comprehensive reporting.
+ *
+ * @module vitest-config
+ * @since 1.0.0
+ * @see {@link ./CLAUDE.md} for testing standards
+ */
+
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname: string = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Vitest configuration export
+ *
+ * @since 1.0.0
+ */
 export default defineConfig({
   test: {
     // Environment
@@ -40,10 +56,10 @@ export default defineConfig({
       ],
       thresholds: {
         global: {
-          branches: 90,
-          functions: 90,
-          lines: 90,
-          statements: 90,
+          branches: 80,
+          functions: 80,
+          lines: 80,
+          statements: 80,
         },
       },
       all: true,

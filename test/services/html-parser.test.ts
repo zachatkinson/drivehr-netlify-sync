@@ -1,11 +1,13 @@
 /**
- * @fileoverview Comprehensive test suite for HTML parser service
+ * HTML Parser Service Test Suite
  *
- * Tests the HTML parsing service that extracts structured job data from
- * unstructured HTML content using configurable CSS selectors and intelligent
- * fallback mechanisms. Uses DRY principles with specialized utilities.
+ * Comprehensive test coverage for HTML parser service following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the HTML parsing service that extracts structured
+ * job data from unstructured HTML content using configurable CSS selectors
+ * and intelligent fallback mechanisms.
  *
- * Key test areas:
+ * Test Features:
  * - HtmlParsingConfig: Configuration interface and defaults
  * - HtmlParserService: Main parsing service with CSS selectors
  * - createHtmlParser: Factory function with configuration merging
@@ -13,8 +15,16 @@
  * - Error handling and edge cases for malformed HTML
  * - Integration patterns with different job site layouts
  *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/services/html-parser.test.ts -- --grep "HtmlParserService"
+ * ```
+ *
+ * @module html-parser-test-suite
  * @since 1.0.0
- * @see {@link ../../src/services/html-parser.ts} for implementation details
+ * @see {@link ../../src/services/html-parser.ts} for the service being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

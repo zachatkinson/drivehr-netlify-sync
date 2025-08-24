@@ -1,12 +1,31 @@
 /**
- * @fileoverview Comprehensive test suite for scrape-and-sync script
+ * Scrape and Sync Script Test Suite
  *
- * Tests the complete GitHub Actions workflow script that orchestrates
- * job scraping with Playwright and WordPress synchronization. This includes
- * configuration loading, environment validation, scraping orchestration,
+ * Comprehensive test coverage for scrape-and-sync script following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates the complete GitHub Actions workflow script that
+ * orchestrates job scraping with Playwright and WordPress synchronization,
+ * including configuration loading, environment validation, scraping orchestration,
  * webhook integration, artifact generation, and error handling.
  *
+ * Test Features:
+ * - Configuration loading and validation
+ * - Environment variable management
+ * - Playwright scraping orchestration
+ * - WordPress webhook integration
+ * - Artifact generation and file operations
+ * - Error handling and recovery mechanisms
+ *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/scripts/scrape-and-sync.test.ts -- --grep "orchestration"
+ * ```
+ *
+ * @module scrape-and-sync-test-suite
  * @since 2.0.0
+ * @see {@link ../../src/scripts/scrape-and-sync.ts} for the script being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

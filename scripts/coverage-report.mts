@@ -2,24 +2,47 @@
 /**
  * Coverage Report CLI Tool
  *
- * Generates clean, focused coverage reports from LCOV data, filtering out
- * build artifacts and focusing on source code coverage. Provides both
- * summary and detailed views with color-coded output.
+ * Enterprise-grade coverage reporting tool that generates clean, focused
+ * coverage reports from LCOV data. Filters out build artifacts and Netlify
+ * functions, focusing on source code coverage with color-coded output and
+ * multiple format support.
  *
- * Usage:
- *   pnpm tsx scripts/coverage-report.mts
- *   pnpm tsx scripts/coverage-report.mts --detailed
- *   pnpm tsx scripts/coverage-report.mts --format json
- *   pnpm tsx scripts/coverage-report.mts --threshold 90
+ * Features:
+ * - Clean LCOV parsing with artifact filtering
+ * - Summary and detailed coverage views
+ * - Color-coded output with coverage thresholds
+ * - JSON export for CI/CD integration
+ * - File pattern filtering for targeted reporting
+ * - Enterprise-grade error handling and validation
  *
+ * @example
+ * ```typescript
+ * // Generate summary report
+ * pnpm tsx scripts/coverage-report.mts
+ * 
+ * // Detailed view with threshold
+ * pnpm tsx scripts/coverage-report.mts --detailed --threshold 85
+ * 
+ * // JSON output for CI
+ * pnpm tsx scripts/coverage-report.mts --format json > coverage.json
+ * ```
+ *
+ * @module coverage-report
  * @since 1.0.0
+ * @see {@link ../CLAUDE.md} for development standards and testing requirements
+ * @see {@link ../vitest.config.ts} for test configuration
  */
 
 import { readFile, access } from 'fs/promises';
 import { join } from 'path';
 
 /**
- * CLI arguments interface
+ * Command-line interface arguments for coverage reporting
+ *
+ * Defines all available CLI options for controlling coverage report
+ * generation, output formatting, and filtering behavior.
+ *
+ * @since 1.0.0
  */
 interface CliArgs {
   detailed: boolean;
@@ -30,7 +53,12 @@ interface CliArgs {
 }
 
 /**
- * Coverage metrics for a single file
+ * Coverage metrics for a single source file
+ *
+ * Comprehensive coverage data including line, function, and branch
+ * coverage with calculated percentages and overall coverage score.
+ *
+ * @since 1.0.0
  */
 interface FileCoverage {
   file: string;
@@ -53,7 +81,12 @@ interface FileCoverage {
 }
 
 /**
- * Overall coverage summary
+ * Overall coverage summary with aggregated metrics
+ *
+ * Contains aggregated coverage data across all files with totals,
+ * threshold validation, and file-level coverage details.
+ *
+ * @since 1.0.0
  */
 interface CoverageSummary {
   files: FileCoverage[];
@@ -71,7 +104,19 @@ interface CoverageSummary {
 }
 
 /**
- * Parse command line arguments
+ * Parse command line arguments with validation
+ *
+ * Parses process.argv to extract coverage report configuration options
+ * including output format, threshold settings, and filtering criteria.
+ *
+ * @returns Parsed CLI arguments with defaults applied
+ * @example
+ * ```typescript
+ * const args = parseArgs();
+ * console.log(args.detailed); // boolean
+ * console.log(args.threshold); // number (default: 90)
+ * ```
+ * @since 1.0.0
  */
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
@@ -114,7 +159,17 @@ function parseArgs(): CliArgs {
 }
 
 /**
- * Display help information
+ * Display comprehensive help information
+ *
+ * Outputs detailed usage instructions, available options, examples,
+ * and coverage threshold guidelines to assist users with the CLI tool.
+ *
+ * @example
+ * ```typescript
+ * showHelp();
+ * // Displays formatted help text to console
+ * ```
+ * @since 1.0.0
  */
 function showHelp(): void {
   console.log(`
@@ -148,6 +203,22 @@ Coverage Thresholds:
 
 /**
  * Parse LCOV file and extract coverage data
+ *
+ * Reads and parses LCOV format coverage data, extracting line, function,
+ * and branch coverage metrics for each file. Filters out build artifacts
+ * and focuses on source code coverage only.
+ *
+ * @param filePath - Absolute path to the LCOV info file
+ * @returns Sorted array of file coverage data (highest coverage first)
+ * @throws {Error} When LCOV file cannot be read or parsed
+ * @example
+ * ```typescript
+ * const coverage = await parseLcovFile('/path/to/lcov.info');
+ * coverage.forEach(file => {
+ *   console.log(`${file.file}: ${file.overall.toFixed(1)}%`);
+ * });
+ * ```
+ * @since 1.0.0
  */
 async function parseLcovFile(filePath: string): Promise<FileCoverage[]> {
   try {
@@ -220,6 +291,20 @@ async function parseLcovFile(filePath: string): Promise<FileCoverage[]> {
 
 /**
  * Filter out build artifacts and focus on source files
+ *
+ * Determines whether a file should be included in coverage reporting
+ * by filtering out Netlify functions, node_modules, build artifacts,
+ * and other non-source files.
+ *
+ * @param filePath - File path to evaluate for inclusion
+ * @returns True if file should be included in coverage report
+ * @example
+ * ```typescript
+ * shouldIncludeFile('src/lib/config.ts'); // true
+ * shouldIncludeFile('.netlify/functions/sync.js'); // false
+ * shouldIncludeFile('node_modules/lodash/index.js'); // false
+ * ```
+ * @since 1.0.0
  */
 function shouldIncludeFile(filePath: string): boolean {
   // Exclude Netlify artifacts, build files, and node_modules
@@ -244,7 +329,22 @@ function shouldIncludeFile(filePath: string): boolean {
 }
 
 /**
- * Calculate overall coverage summary
+ * Calculate overall coverage summary with threshold validation
+ *
+ * Aggregates individual file coverage metrics into overall totals,
+ * calculates percentages, and validates against the specified threshold
+ * for pass/fail determination.
+ *
+ * @param files - Array of individual file coverage data
+ * @param threshold - Minimum coverage percentage required for passing
+ * @returns Complete coverage summary with totals and threshold validation
+ * @example
+ * ```typescript
+ * const summary = calculateSummary(files, 90);
+ * console.log(`Overall: ${summary.totals.overall.toFixed(1)}%`);
+ * console.log(`Passed: ${summary.thresholds.passed}`);
+ * ```
+ * @since 1.0.0
  */
 function calculateSummary(files: FileCoverage[], threshold: number): CoverageSummary {
   const totals = {
@@ -280,7 +380,20 @@ function calculateSummary(files: FileCoverage[], threshold: number): CoverageSum
 }
 
 /**
- * Get coverage status icon and color
+ * Get coverage status icon and ANSI color code
+ *
+ * Returns appropriate emoji icon and ANSI color code based on
+ * coverage percentage thresholds for console output formatting.
+ *
+ * @param percentage - Coverage percentage to evaluate
+ * @returns Object with emoji icon and ANSI color code
+ * @example
+ * ```typescript
+ * const status = getCoverageStatus(95.2);
+ * console.log(status.icon); // '🟢'
+ * console.log(status.color); // '\\033[32m' (green)
+ * ```
+ * @since 1.0.0
  */
 function getCoverageStatus(percentage: number): { icon: string; color: string } {
   if (percentage >= 90) return { icon: '🟢', color: '\\033[32m' }; // Green
@@ -290,7 +403,21 @@ function getCoverageStatus(percentage: number): { icon: string; color: string } 
 }
 
 /**
- * Format percentage with color coding
+ * Format percentage with color coding and padding
+ *
+ * Formats coverage percentage with appropriate ANSI color coding
+ * and consistent padding for tabular display. Handles zero-coverage
+ * cases gracefully.
+ *
+ * @param percentage - Coverage percentage to format
+ * @param found - Number of items found (0 = no coverage data)
+ * @returns Formatted percentage string with color codes and padding
+ * @example
+ * ```typescript
+ * formatPercentage(87.5); // '\\033[33m 87.5%\\033[0m'
+ * formatPercentage(0, 0);  // '     -'
+ * ```
+ * @since 1.0.0
  */
 function formatPercentage(percentage: number, found: number = 1): string {
   if (found === 0) return '     -';
@@ -301,7 +428,20 @@ function formatPercentage(percentage: number, found: number = 1): string {
 }
 
 /**
- * Display summary coverage report
+ * Display formatted coverage summary report
+ *
+ * Outputs comprehensive coverage summary including overall status,
+ * threshold validation, coverage breakdown by type, and file
+ * distribution statistics with color-coded formatting.
+ *
+ * @param summary - Coverage summary data to display
+ * @example
+ * ```typescript
+ * const summary = calculateSummary(files, 90);
+ * displaySummary(summary);
+ * // Outputs formatted summary to console
+ * ```
+ * @since 1.0.0
  */
 function displaySummary(summary: CoverageSummary): void {
   const { totals, thresholds } = summary;
@@ -338,7 +478,20 @@ function displaySummary(summary: CoverageSummary): void {
 }
 
 /**
- * Display detailed file coverage report
+ * Display detailed file-by-file coverage report
+ *
+ * Outputs tabular coverage report showing individual file metrics
+ * including line, function, and branch coverage percentages with
+ * status indicators. Supports optional regex filtering.
+ *
+ * @param summary - Coverage summary containing file details
+ * @param filter - Optional regex pattern to filter displayed files
+ * @example
+ * ```typescript
+ * displayDetailed(summary); // Show all files
+ * displayDetailed(summary, 'services'); // Show only services files
+ * ```
+ * @since 1.0.0
  */
 function displayDetailed(summary: CoverageSummary, filter?: string): void {
   let files = summary.files;
@@ -390,7 +543,20 @@ function displayDetailed(summary: CoverageSummary, filter?: string): void {
 }
 
 /**
- * Main execution function
+ * Main execution function for coverage report generation
+ *
+ * Orchestrates the complete coverage reporting workflow including
+ * argument parsing, LCOV file processing, coverage calculation,
+ * and formatted output generation. Handles errors gracefully
+ * and exits with appropriate status codes.
+ *
+ * @throws {Error} When coverage file is missing or parsing fails
+ * @example
+ * ```typescript
+ * await main();
+ * // Generates coverage report based on CLI arguments
+ * ```
+ * @since 1.0.0
  */
 async function main(): Promise<void> {
   const args = parseArgs();

@@ -43,7 +43,7 @@ export type { HttpResponse } from '../types/api.js';
  * class MyService {
  *   constructor(private httpClient: IHttpClient) {}
  *
- *   async fetchData(url: string): Promise<any> {
+ *   async fetchData(url: string): Promise<MyData> {
  *     const response = await this.httpClient.get<MyData>(url);
  *     if (response.success) {
  *       return response.data;

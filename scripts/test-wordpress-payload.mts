@@ -6,9 +6,6 @@
  * sending them to production. Supports flexible company ID testing, payload
  * inspection, HMAC signature generation, and mock endpoint validation.
  *
- * This tool enables developers to review exact payload structures, validate
- * field mappings, and test integration flows before connecting to WordPress.
- *
  * Features:
  * - Company ID override for testing different DriveHR installations
  * - Dry-run mode for payload generation without transmission
@@ -16,23 +13,25 @@
  * - File export for payload review and debugging
  * - Mock WordPress endpoint for response testing
  * - Multiple output formats for different use cases
+ * - HMAC signature generation with proper validation
+ * - Environment-aware configuration with fallbacks
  *
  * @example
- * ```bash
- * # Test with a company that has active jobs
- * pnpm test-wordpress-payload --company-id "abc123" --inspect
+ * ```typescript
+ * // Test with company that has active jobs
+ * pnpm tsx scripts/test-wordpress-payload.mts --company-id "abc123" --inspect
  *
- * # Save payload to file for review
- * pnpm test-wordpress-payload --save payload.json --format json
+ * // Save payload to file for review
+ * pnpm tsx scripts/test-wordpress-payload.mts --save payload.json --format json
  *
- * # Test with mock WordPress endpoint
- * pnpm test-wordpress-payload --mock-wordpress --use-test-data
+ * // Test with mock WordPress endpoint
+ * pnpm tsx scripts/test-wordpress-payload.mts --mock-wordpress --use-test-data
  * ```
  *
  * @module test-wordpress-payload
  * @since 1.0.0
- * @see {@link ../../CLAUDE.md} for development standards and practices
- * @see {@link ../src/services/wordpress-client.ts} for the production client
+ * @see {@link ../src/services/wordpress-client.ts} for production client
+ * @see {@link ../CLAUDE.md} for development standards
  */
 
 import { writeFile } from 'fs/promises';
@@ -44,53 +43,49 @@ import { getEnvironmentConfig } from '../src/lib/env.js';
 import { createLogger, setLogger } from '../src/lib/logger.js';
 import { StringUtils, SecurityUtils } from '../src/lib/utils.js';
 import { PlaywrightScraper } from '../src/services/playwright-scraper.js';
-import { JobNormalizer } from '../src/services/job-fetcher/job-normalizer.js';
 import type { NormalizedJob, JobSyncRequest, JobSource } from '../src/types/job.js';
 import type { DriveHrApiConfig } from '../src/types/api.js';
+
+/**
+ * DriveHR API base URL for job scraping and apply URLs
+ * @since 1.0.0
+ */
+const DRIVEHR_BASE_URL = 'https://drivehris.app';
+
 
 /**
  * CLI arguments interface for WordPress payload testing
  *
  * Defines all available command-line options for controlling payload
- * generation, testing, and output formatting.
+ * generation, testing, and output formatting. Provides type safety for
+ * argument parsing and consistent option handling.
  *
  * @since 1.0.0
  */
 interface CliArgs {
-  /** Company ID to override .env DRIVEHR_COMPANY_ID */
   companyId?: string;
-  /** Generate payload without sending (default: true) */
   dryRun: boolean;
-  /** File path to save generated payload */
   save?: string;
-  /** Show detailed payload structure and headers */
   inspect: boolean;
-  /** Test against mock WordPress endpoint */
   mockWordpress: boolean;
-  /** Use mock test data instead of live scraping */
   useTestData: boolean;
-  /** Output format for payload display */
   format: 'json' | 'table' | 'detailed';
-  /** Show help information */
   help: boolean;
 }
 
 /**
  * WordPress payload testing result with comprehensive debugging information
  *
- * Contains the generated payload, authentication headers, and metadata
- * for testing and validation purposes.
+ * Contains generated payload, authentication headers, and metadata for
+ * testing and validation. Provides complete testing context including
+ * webhook payload, security signatures, HTTP headers, and detailed metadata.
  *
  * @since 1.0.0
  */
 interface PayloadTestResult {
-  /** The WordPress webhook payload */
   readonly payload: JobSyncRequest;
-  /** HMAC signature for authentication */
   readonly signature: string;
-  /** Request headers that would be sent */
   readonly headers: Record<string, string>;
-  /** Payload metadata */
   readonly metadata: {
     readonly jobCount: number;
     readonly payloadSize: number;
@@ -98,14 +93,15 @@ interface PayloadTestResult {
     readonly source: JobSource;
     readonly generatedAt: string;
   };
-  /** Job data used in payload */
   readonly jobs: readonly NormalizedJob[];
 }
 
 /**
  * Mock WordPress server response structure
  *
- * Simulates WordPress webhook responses for testing purposes.
+ * Simulates WordPress webhook responses for testing purposes. Mirrors
+ * expected response format from real WordPress webhook endpoint to enable
+ * comprehensive integration testing without requiring live WordPress.
  *
  * @since 1.0.0
  */
@@ -123,10 +119,17 @@ interface MockWordPressResponse {
 /**
  * WordPress payload testing service
  *
- * Main service class that handles payload generation, testing, and output
- * formatting. Implements enterprise patterns for maintainable and extensible
- * testing functionality.
+ * Main service class handling payload generation, testing, and output
+ * formatting. Implements enterprise patterns for maintainable testing
+ * functionality following SOLID principles and DRY architecture.
  *
+ * @example
+ * ```typescript
+ * const tester = new WordPressPayloadTester();
+ * const jobs = await tester.fetchJobData('company123', false);
+ * const result = await tester.generatePayload(jobs, 'company123', 'secret');
+ * tester.displayResult(result, 'detailed');
+ * ```
  * @since 1.0.0
  */
 class WordPressPayloadTester {
@@ -134,6 +137,10 @@ class WordPressPayloadTester {
 
   /**
    * Create WordPress payload tester
+   *
+   * Initializes payload testing service with enterprise-grade logging
+   * configuration. Sets up logger instance for comprehensive testing
+   * workflow tracking and debugging information.
    *
    * @since 1.0.0
    */
@@ -144,18 +151,20 @@ class WordPressPayloadTester {
   /**
    * Generate WordPress webhook payload for testing
    *
-   * Creates a complete webhook payload with authentication headers and metadata
-   * for testing WordPress integration without sending actual requests.
+   * Creates complete webhook payload with authentication headers and metadata
+   * for testing WordPress integration without sending actual requests. Follows
+   * enterprise security standards by generating HMAC signatures for payload
+   * authentication.
    *
-   * @param jobs - Array of normalized job data
-   * @param companyId - Company identifier for metadata
+   * @param jobs - Array of normalized job data to include in payload
+   * @param companyId - Company identifier for metadata tracking
    * @param webhookSecret - Secret key for HMAC signature generation
    * @returns Complete payload test result with headers and metadata
-   * @throws {Error} When payload generation fails
+   * @throws {Error} When payload generation fails due to invalid input
    * @example
    * ```typescript
-   * const jobs = await this.fetchJobData(companyId);
-   * const result = await tester.generatePayload(jobs, companyId, secret);
+   * const jobs = await this.fetchJobData('company123');
+   * const result = await tester.generatePayload(jobs, 'company123', 'secret');
    * console.log(`Generated payload with ${result.metadata.jobCount} jobs`);
    * ```
    * @since 1.0.0
@@ -204,13 +213,19 @@ class WordPressPayloadTester {
   /**
    * Fetch job data for payload testing
    *
-   * Retrieves job data either from live scraping or test fixtures
-   * based on configuration options.
+   * Retrieves job data either from live scraping or test fixtures based on
+   * configuration options. Provides flexible data sourcing for testing
+   * scenarios, supporting both production-like and controlled testing.
    *
-   * @param companyId - DriveHR company identifier
+   * @param companyId - DriveHR company identifier for job fetching
    * @param useTestData - Whether to use mock data instead of live scraping
-   * @returns Array of normalized job data
-   * @throws {Error} When job fetching fails
+   * @returns Readonly array of normalized job data
+   * @throws {Error} When job fetching fails due to network or parsing issues
+   * @example
+   * ```typescript
+   * const liveJobs = await tester.fetchJobData('company123', false);
+   * const testJobs = await tester.fetchJobData('company123', true);
+   * ```
    * @since 1.0.0
    */
   public async fetchJobData(
@@ -223,7 +238,7 @@ class WordPressPayloadTester {
 
     const config: DriveHrApiConfig = {
       companyId,
-      baseUrl: 'https://drivehris.app',
+      baseUrl: DRIVEHR_BASE_URL,
       maxRetries: 2,
       timeout: 30000,
     };
@@ -236,7 +251,6 @@ class WordPressPayloadTester {
       retries: 1,
     });
 
-    const normalizer = new JobNormalizer();
 
     try {
       this.logger.info(`Fetching jobs for company: ${companyId}`);
@@ -246,22 +260,26 @@ class WordPressPayloadTester {
         throw new Error(`Scraping failed: ${result.error || 'Unknown error'}`);
       }
 
-      const normalizedJobs = await normalizer.normalizeJobs(result.rawJobs, 'webhook');
-      this.logger.info(`Successfully fetched ${normalizedJobs.length} jobs`);
-
-      return normalizedJobs;
+      this.logger.info(`Successfully fetched ${result.jobs.length} jobs`);
+      return result.jobs;
     } finally {
-      await scraper.cleanup();
+      await scraper.dispose();
     }
   }
 
   /**
    * Generate mock test job data
    *
-   * Creates realistic test job data for payload testing when live
-   * scraping is not desired or available.
+   * Creates realistic test job data for payload testing when live scraping
+   * is not desired or available. Generates predefined set of job listings
+   * that mirror real-world job data structures.
    *
-   * @returns Array of mock normalized job data
+   * @returns Readonly array of mock normalized job data
+   * @example
+   * ```typescript
+   * const mockJobs = this.generateTestJobs();
+   * console.log(`Generated ${mockJobs.length} test jobs`);
+   * ```
    * @since 1.0.0
    */
   private generateTestJobs(): readonly NormalizedJob[] {
@@ -274,7 +292,7 @@ class WordPressPayloadTester {
         type: 'Full-time',
         description: 'Join our engineering team to build scalable software solutions...',
         postedDate: '2024-01-15T10:00:00.000Z',
-        applyUrl: 'https://drivehris.app/careers/test-company/apply/test-job-001',
+        applyUrl: `${DRIVEHR_BASE_URL}/careers/test-company/apply/test-job-001`,
         source: 'webhook',
         rawData: {},
         processedAt: new Date().toISOString(),
@@ -287,7 +305,7 @@ class WordPressPayloadTester {
         type: 'Full-time',
         description: 'Lead product strategy and roadmap development...',
         postedDate: '2024-01-14T14:30:00.000Z',
-        applyUrl: 'https://drivehris.app/careers/test-company/apply/test-job-002',
+        applyUrl: `${DRIVEHR_BASE_URL}/careers/test-company/apply/test-job-002`,
         source: 'webhook',
         rawData: {},
         processedAt: new Date().toISOString(),
@@ -300,7 +318,7 @@ class WordPressPayloadTester {
         type: 'Contract',
         description: 'Create intuitive user experiences for our platform...',
         postedDate: '2024-01-13T09:15:00.000Z',
-        applyUrl: 'https://drivehris.app/careers/test-company/apply/test-job-003',
+        applyUrl: `${DRIVEHR_BASE_URL}/careers/test-company/apply/test-job-003`,
         source: 'webhook',
         rawData: {},
         processedAt: new Date().toISOString(),
@@ -313,11 +331,17 @@ class WordPressPayloadTester {
   /**
    * Start mock WordPress server for testing
    *
-   * Creates a local HTTP server that simulates WordPress webhook responses
-   * for testing payload delivery and response handling.
+   * Creates local HTTP server that simulates WordPress webhook responses
+   * for testing payload delivery and response handling. Provides realistic
+   * testing environment without requiring live WordPress installation.
    *
-   * @param port - Port number for the mock server
-   * @returns Promise that resolves when server is ready
+   * @param port - Port number for mock server (default: 3000)
+   * @throws {Error} When port is unavailable or server startup fails
+   * @example
+   * ```typescript
+   * await tester.startMockWordPressServer(3001);
+   * console.log('Mock server ready at http://localhost:3001');
+   * ```
    * @since 1.0.0
    */
   public async startMockWordPressServer(port: number = 3000): Promise<void> {
@@ -368,12 +392,18 @@ class WordPressPayloadTester {
   /**
    * Save payload to JSON file
    *
-   * Exports the generated payload and metadata to a JSON file for
-   * review and debugging purposes.
+   * Exports generated payload and metadata to JSON file for review and
+   * debugging purposes. Creates comprehensive export including complete
+   * payload, authentication headers, and generation timestamp.
    *
-   * @param result - Payload test result to save
+   * @param result - Payload test result containing all data to save
    * @param filePath - Target file path for export
-   * @throws {Error} When file writing fails
+   * @throws {Error} When file writing fails due to permissions or disk space
+   * @example
+   * ```typescript
+   * await tester.savePayloadToFile(result, './test-payload.json');
+   * console.log('Payload saved for review and debugging');
+   * ```
    * @since 1.0.0
    */
   public async savePayloadToFile(result: PayloadTestResult, filePath: string): Promise<void> {
@@ -392,11 +422,17 @@ class WordPressPayloadTester {
   /**
    * Format and display payload result
    *
-   * Outputs payload information in the specified format for review
-   * and debugging.
+   * Outputs payload information in specified format for review and debugging.
+   * Supports multiple presentation formats for different testing workflows.
    *
-   * @param result - Payload test result to display
-   * @param format - Output format (json, table, or detailed)
+   * @param result - Payload test result containing all display data
+   * @param format - Output format: 'json', 'table', or 'detailed'
+   * @example
+   * ```typescript
+   * tester.displayResult(result, 'detailed'); // Comprehensive analysis
+   * tester.displayResult(result, 'table');   // Quick summary
+   * tester.displayResult(result, 'json');    // Raw JSON output
+   * ```
    * @since 1.0.0
    */
   public displayResult(result: PayloadTestResult, format: 'json' | 'table' | 'detailed'): void {
@@ -462,11 +498,18 @@ class WordPressPayloadTester {
 /**
  * Parse command line arguments for WordPress payload testing
  *
- * Processes command-line arguments and returns a structured configuration
- * object for the payload testing tool.
+ * Processes command-line arguments and returns structured configuration
+ * object for payload testing tool. Implements robust argument parsing
+ * with proper type safety and default value handling.
  *
  * @param args - Command line arguments array
  * @returns Parsed CLI arguments with defaults applied
+ * @example
+ * ```typescript
+ * const args = parseCliArgs(['--company-id', 'test123', '--inspect']);
+ * console.log(args.companyId); // 'test123'
+ * console.log(args.inspect);   // true
+ * ```
  * @since 1.0.0
  */
 function parseCliArgs(args: string[]): CliArgs {
@@ -502,9 +545,9 @@ function parseCliArgs(args: string[]): CliArgs {
         parsedArgs.useTestData = true;
         break;
       case '--format':
-        const format = args[++i] as 'json' | 'table' | 'detailed';
-        if (['json', 'table', 'detailed'].includes(format)) {
-          parsedArgs.format = format;
+        const formatValue: string = args[++i];
+        if (formatValue === 'json' || formatValue === 'table' || formatValue === 'detailed') {
+          parsedArgs.format = formatValue;
         }
         break;
       case '--help':
@@ -518,11 +561,16 @@ function parseCliArgs(args: string[]): CliArgs {
 }
 
 /**
- * Display help information for the WordPress payload testing tool
+ * Display help information for WordPress payload testing tool
  *
  * Shows comprehensive usage instructions and examples for all available
- * command-line options.
+ * command-line options. Provides clear guidance for effective tool usage.
  *
+ * @example
+ * ```typescript
+ * showHelp();
+ * // Outputs detailed help with usage examples
+ * ```
  * @since 1.0.0
  */
 function showHelp(): void {
@@ -575,9 +623,16 @@ Features:
 /**
  * Load environment variables from .env.development file
  *
- * Simple dotenv-style loader specifically for the development environment file.
- * Only loads variables that aren't already set in the environment.
+ * Simple dotenv-style loader specifically for development environment file.
+ * Only loads variables that aren't already set in the environment to avoid
+ * overriding existing configuration.
  *
+ * @throws {Error} Silently continues if file cannot be loaded
+ * @example
+ * ```typescript
+ * await loadDevelopmentEnv();
+ * // Development environment variables now available
+ * ```
  * @since 1.0.0
  */
 async function loadDevelopmentEnv(): Promise<void> {
@@ -603,7 +658,7 @@ async function loadDevelopmentEnv(): Promise<void> {
         }
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     // Silently continue if we can't load the file
   }
 }
@@ -611,10 +666,18 @@ async function loadDevelopmentEnv(): Promise<void> {
 /**
  * Main execution function for WordPress payload testing
  *
- * Orchestrates the entire payload testing workflow including argument parsing,
- * job fetching, payload generation, and output formatting.
+ * Orchestrates complete payload testing workflow including argument parsing,
+ * job fetching, payload generation, and output formatting. Handles
+ * configuration setup, environment validation, and comprehensive error handling.
  *
  * @throws {Error} When critical operations fail
+ * @example
+ * ```typescript
+ * // Execute from CLI
+ * if (process.argv[1]?.includes('test-wordpress-payload.mts')) {
+ *   main().catch(console.error);
+ * }
+ * ```
  * @since 1.0.0
  */
 async function main(): Promise<void> {
@@ -632,10 +695,10 @@ async function main(): Promise<void> {
 
   try {
     // Get environment configuration with fallback for company ID
-    let env;
+    let env: ReturnType<typeof getEnvironmentConfig>;
     try {
       env = getEnvironmentConfig();
-    } catch (error) {
+    } catch (error: unknown) {
       // If environment config fails, use minimal config with CLI overrides
       if (!args.companyId) {
         throw new Error('Company ID is required. Use --company-id or set DRIVEHR_COMPANY_ID in .env');
@@ -643,10 +706,18 @@ async function main(): Promise<void> {
       env = {
         driveHrCompanyId: '',
         webhookSecret: process.env.WEBHOOK_SECRET || '',
-        wpApiUrl: process.env.WP_API_URL || 'https://dev-wordpress.com/wp-json/drivehr-jobs/v1',
+        wpApiUrl: process.env.WP_API_URL || '',
         environment: 'development' as const,
         logLevel: 'debug' as const,
       };
+    }
+
+    // Validate required WordPress API URL configuration
+    if (!env.wpApiUrl) {
+      console.error('❌ WordPress API URL is required');
+      console.error('💡 Set WP_API_URL environment variable or create .env file');
+      console.error('   Example: WP_API_URL=https://yoursite.com/webhook/drivehr-sync');
+      process.exit(1);
     }
     
     const companyId = args.companyId || env.driveHrCompanyId;
@@ -704,7 +775,7 @@ async function main(): Promise<void> {
       console.log('   Press Ctrl+C to stop the server');
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ WordPress payload testing failed:');
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
@@ -713,7 +784,7 @@ async function main(): Promise<void> {
 
 // Execute main function if this script is run directly
 if (process.argv[1]?.includes('test-wordpress-payload.mts')) {
-  main().catch(error => {
+  main().catch((error: unknown) => {
     console.error('Fatal error:', error);
     process.exit(1);
   });

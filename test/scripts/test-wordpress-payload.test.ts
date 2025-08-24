@@ -174,9 +174,10 @@ class WordPressPayloadTestUtils extends BaseTestUtils {
 
     const p = payload as Record<string, unknown>;
     const requiredKeys = ['source', 'jobs', 'timestamp', 'requestId'];
-    const hasOnlyRequiredKeys = Object.keys(p).every(key => requiredKeys.includes(key)) && 
-                               requiredKeys.every(key => key in p);
-    
+    const hasOnlyRequiredKeys =
+      Object.keys(p).every(key => requiredKeys.includes(key)) &&
+      requiredKeys.every(key => key in p);
+
     return (
       hasOnlyRequiredKeys &&
       typeof p['source'] === 'string' &&
@@ -474,12 +475,12 @@ describe('WordPress Payload Testing Tool', () => {
       // Temporarily hide .env.development to test missing company ID
       const fs = await import('fs');
       const tempEnvPath = '.env.development.backup';
-      
+
       // Backup the env file
       if (fs.existsSync('.env.development')) {
         fs.renameSync('.env.development', tempEnvPath);
       }
-      
+
       try {
         vi.unstubAllEnvs(); // Remove environment variables
 
@@ -502,12 +503,12 @@ describe('WordPress Payload Testing Tool', () => {
       // Temporarily hide .env.development and only set company ID
       const fs = await import('fs');
       const tempEnvPath = '.env.development.backup';
-      
+
       // Backup the env file
       if (fs.existsSync('.env.development')) {
         fs.renameSync('.env.development', tempEnvPath);
       }
-      
+
       try {
         vi.unstubAllEnvs();
         // Don't set WEBHOOK_SECRET

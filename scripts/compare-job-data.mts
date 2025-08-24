@@ -2,17 +2,13 @@
 /**
  * Job Data Comparison Tool
  *
- * Utility to compare job data between different scraping runs to identify
- * changes, additions, and removals. Useful for monitoring job posting
- * changes over time and validating scraping consistency.
+ * Compares job data between different scraping runs to identify changes,
+ * additions, and removals. Supports multiple output formats and filtering
+ * options for comprehensive job lifecycle tracking and analysis.
  *
- * Usage:
- *   pnpm tsx scripts/compare-job-data.mts --run1 17103740786 --run2 17105094273
- *   pnpm tsx scripts/compare-job-data.mts --latest 2
- *   pnpm tsx scripts/compare-job-data.mts --before 2024-01-01 --after 2024-01-15
- *   pnpm tsx scripts/compare-job-data.mts --diff-only
- *
+ * @module compare-job-data
  * @since 1.0.0
+ * @see {@link ../CLAUDE.md} for development standards
  */
 
 import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
@@ -21,75 +17,133 @@ import { writeFile, mkdir } from 'fs/promises';
 import type { NormalizedJob } from '../src/types/job.js';
 
 /**
- * Job artifact file structure
+ * Job artifact file structure representing a complete scraping run result
+ *
+ * @since 1.0.0
  */
 interface JobArtifact {
+  /** ISO timestamp when the scraping run was executed */
   timestamp: string;
+  /** Unique identifier for the scraping run */
   runId: string;
+  /** Total number of jobs found during the scraping run */
   totalJobs: number;
+  /** Array of normalized job data extracted during the run */
   jobs: NormalizedJob[];
 }
 
 /**
- * Comparison result for a single job
+ * Comparison result for a single job between two scraping runs
+ *
+ * @since 1.0.0
  */
 interface JobComparison {
+  /** Unique job identifier */
   id: string;
+  /** Comparison status indicating what happened to this job */
   status: 'added' | 'removed' | 'modified' | 'unchanged';
+  /** Job data from the earlier run (undefined for added jobs) */
   before?: NormalizedJob;
+  /** Job data from the later run (undefined for removed jobs) */
   after?: NormalizedJob;
+  /** Detailed field-level changes (only present for modified jobs) */
   changes?: Array<{
+    /** Name of the field that changed */
     field: string;
+    /** Previous value of the field */
     before: string;
+    /** New value of the field */
     after: string;
   }>;
 }
 
 /**
- * Complete comparison result
+ * Complete comparison result containing metadata, summary, and detailed job comparisons
+ *
+ * @since 1.0.0
  */
 interface ComparisonResult {
+  /** Metadata about the compared runs and comparison process */
   metadata: {
+    /** Information about the first (earlier) run */
     run1: {
+      /** Unique identifier for the first run */
       runId: string;
+      /** ISO timestamp of the first run */
       timestamp: string;
+      /** Total jobs in the first run */
       totalJobs: number;
     };
+    /** Information about the second (later) run */
     run2: {
+      /** Unique identifier for the second run */
       runId: string;
+      /** ISO timestamp of the second run */
       timestamp: string;
+      /** Total jobs in the second run */
       totalJobs: number;
     };
+    /** ISO timestamp when the comparison was performed */
     comparedAt: string;
   };
+  /** Statistical summary of the comparison results */
   summary: {
+    /** Total number of jobs in the earlier run */
     totalBefore: number;
+    /** Total number of jobs in the later run */
     totalAfter: number;
+    /** Number of jobs added in the later run */
     added: number;
+    /** Number of jobs removed from the earlier run */
     removed: number;
+    /** Number of jobs that were modified between runs */
     modified: number;
+    /** Number of jobs that remained unchanged */
     unchanged: number;
   };
+  /** Detailed comparison results for each job */
   jobs: JobComparison[];
 }
 
 /**
- * CLI arguments interface
+ * Command line arguments interface for the comparison tool
+ *
+ * @since 1.0.0
  */
 interface CliArgs {
+  /** First run ID for direct comparison */
   run1?: string;
+  /** Second run ID for direct comparison */
   run2?: string;
+  /** Number of latest runs to compare (default: 2) */
   latest?: number;
+  /** Compare runs before this date (YYYY-MM-DD format) */
   before?: string;
+  /** Compare runs after this date (YYYY-MM-DD format) */
   after?: string;
+  /** Whether to show only changed jobs (excludes unchanged) */
   diffOnly: boolean;
+  /** Output file path for saving comparison results */
   output?: string;
+  /** Output format for displaying results */
   format: 'table' | 'json' | 'summary';
+  /** Whether to display help information */
   help: boolean;
 }
 
 /**
- * Parse command line arguments
+ * Parse command line arguments into structured configuration
+ *
+ * @returns Parsed command line arguments with defaults applied
+ * @example
+ * ```typescript
+ * const args = parseArgs();
+ * if (args.help) {
+ *   showHelp();
+ *   return;
+ * }
+ * ```
+ * @since 1.0.0
  */
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
@@ -144,7 +198,17 @@ function parseArgs(): CliArgs {
 }
 
 /**
- * Display help information
+ * Display comprehensive help information for the comparison tool
+ *
+ * @returns No return value, outputs help text to console
+ * @example
+ * ```typescript
+ * if (args.help) {
+ *   showHelp();
+ *   return;
+ * }
+ * ```
+ * @since 1.0.0
  */
 function showHelp(): void {
   console.log(`
@@ -176,7 +240,16 @@ Examples:
 }
 
 /**
- * Find and load job artifacts
+ * Find and load all job artifacts from the jobs directory
+ *
+ * @returns Array of job artifacts sorted by timestamp (newest first)
+ * @throws {Error} When jobs directory doesn't exist or is inaccessible
+ * @example
+ * ```typescript
+ * const artifacts = loadArtifacts();
+ * console.log(`Found ${artifacts.length} job artifacts`);
+ * ```
+ * @since 1.0.0
  */
 function loadArtifacts(): JobArtifact[] {
   const jobsDir = './jobs';
@@ -195,10 +268,15 @@ function loadArtifacts(): JobArtifact[] {
     const filepath = join(jobsDir, filename);
     try {
       const content = readFileSync(filepath, 'utf8');
-      const data = JSON.parse(content) as JobArtifact;
+      const data = JSON.parse(content);
       
-      if (data.jobs && Array.isArray(data.jobs)) {
-        artifacts.push(data);
+      // Validate that parsed data has the expected JobArtifact structure
+      if (data && typeof data === 'object' && 
+          typeof data.timestamp === 'string' &&
+          typeof data.runId === 'string' &&
+          typeof data.totalJobs === 'number' &&
+          Array.isArray(data.jobs)) {
+        artifacts.push(data as JobArtifact);
       }
     } catch (error) {
       console.warn(`⚠️  Could not parse ${filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -212,7 +290,21 @@ function loadArtifacts(): JobArtifact[] {
 }
 
 /**
- * Select artifacts based on criteria
+ * Select two artifacts for comparison based on provided criteria
+ *
+ * @param artifacts - Array of available job artifacts to select from
+ * @param args - Parsed command line arguments specifying selection criteria
+ * @returns Tuple containing [earlier_artifact, later_artifact] for comparison
+ * @throws {Error} When specified run IDs are not found in available artifacts
+ * @throws {Error} When insufficient artifacts are available for comparison
+ * @throws {Error} When date range filters result in fewer than 2 artifacts
+ * @example
+ * ```typescript
+ * const artifacts = loadArtifacts();
+ * const [run1, run2] = selectArtifacts(artifacts, args);
+ * console.log(`Comparing ${run1.runId} with ${run2.runId}`);
+ * ```
+ * @since 1.0.0
  */
 function selectArtifacts(artifacts: JobArtifact[], args: CliArgs): [JobArtifact, JobArtifact] {
   // Direct run ID specification
@@ -278,7 +370,18 @@ function selectArtifacts(artifacts: JobArtifact[], args: CliArgs): [JobArtifact,
 }
 
 /**
- * Compare two job datasets
+ * Compare two job datasets to identify changes, additions, and removals
+ *
+ * @param before - Job dataset from the earlier scraping run
+ * @param after - Job dataset from the later scraping run
+ * @returns Array of comparison results for each job found in either dataset
+ * @example
+ * ```typescript
+ * const comparisons = compareJobs(artifact1.jobs, artifact2.jobs);
+ * const addedJobs = comparisons.filter(c => c.status === 'added');
+ * console.log(`Found ${addedJobs.length} new jobs`);
+ * ```
+ * @since 1.0.0
  */
 function compareJobs(before: NormalizedJob[], after: NormalizedJob[]): JobComparison[] {
   const comparisons: JobComparison[] = [];
@@ -325,7 +428,19 @@ function compareJobs(before: NormalizedJob[], after: NormalizedJob[]): JobCompar
 }
 
 /**
- * Find changes between two jobs
+ * Find field-level changes between two versions of the same job
+ *
+ * @param before - Job data from the earlier scraping run
+ * @param after - Job data from the later scraping run
+ * @returns Array of field changes with before/after values
+ * @example
+ * ```typescript
+ * const changes = findJobChanges(oldJob, newJob);
+ * changes.forEach(change => {
+ *   console.log(`${change.field}: '${change.before}' → '${change.after}'`);
+ * });
+ * ```
+ * @since 1.0.0
  */
 function findJobChanges(before: NormalizedJob, after: NormalizedJob): Array<{ field: string; before: string; after: string }> {
   const changes: Array<{ field: string; before: string; after: string }> = [];
@@ -347,7 +462,19 @@ function findJobChanges(before: NormalizedJob, after: NormalizedJob): Array<{ fi
 }
 
 /**
- * Create comparison result
+ * Create comprehensive comparison result from artifacts and job comparisons
+ *
+ * @param artifact1 - First (earlier) job artifact being compared
+ * @param artifact2 - Second (later) job artifact being compared  
+ * @param comparisons - Array of individual job comparison results
+ * @returns Complete comparison result with metadata, summary, and details
+ * @example
+ * ```typescript
+ * const comparisons = compareJobs(run1.jobs, run2.jobs);
+ * const result = createComparisonResult(run1, run2, comparisons);
+ * console.log(`Found ${result.summary.modified} modified jobs`);
+ * ```
+ * @since 1.0.0
  */
 function createComparisonResult(
   artifact1: JobArtifact, 
@@ -383,7 +510,16 @@ function createComparisonResult(
 }
 
 /**
- * Display comparison summary
+ * Display formatted comparison summary with key statistics and metadata
+ *
+ * @param result - Complete comparison result to summarize
+ * @returns No return value, outputs formatted summary to console
+ * @example
+ * ```typescript
+ * const result = createComparisonResult(run1, run2, comparisons);
+ * displaySummary(result);
+ * ```
+ * @since 1.0.0
  */
 function displaySummary(result: ComparisonResult): void {
   const { metadata, summary } = result;
@@ -422,7 +558,17 @@ function displaySummary(result: ComparisonResult): void {
 }
 
 /**
- * Display detailed comparison table
+ * Display detailed comparison results in formatted table layout
+ *
+ * @param comparisons - Array of job comparison results to display
+ * @param diffOnly - Whether to show only jobs with changes (excludes unchanged)
+ * @returns No return value, outputs formatted table to console
+ * @example
+ * ```typescript
+ * const comparisons = compareJobs(run1.jobs, run2.jobs);
+ * displayComparisonTable(comparisons, true); // Show only changes
+ * ```
+ * @since 1.0.0
  */
 function displayComparisonTable(comparisons: JobComparison[], diffOnly: boolean): void {
   const filteredComparisons = diffOnly 
@@ -497,7 +643,16 @@ function displayComparisonTable(comparisons: JobComparison[], diffOnly: boolean)
 }
 
 /**
- * Display detailed changes for modified jobs
+ * Display detailed field-level changes for modified jobs
+ *
+ * @param comparisons - Array of job comparison results to analyze
+ * @returns No return value, outputs detailed changes to console
+ * @example
+ * ```typescript
+ * const comparisons = compareJobs(run1.jobs, run2.jobs);
+ * displayDetailedChanges(comparisons);
+ * ```
+ * @since 1.0.0
  */
 function displayDetailedChanges(comparisons: JobComparison[]): void {
   const modifiedJobs = comparisons.filter(c => c.status === 'modified');
@@ -530,7 +685,19 @@ function displayDetailedChanges(comparisons: JobComparison[]): void {
 }
 
 /**
- * Save comparison results to file
+ * Save comparison results to JSON file for further analysis
+ *
+ * @param result - Complete comparison result to save
+ * @param outputPath - File path where the results should be saved
+ * @returns Promise that resolves when the file is successfully written
+ * @throws {Error} When file system operations fail (permissions, disk space, etc.)
+ * @example
+ * ```typescript
+ * const result = createComparisonResult(run1, run2, comparisons);
+ * await saveResults(result, './comparisons/latest-comparison.json');
+ * console.log('Results saved successfully');
+ * ```
+ * @since 1.0.0
  */
 async function saveResults(result: ComparisonResult, outputPath: string): Promise<void> {
   await mkdir('./comparisons', { recursive: true });
@@ -539,7 +706,16 @@ async function saveResults(result: ComparisonResult, outputPath: string): Promis
 }
 
 /**
- * Main execution function
+ * Main execution function orchestrating the complete comparison workflow
+ *
+ * @returns Promise that resolves when comparison is complete
+ * @throws {Error} When critical errors occur during comparison process
+ * @example
+ * ```typescript
+ * // Called automatically when script is executed directly
+ * await main();
+ * ```
+ * @since 1.0.0
  */
 async function main(): Promise<void> {
   const args = parseArgs();
@@ -608,4 +784,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
+/**
+ * Exported comparison utilities for programmatic usage
+ *
+ * @since 1.0.0
+ */
 export { compareJobs, findJobChanges, createComparisonResult };

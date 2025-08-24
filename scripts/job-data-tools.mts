@@ -2,26 +2,53 @@
 /**
  * Job Data Tools - Master Utility Script
  *
- * Unified interface for all job data inspection, analysis, and validation tools.
- * Provides easy access to test data, production artifacts, live scraping,
- * comparison, and validation utilities.
+ * Enterprise-grade unified command-line interface for all job data inspection,
+ * analysis, and validation tools. This master orchestrator provides streamlined
+ * access to test data inspection, production artifact browsing, live scraping,
+ * data comparison, validation utilities, and WordPress payload testing.
  *
- * Usage:
- *   pnpm tsx scripts/job-data-tools.mts
- *   pnpm tsx scripts/job-data-tools.mts inspect-test
- *   pnpm tsx scripts/job-data-tools.mts browse --latest
- *   pnpm tsx scripts/job-data-tools.mts scrape --debug
- *   pnpm tsx scripts/job-data-tools.mts compare --latest 2
- *   pnpm tsx scripts/job-data-tools.mts validate --strict
+ * Features:
+ * - Centralized tool registry with metadata and routing
+ * - Interactive mode for tool discovery and selection
+ * - System requirements checking and status overview
+ * - Secure child process execution with proper isolation
+ * - Comprehensive help system with examples
+ * - Command routing with argument forwarding
  *
+ * @example
+ * ```typescript
+ * // Show available tools
+ * pnpm tsx scripts/job-data-tools.mts
+ *
+ * // Run specific tool with arguments
+ * pnpm tsx scripts/job-data-tools.mts browse --latest --stats
+ * pnpm tsx scripts/job-data-tools.mts scrape --debug --screenshots
+ *
+ * // Interactive tool selection
+ * pnpm tsx scripts/job-data-tools.mts --interactive
+ *
+ * // System status check
+ * pnpm tsx scripts/job-data-tools.mts --status
+ * ```
+ *
+ * @module job-data-tools-master
  * @since 1.0.0
+ * @see {@link ./browse-job-data.mts} for production data browsing
+ * @see {@link ./inspect-test-data.mts} for test data inspection
+ * @see {@link ../CLAUDE.md} for development standards
  */
 
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 
 /**
- * Available tools and their descriptions
+ * Registry of available job data tools with configurations
+ *
+ * Central configuration mapping tool names to their script paths, display
+ * names, descriptions, and usage examples. This registry enables consistent
+ * help generation, command routing, and tool discovery across the utility.
+ *
+ * @since 1.0.0
  */
 const TOOLS = {
   'inspect-test': {
@@ -86,10 +113,29 @@ const TOOLS = {
   },
 } as const;
 
+/**
+ * Union type of all available tool command names
+ *
+ * Type-safe representation of tool registry keys for command validation
+ * and IntelliSense support throughout the application.
+ *
+ * @since 1.0.0
+ */
 type ToolName = keyof typeof TOOLS;
 
 /**
- * Display main help menu
+ * Display main help menu with available tools overview
+ *
+ * Shows comprehensive overview of all available tools, their descriptions,
+ * and common usage patterns. Provides primary entry point for users to
+ * discover functionality and learn basic usage patterns.
+ *
+ * @example
+ * ```typescript
+ * showHelp();
+ * // Outputs tool list with descriptions and examples
+ * ```
+ * @since 1.0.0
  */
 function showHelp(): void {
   console.log(`
@@ -124,7 +170,19 @@ For tool-specific help:
 }
 
 /**
- * Display tool-specific help
+ * Display detailed help information for specific tool
+ *
+ * Shows focused information about a single tool including name, description,
+ * usage examples, and instructions for accessing detailed help. Provides
+ * targeted assistance for specific tool capabilities.
+ *
+ * @param toolName - Name of tool to show help for
+ * @example
+ * ```typescript
+ * showToolHelp('browse');
+ * // Shows browse tool help with examples
+ * ```
+ * @since 1.0.0
  */
 function showToolHelp(toolName: ToolName): void {
   const tool = TOOLS[toolName];
@@ -144,7 +202,21 @@ function showToolHelp(toolName: ToolName): void {
 }
 
 /**
- * Run a specific tool with arguments
+ * Execute specific tool with provided arguments
+ *
+ * Validates tool exists, checks script availability, then spawns child process
+ * to execute tool with arguments. Implements proper error handling, process
+ * management, and secure execution with stdio inheritance.
+ *
+ * @param toolName - Name of tool to execute
+ * @param args - Command-line arguments to pass to tool
+ * @throws {Error} When script file doesn't exist or execution fails
+ * @example
+ * ```typescript
+ * runTool('browse', ['--latest', '--stats']);
+ * runTool('validate', ['--strict']);
+ * ```
+ * @since 1.0.0
  */
 function runTool(toolName: ToolName, args: string[]): void {
   const tool = TOOLS[toolName];
@@ -173,7 +245,20 @@ function runTool(toolName: ToolName, args: string[]): void {
 }
 
 /**
- * Check system requirements
+ * Check and display system requirements status
+ *
+ * Validates necessary dependencies and directories for job data tools to
+ * function properly. Provides actionable feedback when requirements are
+ * missing, helping users resolve configuration issues.
+ *
+ * @example
+ * ```typescript
+ * checkRequirements();
+ * // ✅ Node.js: v20.10.0
+ * // ✅ Job artifacts: Available
+ * // ❌ Test fixtures: Missing
+ * ```
+ * @since 1.0.0
  */
 function checkRequirements(): void {
   const checks = [
@@ -218,7 +303,20 @@ function checkRequirements(): void {
 }
 
 /**
- * Display quick status overview
+ * Display quick status overview of job data and system state
+ *
+ * Provides summary of available job artifacts, log files, and test data
+ * to give users understanding of current system state and available data
+ * for analysis. Handles file system errors gracefully.
+ *
+ * @example
+ * ```typescript
+ * showStatus();
+ * // 📄 Job Artifacts: 15 files available
+ * //    Latest: jobs-20240115-143022.json
+ * // 📋 Log Files: 12 files available
+ * ```
+ * @since 1.0.0
  */
 function showStatus(): void {
   console.log('📊 Quick Status Overview');
@@ -231,8 +329,8 @@ function showStatus(): void {
   
   if (existsSync(jobsDir)) {
     try {
-      const files = require('fs').readdirSync(jobsDir);
-      const jobFiles = files.filter((f: string) => f.endsWith('.json'));
+      const files: string[] = require('fs').readdirSync(jobsDir);
+      const jobFiles: string[] = files.filter((f: string): f is string => f.endsWith('.json'));
       console.log(`📄 Job Artifacts: ${jobFiles.length} files available`);
       
       if (jobFiles.length > 0) {
@@ -249,8 +347,8 @@ function showStatus(): void {
 
   if (existsSync(logsDir)) {
     try {
-      const files = require('fs').readdirSync(logsDir);
-      const logFiles = files.filter((f: string) => f.endsWith('.json'));
+      const files: string[] = require('fs').readdirSync(logsDir);
+      const logFiles: string[] = files.filter((f: string): f is string => f.endsWith('.json'));
       console.log(`📋 Log Files: ${logFiles.length} files available`);
     } catch {
       console.log(`📋 Log Files: Directory exists but cannot read`);
@@ -265,7 +363,22 @@ function showStatus(): void {
 }
 
 /**
- * Interactive mode - let user select a tool
+ * Enter interactive mode for tool selection
+ *
+ * Presents numbered list of available tools and waits for user input to
+ * select tool. Provides user-friendly interface for discovering and launching
+ * tools without remembering command names. Sets raw input mode for immediate
+ * response.
+ *
+ * @example
+ * ```typescript
+ * interactiveMode();
+ * // 1. 🧪 Test Data Inspector
+ * //    Inspect mock job data used in tests
+ * // 2. 🗂️  Production Data Browser
+ * //    Browse and analyze job artifacts
+ * ```
+ * @since 1.0.0
  */
 function interactiveMode(): void {
   console.log('🛠️  Interactive Mode - Select a Tool:');
@@ -299,7 +412,21 @@ function interactiveMode(): void {
 }
 
 /**
- * Main execution function
+ * Main execution function and command router
+ *
+ * Parses command-line arguments and routes to appropriate functions based on
+ * command provided. Handles all top-level command logic including help display,
+ * special commands, and tool execution with proper error handling.
+ *
+ * @example
+ * ```typescript
+ * main();
+ * // Routes based on process.argv:
+ * // [] -> showHelp()
+ * // ['browse', '--latest'] -> runTool('browse', ['--latest'])
+ * // ['--status'] -> checkRequirements() + showStatus()
+ * ```
+ * @since 1.0.0
  */
 function main(): void {
   const args = process.argv.slice(2);

@@ -1,11 +1,12 @@
 /**
- * @fileoverview Comprehensive test suite for utility classes
+ * Utility Classes Test Suite
  *
- * Tests all utility classes including string manipulation, security operations,
- * date handling, and URL utilities. Uses DRY principles with shared utilities
- * for consistent test patterns and maintainable code.
+ * Comprehensive test coverage for utility classes following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates all utility classes including string manipulation,
+ * security operations, date handling, and URL utilities.
  *
- * Key test areas:
+ * Test Features:
  * - StringUtils: ID generation, normalization, and cryptographic randomness
  * - SecurityUtils: HMAC signature generation, validation, and timing-safe comparisons
  * - DateUtils: Date validation, ISO formatting, and safe conversion
@@ -13,8 +14,16 @@
  * - Error handling and edge cases across all utility functions
  * - Cryptographic security and timing attack prevention
  *
+ * @example
+ * ```typescript
+ * // Example of running specific test group
+ * pnpm test test/lib/utils.test.ts -- --grep "StringUtils"
+ * ```
+ *
+ * @module utils-test-suite
  * @since 1.0.0
- * @see {@link ../../src/lib/utils.ts} for implementation details
+ * @see {@link ../../src/lib/utils.ts} for the utility classes being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

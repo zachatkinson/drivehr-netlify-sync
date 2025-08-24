@@ -1,25 +1,23 @@
 #!/usr/bin/env tsx
 /**
- * Codecov CLI Wrapper
+ * Codecov CLI wrapper for streamlined coverage reporting
  *
- * Convenience wrapper for Codecov CLI operations with automatic token handling
- * and common coverage report operations.
- *
- * Usage:
- *   pnpm tsx scripts/codecov-cli.mts upload
- *   pnpm tsx scripts/codecov-cli.mts create-report
- *   pnpm tsx scripts/codecov-cli.mts status
- *   pnpm tsx scripts/codecov-cli.mts --help
- *
+ * @module codecov-cli-wrapper
  * @since 1.0.0
+ * @see {@link ./CLAUDE.md} for development standards
  */
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { existsSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 
-/**
- * CLI arguments interface
- */
+const REPOSITORY_OWNER = 'zachatkinson';
+const REPOSITORY_NAME = 'drivehr-netlify-sync';
+const REPOSITORY_SLUG = `${REPOSITORY_OWNER}/${REPOSITORY_NAME}`;
+const CODECOV_BASE_URL = 'https://app.codecov.io/gh';
+const REPOSITORY_URL = `${CODECOV_BASE_URL}/${REPOSITORY_SLUG}`;
+
 interface CliArgs {
   command?: string;
   token?: string;
@@ -31,6 +29,9 @@ interface CliArgs {
 
 /**
  * Parse command line arguments
+ *
+ * @returns Parsed command line arguments
+ * @since 1.0.0
  */
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
@@ -65,6 +66,8 @@ function parseArgs(): CliArgs {
 
 /**
  * Display help information
+ *
+ * @since 1.0.0
  */
 function showHelp(): void {
   console.log(`
@@ -98,7 +101,7 @@ Environment Variables:
   CODECOV_TOKEN    Repository upload token from Codecov
   
 Setup:
-  1. Visit https://app.codecov.io/gh/zachatkinson/drivehr-netlify-sync
+  1. Visit ${REPOSITORY_URL}
   2. Copy your repository upload token
   3. Set: export CODECOV_TOKEN=your_token_here
   4. Run: pnpm tsx scripts/codecov-cli.mts test-auth
@@ -107,6 +110,10 @@ Setup:
 
 /**
  * Get Codecov token from args or environment
+ *
+ * @param args - Command line arguments
+ * @returns Codecov token
+ * @since 1.0.0
  */
 function getToken(args: CliArgs): string {
   const token = args.token || process.env.CODECOV_TOKEN;
@@ -115,7 +122,7 @@ function getToken(args: CliArgs): string {
     console.error('❌ No Codecov token found.');
     console.error('💡 Set CODECOV_TOKEN environment variable or use --token flag');
     console.error('');
-    console.error('Get your token from: https://app.codecov.io/gh/zachatkinson/drivehr-netlify-sync');
+    console.error(`Get your token from: ${REPOSITORY_URL}`);
     process.exit(1);
   }
   
@@ -123,22 +130,41 @@ function getToken(args: CliArgs): string {
 }
 
 /**
- * Get the Codecov CLI path
+ * Locate Codecov CLI executable
+ *
+ * @returns Path to Codecov CLI executable
+ * @since 1.0.0
  */
 function getCodecovCliPath(): string {
-  const cliPath = '/Users/zach/Library/Python/3.9/bin/codecovcli';
+  // Try multiple common installation paths for codecov CLI
+  const possiblePaths: string[] = [
+    join(homedir(), 'Library', 'Python', '3.9', 'bin', 'codecovcli'),
+    join(homedir(), 'Library', 'Python', '3.10', 'bin', 'codecovcli'),
+    join(homedir(), 'Library', 'Python', '3.11', 'bin', 'codecovcli'),
+    join(homedir(), 'Library', 'Python', '3.12', 'bin', 'codecovcli'),
+    '/usr/local/bin/codecovcli',
+    '/opt/homebrew/bin/codecovcli'
+  ];
   
-  if (!existsSync(cliPath)) {
-    console.error('❌ Codecov CLI not found at expected path:', cliPath);
-    console.error('💡 Install with: pip3 install codecov-cli');
-    process.exit(1);
+  for (const cliPath of possiblePaths) {
+    if (existsSync(cliPath)) {
+      return cliPath;
+    }
   }
   
-  return cliPath;
+  console.error('❌ Codecov CLI not found in any expected locations');
+  console.error('💡 Searched paths:', possiblePaths.join('\n  '));
+  console.error('💡 Install with: pip3 install codecov-cli');
+  process.exit(1);
 }
 
 /**
- * Execute codecov CLI command
+ * Execute Codecov CLI command
+ *
+ * @param command - Command arguments
+ * @param options - Execution options
+ * @returns Promise resolving to exit code
+ * @since 1.0.0
  */
 function executeCodecovCommand(command: string[], options: { verbose?: boolean; dryRun?: boolean } = {}): Promise<number> {
   const cliPath = getCodecovCliPath();
@@ -170,11 +196,13 @@ function executeCodecovCommand(command: string[], options: { verbose?: boolean; 
 }
 
 /**
- * Get current git commit SHA
+ * Get current Git commit SHA
+ *
+ * @returns Current commit SHA or empty string
+ * @since 1.0.0
  */
 function getCurrentCommitSha(): string {
   try {
-    const { execSync } = require('child_process');
     return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
   } catch {
     console.warn('⚠️  Could not get git commit SHA');
@@ -183,7 +211,10 @@ function getCurrentCommitSha(): string {
 }
 
 /**
- * Handle upload command
+ * Handle coverage upload to Codecov
+ *
+ * @param args - Command line arguments
+ * @since 1.0.0
  */
 async function handleUpload(args: CliArgs): Promise<void> {
   const token = getToken(args);
@@ -219,7 +250,7 @@ async function handleUpload(args: CliArgs): Promise<void> {
   
   if (exitCode === 0) {
     console.log('✅ Coverage uploaded successfully!');
-    console.log('🔗 View at: https://app.codecov.io/gh/zachatkinson/drivehr-netlify-sync');
+    console.log(`🔗 View at: ${REPOSITORY_URL}`);
   } else {
     console.error('❌ Upload failed with exit code:', exitCode);
     process.exit(exitCode);
@@ -227,7 +258,10 @@ async function handleUpload(args: CliArgs): Promise<void> {
 }
 
 /**
- * Handle create-report command
+ * Handle Codecov report creation
+ *
+ * @param args - Command line arguments
+ * @since 1.0.0
  */
 async function handleCreateReport(args: CliArgs): Promise<void> {
   const token = getToken(args);
@@ -254,7 +288,10 @@ async function handleCreateReport(args: CliArgs): Promise<void> {
 }
 
 /**
- * Handle create-commit command
+ * Handle commit data creation
+ *
+ * @param args - Command line arguments
+ * @since 1.0.0
  */
 async function handleCreateCommit(args: CliArgs): Promise<void> {
   const token = getToken(args);
@@ -281,13 +318,16 @@ async function handleCreateCommit(args: CliArgs): Promise<void> {
 }
 
 /**
- * Handle test-auth command
+ * Test Codecov authentication
+ *
+ * @param args - Command line arguments
+ * @since 1.0.0
  */
 async function handleTestAuth(args: CliArgs): Promise<void> {
   const token = getToken(args);
   
   console.log('🔐 Testing Codecov authentication...');
-  console.log(`📍 Repository: zachatkinson/drivehr-netlify-sync`);
+  console.log(`📍 Repository: ${REPOSITORY_SLUG}`);
   console.log(`🎯 Token: ${token.substring(0, 8)}...`);
   
   // Test with a simple create-commit operation
@@ -310,7 +350,7 @@ async function handleTestAuth(args: CliArgs): Promise<void> {
     
     if (exitCode === 0) {
       console.log('✅ Authentication successful!');
-      console.log('🔗 Repository: https://app.codecov.io/gh/zachatkinson/drivehr-netlify-sync');
+      console.log(`🔗 Repository: ${REPOSITORY_URL}`);
     } else {
       console.error('❌ Authentication failed');
       process.exit(exitCode);
@@ -322,11 +362,14 @@ async function handleTestAuth(args: CliArgs): Promise<void> {
 }
 
 /**
- * Handle status command
+ * Display repository status
+ *
+ * @param args - Command line arguments
+ * @since 1.0.0
  */
 async function handleStatus(args: CliArgs): Promise<void> {
   console.log('📊 Repository Status:');
-  console.log(`🔗 Codecov URL: https://app.codecov.io/gh/zachatkinson/drivehr-netlify-sync`);
+  console.log(`🔗 Codecov URL: ${REPOSITORY_URL}`);
   
   // Check if coverage files exist
   if (existsSync('./coverage/lcov.info')) {
@@ -353,7 +396,9 @@ async function handleStatus(args: CliArgs): Promise<void> {
 }
 
 /**
- * Main execution function
+ * Main application entry point
+ *
+ * @since 1.0.0
  */
 async function main(): Promise<void> {
   const args = parseArgs();

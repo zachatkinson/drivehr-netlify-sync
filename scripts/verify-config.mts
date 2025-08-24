@@ -1,20 +1,51 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 /**
  * Configuration Verification Script
- * 
- * Verifies that all required environment variables and configurations
- * are properly set for deployment.
+ *
+ * Enterprise-grade configuration validation tool that verifies all required
+ * environment variables and configurations are properly set for deployment.
+ * Performs comprehensive validation of DriveHR company IDs, webhook secrets,
+ * WordPress URLs, and environment-specific requirements.
+ *
+ * Validation Features:
+ * - Required and optional environment variable checking
+ * - UUID format validation for DriveHR company IDs
+ * - Webhook secret length and security validation
+ * - WordPress URL format and HTTPS enforcement
+ * - HMAC signature generation testing
+ * - Environment-specific configuration validation
+ * - Production readiness checks
+ *
+ * Exit Codes:
+ * - 0: All configurations valid and ready for deployment
+ * - 1: Configuration errors found that must be fixed
+ *
+ * @example
+ * ```bash
+ * # Run configuration verification
+ * pnpm tsx scripts/verify-config.mts
+ *
+ * # Environment variables will be validated
+ * export DRIVEHR_COMPANY_ID="12345678-1234-1234-1234-123456789012"
+ * export WEBHOOK_SECRET="your-32-character-webhook-secret-here"
+ * export WP_API_URL="https://yoursite.com/webhook/drivehr-sync"
+ * ```
+ *
+ * @module config-verification
+ * @since 1.0.0
+ * @see {@link ../CLAUDE.md} for development standards and configuration requirements
+ * @see {@link ../README.md} for deployment setup instructions
  */
 
 import { createHmac } from 'crypto';
 
-const requiredEnvVars = [
+const requiredEnvVars: string[] = [
   'DRIVEHR_COMPANY_ID',
   'WEBHOOK_SECRET',
   'WP_API_URL'
 ];
 
-const optionalEnvVars = [
+const optionalEnvVars: string[] = [
   'WP_USERNAME',
   'WP_APPLICATION_PASSWORD',
   'LOG_LEVEL',
@@ -26,7 +57,7 @@ const optionalEnvVars = [
 
 console.log('🔍 DriveHR Netlify Sync - Configuration Verification\n');
 
-let hasErrors = false;
+let hasErrors: boolean = false;
 
 // Check required environment variables
 console.log('📋 Required Environment Variables:');
@@ -60,7 +91,7 @@ for (const envVar of optionalEnvVars) {
 console.log('\n🔧 Configuration Validation:');
 
 // Validate DriveHR Company ID format
-const companyId = process.env.DRIVEHR_COMPANY_ID;
+const companyId: string | undefined = process.env.DRIVEHR_COMPANY_ID;
 if (companyId) {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (uuidRegex.test(companyId)) {
@@ -72,7 +103,7 @@ if (companyId) {
 }
 
 // Validate webhook secret length
-const webhookSecret = process.env.WEBHOOK_SECRET;
+const webhookSecret: string | undefined = process.env.WEBHOOK_SECRET;
 if (webhookSecret) {
   if (webhookSecret.length >= 32) {
     console.log('✅ WEBHOOK_SECRET: Sufficient length');
@@ -83,7 +114,7 @@ if (webhookSecret) {
 }
 
 // Validate WordPress URL format
-const wpApiUrl = process.env.WP_API_URL;
+const wpApiUrl: string | undefined = process.env.WP_API_URL;
 if (wpApiUrl) {
   try {
     const url = new URL(wpApiUrl);
@@ -115,11 +146,11 @@ if (webhookSecret) {
 
 // Environment-specific checks
 console.log('\n🌍 Environment Configuration:');
-const environment = process.env.ENVIRONMENT || process.env.NODE_ENV || 'development';
+const environment: string = process.env.ENVIRONMENT || process.env.NODE_ENV || 'development';
 console.log(`📍 Environment: ${environment}`);
 
 if (environment === 'production') {
-  const productionChecks = [
+  const productionChecks: Array<{ name: string; required: boolean }> = [
     { name: 'WP_USERNAME', required: true },
     { name: 'WP_APPLICATION_PASSWORD', required: true },
     { name: 'NETLIFY_WEBHOOK_URL', required: false }
