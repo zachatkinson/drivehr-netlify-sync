@@ -135,4 +135,4 @@ test-output.json
 # The WordPress plugin is developed locally but maintained in a separate repository
 # See wordpress-connection/README.md for plugin development instructions
 wordpress-connection/
-*.zip
+*.zip*.bak
