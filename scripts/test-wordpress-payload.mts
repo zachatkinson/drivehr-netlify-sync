@@ -239,7 +239,6 @@ export class WordPressPayloadTester {
     const config: DriveHrApiConfig = {
       companyId,
       careersUrl: `${DRIVEHR_BASE_URL}/careers/${companyId}`,
-      apiBaseUrl: `${DRIVEHR_BASE_URL}/api/companies/${companyId}`,
       timeout: 30000,
       retries: 2,
     };

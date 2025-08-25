@@ -102,8 +102,6 @@ export interface DriveHrApiConfig {
   readonly careersUrl: string;
   /** Unique company identifier (UUID format) */
   readonly companyId: string;
-  /** Base URL for API endpoints specific to this company */
-  readonly apiBaseUrl: string;
   /** Request timeout in milliseconds (default: 30000) */
   readonly timeout?: number;
   /** Number of retry attempts for failed requests (default: 3) */

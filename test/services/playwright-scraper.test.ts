@@ -135,7 +135,6 @@ class PlaywrightSimpleTestUtils extends BaseTestUtils {
     return {
       companyId: 'test-company',
       careersUrl: 'https://example.com/careers',
-      apiBaseUrl: 'https://api.example.com',
       ...overrides,
     };
   }
@@ -252,33 +251,27 @@ describe('PlaywrightScraper Simple Tests', () => {
 
       expect(config.companyId).toBeDefined();
       expect(config.careersUrl).toBeDefined();
-      expect(config.apiBaseUrl).toBeDefined();
 
       expect(typeof config.companyId).toBe('string');
       expect(typeof config.careersUrl).toBe('string');
-      expect(typeof config.apiBaseUrl).toBe('string');
     });
 
     it('should handle API configuration with valid URLs', () => {
       const config = PlaywrightSimpleTestUtils.createValidApiConfig({
         careersUrl: 'https://careers.example.com/jobs',
-        apiBaseUrl: 'https://api-v2.example.com',
       });
 
       expect(config.careersUrl).toMatch(/^https?:\/\//);
-      expect(config.apiBaseUrl).toMatch(/^https?:\/\//);
     });
 
     it('should handle malformed URL configurations', () => {
       const config = PlaywrightSimpleTestUtils.createValidApiConfig({
         careersUrl: 'invalid-url',
-        apiBaseUrl: 'also-invalid',
       });
 
       // Should still create config object even with invalid URLs
       expect(config).toBeDefined();
       expect(config.careersUrl).toBe('invalid-url');
-      expect(config.apiBaseUrl).toBe('also-invalid');
     });
   });
 
@@ -1103,7 +1096,6 @@ describe('PlaywrightScraper Simple Tests', () => {
             {
               companyId: 'test-company',
               careersUrl: 'https://example.com/careers',
-              apiBaseUrl: 'https://api.drivehr.app',
             },
             'manual'
           );
@@ -1116,5 +1108,217 @@ describe('PlaywrightScraper Simple Tests', () => {
       },
       { timeout: 10000 }
     );
+
+    it('should test normalizeJobPostedDate utility method with date handling', () => {
+      const scraper = new PlaywrightScraper();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      const normalizeJobPostedDate = (scraper as any).normalizeJobPostedDate.bind(scraper);
+
+      // Test with valid posted_date
+      const jobWithDate = { posted_date: '2024-01-15' };
+      const result1 = normalizeJobPostedDate(jobWithDate);
+      expect(result1).toBe('2024-01-15T00:00:00.000Z');
+
+      // Test with empty posted_date
+      const jobWithoutDate = {};
+      const result2 = normalizeJobPostedDate(jobWithoutDate);
+      expect(result2).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+
+      // Test with null posted_date
+      const jobWithNullDate = { posted_date: null };
+      const result3 = normalizeJobPostedDate(jobWithNullDate);
+      expect(result3).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+
+      // Test with undefined posted_date
+      const jobWithUndefinedDate = { posted_date: undefined };
+      const result4 = normalizeJobPostedDate(jobWithUndefinedDate);
+      expect(result4).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    });
+
+    it('should handle closeBrowser error scenarios during cleanup', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock context that throws error on close
+      const mockContext = {
+        close: vi.fn().mockRejectedValue(new Error('Context close failed')),
+      };
+
+      // Set the private properties
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      (scraper as any).context = mockContext;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      (scraper as any).browser = null;
+
+      // Test context close error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      const closeBrowser = (scraper as any).closeBrowser.bind(scraper);
+      await closeBrowser();
+
+      expect(mockContext.close).toHaveBeenCalled();
+
+      // Verify context is set to null even after error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Architecturally necessary to test private property state in error scenarios. Alternative approaches (public getters, test-only methods) would pollute the production API purely for testing, violating separation of concerns.
+      expect((scraper as any).context).toBeNull();
+    });
+
+    it('should handle browser close error after successful context close', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock successful context close but failing browser close
+      const mockContext = {
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockBrowser = {
+        close: vi.fn().mockRejectedValue(new Error('Browser close failed')),
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      (scraper as any).context = mockContext;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      (scraper as any).browser = mockBrowser;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      const closeBrowser = (scraper as any).closeBrowser.bind(scraper);
+      await closeBrowser();
+
+      expect(mockContext.close).toHaveBeenCalled();
+      expect(mockBrowser.close).toHaveBeenCalled();
+
+      // Verify both are set to null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Architecturally necessary to test private property state in error scenarios. Alternative approaches (public getters, test-only methods) would pollute the production API purely for testing, violating separation of concerns.
+      expect((scraper as any).context).toBeNull();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Architecturally necessary to test private property state in error scenarios. Alternative approaches (public getters, test-only methods) would pollute the production API purely for testing, violating separation of concerns.
+      expect((scraper as any).browser).toBeNull();
+    });
+
+    it('should handle non-Error objects in closeBrowser error handling', async () => {
+      const scraper = new PlaywrightScraper();
+
+      // Mock context that throws non-Error object
+      const mockContext = {
+        close: vi.fn().mockRejectedValue('String error message'),
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      (scraper as any).context = mockContext;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      const closeBrowser = (scraper as any).closeBrowser.bind(scraper);
+      await closeBrowser();
+
+      expect(mockContext.close).toHaveBeenCalled();
+      // Error was handled and context set to null
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Architecturally necessary to test private property state in error scenarios. Alternative approaches (public getters, test-only methods) would pollute the production API purely for testing, violating separation of concerns.
+      expect((scraper as any).context).toBeNull();
+    });
+
+    it('should test the fallback return scenario (unreachable code coverage)', async () => {
+      // This test covers the fallback return statement that should never be reached
+      // but is needed for TypeScript type safety
+      const scraper = new PlaywrightScraper({ retries: 1 });
+
+      // Mock chromium.launch to always fail
+      vi.mocked(chromium.launch).mockRejectedValue(new Error('Browser launch failed'));
+
+      const result = await scraper.scrapeJobs(
+        { companyId: 'test', careersUrl: 'https://test.com' },
+        'manual'
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Browser launch failed');
+    });
+
+    it('should handle timeout scenarios in page operations', async () => {
+      const scraper = new PlaywrightScraper({ timeout: 100, retries: 1 });
+
+      const mockPage = {
+        setUserAgent: vi.fn().mockResolvedValue(undefined),
+        goto: vi.fn().mockImplementation(() => new Promise(resolve => setTimeout(resolve, 200))), // Timeout after 200ms
+        waitForSelector: vi.fn(),
+        evaluate: vi.fn(),
+        screenshot: vi.fn(),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockContext = {
+        newPage: vi.fn().mockResolvedValue(mockPage),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockBrowser = {
+        newContext: vi.fn().mockResolvedValue(mockContext),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for Playwright browser mock typing compatibility
+      vi.mocked(chromium.launch).mockResolvedValue(mockBrowser as any);
+
+      const result = await scraper.scrapeJobs(
+        { companyId: 'test', careersUrl: 'https://test.com' },
+        'manual'
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.jobs).toHaveLength(0);
+
+      await scraper.dispose();
+    });
+
+    it('should handle unknown error types in retry logic', async () => {
+      const scraper = new PlaywrightScraper({ retries: 1 });
+
+      // Mock chromium.launch to throw non-Error object
+      vi.mocked(chromium.launch).mockRejectedValue({ message: 'Not an Error instance' });
+
+      const result = await scraper.scrapeJobs(
+        { companyId: 'test', careersUrl: 'https://test.com' },
+        'manual'
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unknown scraping error');
+    });
+
+    it('should test screenshot path generation in debug mode', async () => {
+      const scraper = new PlaywrightScraper({ debug: true, retries: 1 });
+
+      const mockPage = {
+        setUserAgent: vi.fn().mockResolvedValue(undefined),
+        goto: vi.fn().mockResolvedValue(undefined),
+        waitForSelector: vi.fn().mockResolvedValue(undefined),
+        evaluate: vi.fn().mockResolvedValue([]), // Empty jobs array
+        screenshot: vi.fn().mockResolvedValue(Buffer.from('screenshot')),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockContext = {
+        newPage: vi.fn().mockResolvedValue(mockPage),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockBrowser = {
+        newContext: vi.fn().mockResolvedValue(mockContext),
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for Playwright browser mock typing compatibility
+      vi.mocked(chromium.launch).mockResolvedValue(mockBrowser as any);
+
+      const result = await scraper.scrapeJobs(
+        { companyId: 'test-company', careersUrl: 'https://test.com' },
+        'manual'
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.screenshotPath).toBeDefined();
+      expect(mockPage.screenshot).toHaveBeenCalledWith({
+        path: expect.stringMatching(/debug-screenshot-test-company-\d+\.png$/),
+        fullPage: true,
+      });
+
+      await scraper.dispose();
+    });
   });
 });

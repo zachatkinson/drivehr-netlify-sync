@@ -270,7 +270,6 @@ async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
     driveHr: {
       companyId: env.driveHrCompanyId,
       careersUrl: `https://drivehris.app/careers/${env.driveHrCompanyId}/list`,
-      apiBaseUrl: `https://drivehris.app/careers/${env.driveHrCompanyId}`,
       timeout: 30000,
       retries: 3,
     },
