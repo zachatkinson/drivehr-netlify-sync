@@ -446,7 +446,7 @@ netlify logs:functions --name sync-jobs
 ### External Resources
 
 - **Netlify Documentation**: Platform-specific guidance
-- **DriveHR API Docs**: Integration specifications
+- **DriveHR Career Pages**: HTML structure documentation
 - **WordPress Webhooks**: Endpoint development
 - **Node.js Best Practices**: Development guidelines
 

@@ -250,6 +250,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
           verbose: true
+          override_branch: ${{ github.ref_name }}
+          override_commit: ${{ github.sha }}
+          override_pr: ${{ github.event.number }}
+          disable_search: true
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
@@ -266,6 +270,47 @@ jobs:
         uses: codecov/test-results-action@v1.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Baseline Coverage for Carryforward Flags
+  baseline-coverage:
+    name: Baseline Coverage Report
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+    needs: [quality]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run full test suite with coverage
+        run: pnpm test:coverage
+        env:
+          NODE_ENV: test
+          DRIVEHR_COMPANY_ID: 'test-company-123'
+          WP_API_URL: 'https://mock-wordpress-site.example.com'
+          WEBHOOK_SECRET: 'mock-webhook-secret-for-ci-testing-12345'
+
+      - name: Upload baseline coverage to Codecov
+        uses: codecov/codecov-action@v5.5.0
+        with:
+          files: ./coverage/lcov.info
+          flags: integration
+          name: baseline-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
 
   # Build Verification
   build:

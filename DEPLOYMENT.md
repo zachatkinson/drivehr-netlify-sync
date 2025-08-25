@@ -35,7 +35,7 @@ with security, monitoring, and reliability as core principles.
 - **Netlify Account** with Functions enabled
 - **GitHub Repository** with Actions enabled
 - **WordPress Site** with webhook capability
-- **DriveHR Account** with API access
+- **DriveHR Career Page Access** (no API required, uses web scraping)
 - **Codecov Account** (optional, for coverage reporting)
 
 ### Development Tools
