@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.2.0...v1.3.0) (2025-08-25)
+
+### Features
+
+- **tests:** add comprehensive job fetcher service error path tests
+  ([c74b255](https://github.com/zachatkinson/drivehr-netlify-sync/commit/c74b2554760046f134ff4e85a063a9328898c867))
+
 # [1.2.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.1.0...v1.2.0) (2025-08-25)
 
 ### Features
