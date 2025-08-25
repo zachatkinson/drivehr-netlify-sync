@@ -90,6 +90,18 @@ and code quality standards.
 - `@since` for version tracking
 - `@deprecated` with migration path for deprecated code
 
+**@since Version Management (MANDATORY):**
+
+- **ALWAYS use the current released version** from CHANGELOG.md for @since tags
+- **NEVER predict future version numbers** - semantic-release determines
+  versions automatically
+- **Check CHANGELOG.md first** to get the latest version before adding @since
+  tags
+- **Update CHANGELOG.md** before commits to document all changes
+- When adding new code/tests, use the latest version from CHANGELOG.md
+- Example: If CHANGELOG.md shows v1.2.0 as latest, use `@since 1.2.0` for new
+  code
+
 **Documentation requirements:**
 
 - Explain WHY not just WHAT (business logic, architectural decisions)
