@@ -1,3 +1,18 @@
+# [1.6.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.5.0...v1.6.0) (2025-08-25)
+
+### Bug Fixes
+
+- Fix failing Playwright scraper tests
+  ([9e83ea9](https://github.com/zachatkinson/drivehr-netlify-sync/commit/9e83ea9bfd57f219bcecec44b5ab105ada781737))
+- Remove remaining apiBaseUrl references from test files
+  ([995d58f](https://github.com/zachatkinson/drivehr-netlify-sync/commit/995d58fcaa72db3853d32056eb9330a7b9f746a5))
+
+### Features
+
+- **tests:** boost Playwright scraper coverage to 46.16% and remove vestigial
+  API code
+  ([80947fa](https://github.com/zachatkinson/drivehr-netlify-sync/commit/80947fa2418c91f455d34fd3b3ec623639abe28e))
+
 # [1.5.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.4.0...v1.5.0) (2025-08-25)
 
 ### Bug Fixes
