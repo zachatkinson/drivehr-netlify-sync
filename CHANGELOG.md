@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.0.1...v1.1.0) (2025-08-25)
+
+### Features
+
+- **tests:** boost Playwright scraper test coverage from 15.11% to 44.06%
+  ([755c31c](https://github.com/zachatkinson/drivehr-netlify-sync/commit/755c31cb00a308759d66916a1d7c6c6b7bdd831e))
+
 ## [1.0.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.0.0...v1.0.1) (2025-08-25)
 
 ### Bug Fixes
