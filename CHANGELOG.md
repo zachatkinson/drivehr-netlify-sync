@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.6.0...v1.6.1) (2025-08-25)
+
+### Bug Fixes
+
+- Properly fix screenshot path test instead of skipping
+  ([734c3e1](https://github.com/zachatkinson/drivehr-netlify-sync/commit/734c3e1a1758417eee0cfa8703d9ce562ec92ed9))
+
 # [1.6.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.5.0...v1.6.0) (2025-08-25)
 
 ### Bug Fixes
