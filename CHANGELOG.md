@@ -1,3 +1,16 @@
+# [1.5.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.4.0...v1.5.0) (2025-08-25)
+
+### Bug Fixes
+
+- resolve linting/formatting issues in playwright-scraper tests
+  ([4bfd567](https://github.com/zachatkinson/drivehr-netlify-sync/commit/4bfd5671f29e42e1de558d935764ff15dea37363))
+
+### Features
+
+- **tests:** boost Playwright scraper coverage with targeted implementation
+  tests
+  ([0af9d64](https://github.com/zachatkinson/drivehr-netlify-sync/commit/0af9d64e9a5c605dcd8c17bacc89906c1a1dff8a))
+
 # [1.4.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.3.0...v1.4.0) (2025-08-25)
 
 ### Features
