@@ -5,15 +5,25 @@
  * Eliminates code duplication in HTTP-related tests by providing reusable
  * mock factories, assertion helpers, and common testing patterns.
  *
- * Key Features:
+ * Test Features:
  * - Mock response builders for all HTTP scenarios
  * - Error simulation utilities for network/timeout conditions
  * - Standardized assertion helpers
  * - Request/response verification patterns
  * - Common test fixture generators
  *
+ * @example
+ * ```typescript
+ * // Run tests using the utilities
+ * HttpTestUtils.mockSuccessResponse({ data: 'test' });
+ * const response = await httpClient.get('/test');
+ * HttpTestUtils.verifyResponse(response, { data: 'test' });
+ * ```
+ *
  * @module http-test-utils
  * @since 1.0.0
+ * @see {@link ../../src/lib/http-client.ts} for the HTTP client being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
 import { vi, expect, type MockedFunction } from 'vitest';
@@ -33,11 +43,14 @@ import type { HttpClientConfig, RetryConfig } from '../../src/types/api.js';
 export class HttpTestUtils {
   /**
    * Mock fetch instance for controlled testing
+   * @since 1.0.0
    */
   private static mockFetch = fetch as MockedFunction<typeof fetch>;
 
   /**
-   * Standard test configurations
+   * Standard test configuration for HTTP client testing
+   *
+   * @since 1.0.0
    */
   static readonly TEST_CONFIG: HttpClientConfig = {
     baseUrl: 'https://api.example.com',
@@ -47,6 +60,11 @@ export class HttpTestUtils {
     headers: { 'X-Test-Header': 'test-value' },
   };
 
+  /**
+   * Standard retry configuration for testing retry logic
+   *
+   * @since 1.0.0
+   */
   static readonly TEST_RETRY_CONFIG: RetryConfig = {
     maxAttempts: 3,
     baseDelay: 10,
@@ -59,18 +77,9 @@ export class HttpTestUtils {
    * HTTP client configuration for error testing scenarios
    *
    * Specialized configuration that disables retries to prevent timeout
-   * issues during error simulation tests. Network and timeout errors
-   * are retryable by default, which causes test timeouts when mocks
-   * consistently return the same error.
+   * issues during error simulation tests.
    *
-   * @example
-   * ```typescript
-   * const client = new HttpClient(HttpTestUtils.TEST_CONFIG_NO_RETRIES);
-   * // Error tests will fail immediately without retries
-   * await expect(client.get('/test')).rejects.toThrow();
-   * ```
    * @since 1.0.0
-   * @see {@link TEST_CONFIG} for standard configuration with retries
    */
   static readonly TEST_CONFIG_NO_RETRIES: HttpClientConfig = {
     baseUrl: 'https://api.example.com',
@@ -81,26 +90,13 @@ export class HttpTestUtils {
   };
 
   /**
-   * Mock Response Builders
-   */
-
-  /**
    * Create successful JSON response mock
-   *
-   * Creates a properly formatted mock response for successful HTTP operations.
-   * Includes proper JSON serialization, headers, and response structure
-   * that matches the fetch API Response interface.
    *
    * @param data - Response data to serialize as JSON
    * @param status - HTTP status code (default: 200)
    * @param statusText - HTTP status text (default: 'OK')
    * @param additionalHeaders - Additional headers to include in response
    * @returns Mock Response object with proper JSON content
-   * @example
-   * ```typescript
-   * const response = HttpTestUtils.createSuccessResponse({ id: 1, name: 'Test' });
-   * // Response will have status 200 and JSON body: {"id":1,"name":"Test"}
-   * ```
    * @since 1.0.0
    */
   static createSuccessResponse<T>(
@@ -115,22 +111,10 @@ export class HttpTestUtils {
   /**
    * Create error response mock
    *
-   * Creates a properly formatted mock response for HTTP error scenarios.
-   * Includes appropriate status codes, error messages, and structured
-   * error data that matches real API error responses.
-   *
    * @param status - HTTP error status code (4xx or 5xx)
    * @param statusText - HTTP status text for the error
    * @param errorData - Error data to include in response body
    * @returns Mock Response object configured for error scenario
-   * @example
-   * ```typescript
-   * const errorResponse = HttpTestUtils.createErrorResponse(
-   *   404,
-   *   'Not Found',
-   *   { error: 'Resource not found', code: 'NOT_FOUND' }
-   * );
-   * ```
    * @since 1.0.0
    */
   static createErrorResponse(
@@ -144,24 +128,11 @@ export class HttpTestUtils {
   /**
    * Create generic response mock with full control
    *
-   * Internal utility that creates a fully configurable mock response
-   * with complete control over all response properties. Used by other
-   * response creation methods to maintain consistency.
-   *
    * @param data - Response data to include in the body
    * @param status - HTTP status code
    * @param statusText - HTTP status text
    * @param additionalHeaders - Additional headers to include
    * @returns Fully configured mock Response object
-   * @example
-   * ```typescript
-   * const response = HttpTestUtils.createResponseMock(
-   *   { data: 'test' },
-   *   201,
-   *   'Created',
-   *   { 'Location': '/api/items/123' }
-   * );
-   * ```
    * @since 1.0.0
    */
   private static createResponseMock<T>(
@@ -181,9 +152,6 @@ export class HttpTestUtils {
       text: vi.fn().mockResolvedValue(JSON.stringify(data)),
       json: vi.fn().mockResolvedValue(data),
     } as unknown as Response;
-
-    // Mock headers.forEach for header extraction - using any for architectural necessity:
-    // node-fetch Headers type conflicts with Map interface used in our mocks
 
     // ARCHITECTURAL JUSTIFICATION: Test mocking requires dynamic assignment of forEach method
     // to Map-based headers mock. node-fetch Headers interface expects specific method signature
@@ -209,24 +177,10 @@ export class HttpTestUtils {
   }
 
   /**
-   * Error Simulation Utilities
-   */
-
-  /**
    * Simulate network connectivity error
-   *
-   * Creates a network-level error that simulates connectivity issues
-   * such as DNS resolution failures, connection timeouts, or network
-   * unavailability scenarios commonly encountered in production.
    *
    * @param message - Error message describing the network issue
    * @returns Promise that rejects with a network error
-   * @example
-   * ```typescript
-   * HttpTestUtils.getMockFetch().mockImplementation(
-   *   () => HttpTestUtils.simulateNetworkError('DNS resolution failed')
-   * );
-   * ```
    * @since 1.0.0
    */
   static simulateNetworkError(message = 'Network error: ENOTFOUND'): Promise<never> {
@@ -238,18 +192,7 @@ export class HttpTestUtils {
   /**
    * Simulate request timeout error
    *
-   * Creates a timeout error that simulates request cancellation due to
-   * timeout limits. Mimics AbortController behavior when requests exceed
-   * their configured timeout duration.
-   *
    * @returns Promise that rejects with a timeout/abort error
-   * @example
-   * ```typescript
-   * HttpTestUtils.getMockFetch().mockImplementation(
-   *   () => HttpTestUtils.simulateTimeoutError()
-   * );
-   * // Test will receive an AbortError
-   * ```
    * @since 1.0.0
    */
   static simulateTimeoutError(): Promise<never> {
@@ -261,17 +204,8 @@ export class HttpTestUtils {
   /**
    * Simulate server error (5xx)
    *
-   * Configures the mock fetch to return server-side error responses.
-   * Useful for testing error handling, retry logic, and user feedback
-   * when backend services encounter internal issues.
-   *
    * @param status - Server error status code (default: 500)
    * @param message - Error message for the response
-   * @example
-   * ```typescript
-   * HttpTestUtils.simulateServerError(503, 'Service Unavailable');
-   * // Next HTTP request will return a 503 error
-   * ```
    * @since 1.0.0
    */
   static simulateServerError(status = 500, message = 'Internal Server Error'): void {
@@ -281,17 +215,8 @@ export class HttpTestUtils {
   /**
    * Simulate client error (4xx)
    *
-   * Configures the mock fetch to return client-side error responses.
-   * Useful for testing validation error handling, authentication failures,
-   * and other client-side error scenarios.
-   *
    * @param status - Client error status code (default: 404)
    * @param message - Error message for the response
-   * @example
-   * ```typescript
-   * HttpTestUtils.simulateClientError(401, 'Unauthorized');
-   * // Next HTTP request will return a 401 error
-   * ```
    * @since 1.0.0
    */
   static simulateClientError(status = 404, message = 'Not Found'): void {
@@ -299,23 +224,9 @@ export class HttpTestUtils {
   }
 
   /**
-   * Mock Management
-   */
-
-  /**
    * Get mock fetch instance
    *
-   * Returns the mocked fetch function for direct manipulation and
-   * verification. Allows access to all Vitest mock capabilities
-   * for complex testing scenarios.
-   *
    * @returns Mocked fetch function with Vitest mock methods
-   * @example
-   * ```typescript
-   * const mockFetch = HttpTestUtils.getMockFetch();
-   * expect(mockFetch).toHaveBeenCalledTimes(2);
-   * expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/users');
-   * ```
    * @since 1.0.0
    */
   static getMockFetch(): MockedFunction<typeof fetch> {
@@ -325,16 +236,6 @@ export class HttpTestUtils {
   /**
    * Reset all mocks
    *
-   * Comprehensive cleanup that resets all mock state and call history.
-   * Should be used between tests to ensure proper isolation and
-   * prevent test interference.
-   *
-   * @example
-   * ```typescript
-   * afterEach(() => {
-   *   HttpTestUtils.resetMocks();
-   * });
-   * ```
    * @since 1.0.0
    */
   static resetMocks(): void {
@@ -345,17 +246,8 @@ export class HttpTestUtils {
   /**
    * Setup successful response mock
    *
-   * Configures the mock fetch to return a successful response with
-   * the provided data. Convenience method for setting up positive
-   * test scenarios.
-   *
    * @param data - Response data to return
    * @param status - Success status code (default: 200)
-   * @example
-   * ```typescript
-   * HttpTestUtils.mockSuccessResponse({ users: [] }, 201);
-   * // Next HTTP request will return status 201 with {users: []} data
-   * ```
    * @since 1.0.0
    */
   static mockSuccessResponse<T>(data: T, status = 200): void {
@@ -365,16 +257,6 @@ export class HttpTestUtils {
   /**
    * Setup network error mock
    *
-   * Configures the mock fetch to simulate network connectivity failures.
-   * Useful for testing offline scenarios, network timeout handling,
-   * and connectivity error recovery.
-   *
-   * @example
-   * ```typescript
-   * HttpTestUtils.mockNetworkError();
-   * // Next HTTP request will throw a network error
-   * await expect(httpClient.get('/users')).rejects.toThrow('Network error');
-   * ```
    * @since 1.0.0
    */
   static mockNetworkError(): void {
@@ -384,16 +266,6 @@ export class HttpTestUtils {
   /**
    * Setup timeout error mock
    *
-   * Configures the mock fetch to simulate request timeout scenarios.
-   * Useful for testing timeout handling, retry logic, and user
-   * experience during slow network conditions.
-   *
-   * @example
-   * ```typescript
-   * HttpTestUtils.mockTimeoutError();
-   * // Next HTTP request will throw a timeout error
-   * await expect(httpClient.get('/users')).rejects.toThrow('timeout');
-   * ```
    * @since 1.0.0
    */
   static mockTimeoutError(): void {
@@ -401,29 +273,12 @@ export class HttpTestUtils {
   }
 
   /**
-   * Assertion Helpers
-   */
-
-  /**
    * Verify HTTP response structure and content
-   *
-   * Comprehensive assertion helper that validates HTTP response objects
-   * match expected structure and content. Checks status, data, headers,
-   * and success flags for complete response validation.
    *
    * @param response - HTTP response object to validate
    * @param expectedData - Expected response data
    * @param expectedStatus - Expected HTTP status code (default: 200)
    * @param expectedSuccess - Expected success flag (auto-computed if not provided)
-   * @example
-   * ```typescript
-   * HttpTestUtils.verifyResponse(
-   *   response,
-   *   { id: 1, name: 'Test' },
-   *   201,
-   *   true
-   * );
-   * ```
    * @since 1.0.0
    */
   static verifyResponse<T>(
@@ -446,23 +301,10 @@ export class HttpTestUtils {
   /**
    * Verify fetch was called with expected parameters
    *
-   * Assertion helper that validates the mock fetch was called with
-   * the correct URL, method, headers, and body. Essential for testing
-   * that HTTP requests are constructed properly.
-   *
    * @param expectedUrl - Expected request URL
    * @param expectedMethod - Expected HTTP method
    * @param expectedHeaders - Expected request headers (optional)
    * @param expectedBody - Expected request body (optional)
-   * @example
-   * ```typescript
-   * HttpTestUtils.verifyFetchCall(
-   *   'https://api.example.com/users',
-   *   'POST',
-   *   { 'Content-Type': 'application/json' },
-   *   JSON.stringify({ name: 'John' })
-   * );
-   * ```
    * @since 1.0.0
    */
   static verifyFetchCall(
@@ -485,18 +327,8 @@ export class HttpTestUtils {
   /**
    * Verify standard headers are present
    *
-   * Creates an expectation object that validates standard HTTP headers
-   * are included in requests. Ensures consistent header patterns
-   * across all HTTP operations.
-   *
    * @param customHeaders - Additional custom headers to verify
    * @returns Expectation object for header validation
-   * @example
-   * ```typescript
-   * expect(requestHeaders).toEqual(
-   *   HttpTestUtils.verifyStandardHeaders({ 'X-API-Key': 'test-key' })
-   * );
-   * ```
    * @since 1.0.0
    */
   static verifyStandardHeaders(customHeaders: Record<string, string> = {}): Record<string, string> {
@@ -510,18 +342,8 @@ export class HttpTestUtils {
   /**
    * Verify content-type header for requests with body
    *
-   * Creates an expectation object that validates the Content-Type header
-   * is properly set for requests that include a body. Essential for
-   * ensuring proper content serialization.
-   *
    * @param contentType - Expected content type (default: 'application/json')
    * @returns Expectation object for Content-Type header validation
-   * @example
-   * ```typescript
-   * expect(requestHeaders).toEqual(
-   *   HttpTestUtils.verifyContentTypeHeader('application/xml')
-   * );
-   * ```
    * @since 1.0.0
    */
   static verifyContentTypeHeader(contentType = 'application/json'): Record<string, string> {
@@ -531,15 +353,7 @@ export class HttpTestUtils {
   }
 
   /**
-   * Test Pattern Helpers
-   */
-
-  /**
    * Test HTTP method with standard success scenario
-   *
-   * Comprehensive test helper that validates HTTP methods work correctly
-   * in success scenarios. Handles request setup, response verification,
-   * and parameter validation in a single reusable function.
    *
    * @param methodFn - HTTP method function to test
    * @param method - HTTP method name (GET, POST, etc.)
@@ -547,16 +361,6 @@ export class HttpTestUtils {
    * @param requestData - Request body data (optional)
    * @param responseData - Expected response data (optional)
    * @param customHeaders - Custom headers to include (optional)
-   * @example
-   * ```typescript
-   * await HttpTestUtils.testHttpMethodSuccess(
-   *   client.post.bind(client),
-   *   'POST',
-   *   '/users',
-   *   { name: 'John' },
-   *   { id: 1, name: 'John' }
-   * );
-   * ```
    * @since 1.0.0
    */
   static async testHttpMethodSuccess<T>(
@@ -580,7 +384,6 @@ export class HttpTestUtils {
 
     this.verifyResponse(response, testResponseData);
 
-    // Build expected headers manually
     const expectedHeaders: Record<string, string> = {
       'User-Agent': expect.any(String),
       Accept: 'application/json',
@@ -588,7 +391,6 @@ export class HttpTestUtils {
       ...customHeaders,
     };
 
-    // Add Content-Type for requests with body
     if (requestData && !customHeaders?.['Content-Type']) {
       expectedHeaders['Content-Type'] = 'application/json';
     }
@@ -606,24 +408,11 @@ export class HttpTestUtils {
   /**
    * Test HTTP method with error scenario
    *
-   * Test helper that validates HTTP methods properly handle error
-   * responses. Configures error conditions and verifies that the
-   * method throws appropriate errors.
-   *
    * @param methodFn - HTTP method function to test
    * @param url - Request URL path
    * @param errorStatus - HTTP error status code
    * @param errorMessage - Error message for the response
    * @param requestData - Request body data (optional)
-   * @example
-   * ```typescript
-   * await HttpTestUtils.testHttpMethodError(
-   *   client.get.bind(client),
-   *   '/users/999',
-   *   404,
-   *   'User not found'
-   * );
-   * ```
    * @since 1.0.0
    */
   static async testHttpMethodError<T>(
@@ -643,26 +432,9 @@ export class HttpTestUtils {
   }
 
   /**
-   * URL Building Test Helpers
-   */
-
-  /**
    * Get URL building test cases
    *
-   * Provides a comprehensive set of URL building scenarios for testing
-   * URL construction logic. Covers edge cases like trailing slashes,
-   * absolute URLs, and various path combinations.
-   *
    * @returns Array of test cases with input and expected output URLs
-   * @example
-   * ```typescript
-   * const testCases = HttpTestUtils.getUrlBuildingTestCases();
-   * testCases.forEach(({ name, baseUrl, requestUrl, expectedUrl }) => {
-   *   test(name, () => {
-   *     expect(buildUrl(baseUrl, requestUrl)).toBe(expectedUrl);
-   *   });
-   * });
-   * ```
    * @since 1.0.0
    */
   static getUrlBuildingTestCases(): Array<{
@@ -708,21 +480,7 @@ export class HttpTestUtils {
   /**
    * Get common error test scenarios
    *
-   * Provides a comprehensive set of error scenarios for testing error
-   * handling logic. Includes network errors, timeouts, and various HTTP
-   * error codes with their expected behaviors.
-   *
    * @returns Array of error test scenarios with setup and expectations
-   * @example
-   * ```typescript
-   * const errorScenarios = HttpTestUtils.getErrorTestScenarios();
-   * errorScenarios.forEach(({ name, setupMock, expectedErrorPattern }) => {
-   *   test(`handles ${name}`, async () => {
-   *     setupMock();
-   *     await expect(httpClient.get('/test')).rejects.toThrow(expectedErrorPattern);
-   *   });
-   * });
-   * ```
    * @since 1.0.0
    */
   static getErrorTestScenarios(): Array<{
@@ -764,18 +522,7 @@ export class HttpTestUtils {
   /**
    * Create test data generators
    *
-   * Generates standardized test data objects for consistent testing
-   * across different scenarios. Provides simple, complex, and array
-   * data structures commonly used in API responses.
-   *
    * @returns Object containing various test data structures
-   * @example
-   * ```typescript
-   * const testData = HttpTestUtils.createTestData();
-   * HttpTestUtils.mockSuccessResponse(testData.complexObject);
-   * const response = await httpClient.get('/complex-data');
-   * expect(response.data).toEqual(testData.complexObject);
-   * ```
    * @since 1.0.0
    */
   static createTestData(): {
