@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.0.0...v1.0.1) (2025-08-25)
+
+### Bug Fixes
+
+- **docs:** update Netlify badge with correct site ID
+  ([d405efe](https://github.com/zachatkinson/drivehr-netlify-sync/commit/d405efec5a5219d3c16557a876a81f6e874c1e35))
+
 # 1.0.0 (2025-08-25)
 
 ### Bug Fixes
