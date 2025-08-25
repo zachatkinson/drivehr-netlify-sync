@@ -1,9 +1,9 @@
 # DriveHR Netlify Sync
 
 [![CI Pipeline](https://github.com/zachatkinson/drivehr-netlify-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/zachatkinson/drivehr-netlify-sync/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync/branch/main/graph/badge.svg)](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync)
+[![codecov](https://codecov.io/github/zachatkinson/drivehr-netlify-sync/branch/main/graph/badge.svg?token=C39FE142-2D6C-4632-8AC3-E71B794538D1)](https://app.codecov.io/gh/zachatkinson/drivehr-netlify-sync)
 [![Security Rating](https://img.shields.io/badge/security-A+-brightgreen.svg)](./SECURITY.md)
-[![Release](https://img.shields.io/github/release/zachatkinson/drivehr-netlify-sync.svg)](https://GitHub.com/zachatkinson/drivehr-netlify-sync/releases/)
+[![Release](https://img.shields.io/github/v/release/zachatkinson/drivehr-netlify-sync?display_name=tag)](https://github.com/zachatkinson/drivehr-netlify-sync/releases/latest)
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](https://www.typescriptlang.org/)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
