@@ -896,11 +896,9 @@ describe('PlaywrightScraper Simple Tests', () => {
       expect(config.retries).toBe(3); // default
       expect(config.debug).toBe(true); // custom
       expect(config.userAgent).toBe('DriveHR-Scraper/2.0 (GitHub Actions)'); // default
-      expect(config.browserArgs).toEqual(expect.arrayContaining([
-        '--no-sandbox',
-        '--disable-dev-shm-usage', 
-        '--disable-gpu'
-      ]));
+      expect(config.browserArgs).toEqual(
+        expect.arrayContaining(['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'])
+      );
     });
 
     it('should handle constructor with empty configuration', () => {
@@ -913,11 +911,9 @@ describe('PlaywrightScraper Simple Tests', () => {
       expect(config.retries).toBe(3);
       expect(config.debug).toBe(false);
       expect(config.userAgent).toBe('DriveHR-Scraper/2.0 (GitHub Actions)');
-      expect(config.browserArgs).toEqual(expect.arrayContaining([
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-      ]));
+      expect(config.browserArgs).toEqual(
+        expect.arrayContaining(['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'])
+      );
     });
 
     it('should handle constructor with undefined configuration', () => {
@@ -1087,34 +1083,38 @@ describe('PlaywrightScraper Simple Tests', () => {
       expect(normalizeJobApplyUrl({ apply_url: true })).toBe(true);
     });
 
-    it('should handle browser launch configuration variations', async () => {
-      // Test different browser configurations through scrapeJobs
-      const configs = [
-        { headless: true, browserArgs: ['--disable-gpu'] },
-        { headless: false, browserArgs: ['--no-sandbox'] },
-        { debug: true, userAgent: 'Test-Agent' },
-      ];
+    it(
+      'should handle browser launch configuration variations',
+      async () => {
+        // Test different browser configurations through scrapeJobs
+        const configs = [
+          { headless: true, browserArgs: ['--disable-gpu'] },
+          { headless: false, browserArgs: ['--no-sandbox'] },
+          { debug: true, userAgent: 'Test-Agent' },
+        ];
 
-      for (const config of configs) {
-        const scraper = new PlaywrightScraper(config);
+        for (const config of configs) {
+          const scraper = new PlaywrightScraper(config);
 
-        // Mock chromium launch to test configuration passing
-        vi.mocked(chromium.launch).mockRejectedValueOnce(new Error('Config test error'));
+          // Mock chromium launch to test configuration passing
+          vi.mocked(chromium.launch).mockRejectedValueOnce(new Error('Config test error'));
 
-        const result = await scraper.scrapeJobs(
-          {
-            companyId: 'test-company',
-            careersUrl: 'https://example.com/careers',
-            apiBaseUrl: 'https://api.drivehr.app',
-          },
-          'manual'
-        );
+          const result = await scraper.scrapeJobs(
+            {
+              companyId: 'test-company',
+              careersUrl: 'https://example.com/careers',
+              apiBaseUrl: 'https://api.drivehr.app',
+            },
+            'manual'
+          );
 
-        expect(result.success).toBe(false);
-        expect(result.jobs).toHaveLength(0);
+          expect(result.success).toBe(false);
+          expect(result.jobs).toHaveLength(0);
 
-        await scraper.dispose();
-      }
-    }, { timeout: 10000 });
+          await scraper.dispose();
+        }
+      },
+      { timeout: 10000 }
+    );
   });
 });
