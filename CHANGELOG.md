@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.3.0...v1.4.0) (2025-08-25)
+
+### Features
+
+- **tests:** add comprehensive performance monitor implementation tests
+  ([ae79868](https://github.com/zachatkinson/drivehr-netlify-sync/commit/ae79868a38c4c298a1897213e62b0d878d8ab9ee))
+
 # [1.3.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.2.0...v1.3.0) (2025-08-25)
 
 ### Features
