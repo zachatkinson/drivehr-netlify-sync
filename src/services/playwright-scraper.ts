@@ -1171,20 +1171,33 @@ export class PlaywrightScraper {
    * @since 1.0.0
    */
   private async closeBrowser(): Promise<void> {
-    try {
-      if (this.context) {
+    const logger = getLogger();
+
+    // Close context and always nullify, even on error
+    if (this.context) {
+      try {
         await this.context.close();
+      } catch (error) {
+        logger.warn(
+          'Error closing browser context: ' +
+            (error instanceof Error ? error.message : String(error))
+        );
+      } finally {
         this.context = null;
       }
-      if (this.browser) {
+    }
+
+    // Close browser and always nullify, even on error
+    if (this.browser) {
+      try {
         await this.browser.close();
+      } catch (error) {
+        logger.warn(
+          'Error closing browser: ' + (error instanceof Error ? error.message : String(error))
+        );
+      } finally {
         this.browser = null;
       }
-    } catch (error) {
-      const logger = getLogger();
-      logger.warn(
-        'Error closing browser: ' + (error instanceof Error ? error.message : String(error))
-      );
     }
   }
 
