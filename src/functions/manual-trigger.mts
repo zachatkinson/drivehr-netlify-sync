@@ -58,7 +58,7 @@
  * ```
  *
  * @module manual-trigger-function
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../lib/utils.js} for HMAC signature validation utilities
  * @see {@link ../../lib/http-client.js} for GitHub API communication
  * @see {@link ../../lib/logger.js} for structured logging capabilities
@@ -78,7 +78,7 @@ import type { SecurityHeaders } from '../types/api.js';
  * to control workflow execution behavior and provide operational context for
  * logging and monitoring purposes.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ManualTriggerPayload {
   force_sync?: boolean;
@@ -93,7 +93,7 @@ interface ManualTriggerPayload {
  * for triggering repository workflows programmatically. This interface ensures
  * type-safe interaction with the GitHub REST API v3 workflow dispatch endpoint.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event}
  */
 interface GitHubWorkflowDispatch {
@@ -110,7 +110,7 @@ interface GitHubWorkflowDispatch {
  * trigger execution including success status, GitHub API response details,
  * error information, and operational metadata for monitoring and debugging.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ManualTriggerResult {
   success: boolean;
@@ -180,7 +180,7 @@ interface ManualTriggerResult {
  *   requestId: "trigger_def456ghi789"
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 export default async (req: Request, context: Context): Promise<Response> => {
   const requestId = generateRequestId();
@@ -367,7 +367,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
  *   requestId: "trigger_abc123"
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function triggerGitHubWorkflow(
   payload: ManualTriggerPayload,
@@ -524,7 +524,7 @@ async function triggerGitHubWorkflow(
  *   console.warn('Invalid signature - unauthorized request');
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 function validateWebhookSignature(payload: string, signature: string, secret: string): boolean {
   return SecurityUtils.validateHmacSignature(payload, signature, secret);
@@ -552,7 +552,7 @@ function validateWebhookSignature(payload: string, signature: string, secret: st
  * logger.info('Processing manual trigger', { requestId });
  * logger.info('GitHub workflow dispatched', { requestId, status: 204 });
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 function generateRequestId(): string {
   return `trigger_${StringUtils.generateRequestId()}`;

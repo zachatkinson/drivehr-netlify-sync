@@ -22,7 +22,7 @@
  * ```
  *
  * @module sync-jobs-test-suite
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../src/functions/sync-jobs.mts} for the function being tested
  * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
@@ -52,7 +52,7 @@ vi.mock('../../src/services/wordpress-client.js');
  * including success indicators, health status data, job processing metrics, and error
  * information for comprehensive test validation and assertion coverage.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface WebhookReceiverResponse {
   success: boolean;
@@ -81,7 +81,7 @@ interface WebhookReceiverResponse {
  * for job data generation, HMAC signature creation, WordPress client mocking, and
  * comprehensive webhook scenario testing following the established BaseTestUtils pattern.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 class SyncJobsTestUtils {
   static readonly SAMPLE_JOBS: NormalizedJob[] = [
@@ -141,7 +141,7 @@ class SyncJobsTestUtils {
    *   {'x-webhook-signature': 'sha256=abc123'}
    * );
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createMockRequest(
     method: string = 'GET',
@@ -171,7 +171,7 @@ class SyncJobsTestUtils {
    * const context = SyncJobsTestUtils.createMockContext();
    * const response = await handler(request, context);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createMockContext(): Context {
     return {
@@ -195,7 +195,7 @@ class SyncJobsTestUtils {
    * const data = await SyncJobsTestUtils.parseResponse(response);
    * expect(data.success).toBe(true);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static async parseResponse(response: Response): Promise<WebhookReceiverResponse> {
     return JSON.parse(await response.text()) as WebhookReceiverResponse;
@@ -218,7 +218,7 @@ class SyncJobsTestUtils {
    * );
    * // Returns: 'sha256=abc123def456...'
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static generateValidSignature(payload: string, secret: string): string {
     const signature = createHmac('sha256', secret).update(payload).digest('hex');
@@ -239,7 +239,7 @@ class SyncJobsTestUtils {
    * const payload = SyncJobsTestUtils.createGitHubActionsPayload([customJob]);
    * const body = JSON.stringify(payload);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createGitHubActionsPayload(jobs: NormalizedJob[] = this.SAMPLE_JOBS) {
     return {
@@ -268,7 +268,7 @@ class SyncJobsTestUtils {
    * const response = await handler(request, context);
    * expect(response.status).toBe(200);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupSuccessfulMocks() {
     // Environment config

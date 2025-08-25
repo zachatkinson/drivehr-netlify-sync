@@ -31,7 +31,7 @@
  * ```
  *
  * @module manual-trigger-integration-test-suite
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../src/functions/manual-trigger.mts} for the function being tested
  * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
@@ -49,7 +49,7 @@ import fetch from 'node-fetch';
  * for comprehensive validation of success and error scenarios including
  * GitHub API responses and operational metadata.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ManualTriggerResult {
   success: boolean;
@@ -84,7 +84,7 @@ const mockFetch = vi.mocked(fetch);
  * the main handler, triggerGitHubWorkflow, validateWebhookSignature, and
  * generateRequestId utility functions.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 class ManualTriggerIntegrationUtils {
   /**
@@ -103,7 +103,7 @@ class ManualTriggerIntegrationUtils {
    * const postRequest = ManualTriggerIntegrationUtils.createRequest('POST', '{"force_sync": true}');
    * const getRequest = ManualTriggerIntegrationUtils.createRequest('GET');
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createRequest(
     method: string = 'POST',
@@ -132,7 +132,7 @@ class ManualTriggerIntegrationUtils {
    * ```typescript
    * const context = ManualTriggerIntegrationUtils.createContext();
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createContext(): Context {
     return {
@@ -154,7 +154,7 @@ class ManualTriggerIntegrationUtils {
    * const result = await ManualTriggerIntegrationUtils.parseResponse(response);
    * expect(result.success).toBe(true);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static async parseResponse(response: Response): Promise<ManualTriggerResult> {
     return JSON.parse(await response.text()) as ManualTriggerResult;
@@ -175,7 +175,7 @@ class ManualTriggerIntegrationUtils {
    * const signature = ManualTriggerIntegrationUtils.generateValidSignature('{"test": true}', 'secret');
    * const headers = { 'X-Webhook-Signature': `sha256=${signature}` };
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static generateValidSignature(payload: string, secret: string): string {
     const signature = createHmac('sha256', secret).update(payload).digest('hex');
@@ -236,7 +236,7 @@ class ManualTriggerIntegrationUtils {
    * ManualTriggerIntegrationUtils.setupTestEnvironment();
    * // All required environment variables are now configured
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupTestEnvironment(): void {
     // Set required environment variables
@@ -261,7 +261,7 @@ class ManualTriggerIntegrationUtils {
    * ManualTriggerIntegrationUtils.cleanupTestEnvironment();
    * // All test environment variables are now removed
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static cleanupTestEnvironment(): void {
     delete process.env['DRIVEHR_COMPANY_ID'];

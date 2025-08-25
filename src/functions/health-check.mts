@@ -28,7 +28,7 @@
  * {
  *   "status": "healthy",
  *   "timestamp": "2025-08-24T19:30:00.000Z",
- *   "version": "2.0.0",
+ *   "version": "1.0.0",
  *   "architecture": "github-actions-scraper",
  *   "environment": "production",
  *   "services": [
@@ -54,7 +54,7 @@
  * ```
  *
  * @module health-check-function
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../lib/env.js} for environment configuration utilities
  * @see {@link ../../lib/http-client.js} for HTTP connectivity testing
  * @see {@link ../../lib/logger.js} for structured logging capabilities
@@ -72,7 +72,7 @@ import type { SecurityHeaders } from '../types/api.js';
  * Provides standardized status levels for health check reporting with clear
  * operational meanings for monitoring and alerting systems.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
 
@@ -84,7 +84,7 @@ type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
  * Each service check provides standardized reporting for aggregation into overall
  * system health assessment.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ServiceHealthCheck {
   name: string;
@@ -102,7 +102,7 @@ interface ServiceHealthCheck {
  * and operational metadata. This structure provides complete visibility into
  * system health for monitoring dashboards and alerting systems.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface SystemHealthCheck {
   status: HealthStatus;
@@ -170,7 +170,7 @@ interface SystemHealthCheck {
  *   ]
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 export default async (req: Request, context: Context): Promise<Response> => {
   const timestamp = new Date().toISOString();
@@ -224,7 +224,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
     const errorResult: SystemHealthCheck = {
       status: 'unhealthy',
       timestamp,
-      version: '2.0.0',
+      version: process.env['npm_package_version'] ?? '1.0.0',
       architecture: 'github-actions-scraper',
       environment: 'unknown',
       services: [],
@@ -276,7 +276,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
  *   console.error('WordPress API issue:', wpService.error);
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function performHealthCheck(): Promise<SystemHealthCheck> {
   const timestamp = new Date().toISOString();
@@ -316,7 +316,7 @@ async function performHealthCheck(): Promise<SystemHealthCheck> {
   return {
     status: overallStatus,
     timestamp,
-    version: '2.0.0',
+    version: process.env['npm_package_version'] ?? '1.0.0',
     architecture: 'github-actions-scraper',
     environment: env.environment || 'unknown',
     services,
@@ -364,7 +364,7 @@ async function performHealthCheck(): Promise<SystemHealthCheck> {
  *   }
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function checkEnvironmentConfiguration(): Promise<ServiceHealthCheck> {
   const startTime = Date.now();
@@ -460,7 +460,7 @@ async function checkEnvironmentConfiguration(): Promise<ServiceHealthCheck> {
  *   error: "HTTP 503: Service Temporarily Unavailable"
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function checkWordPressConnectivity(): Promise<ServiceHealthCheck> {
   const startTime = Date.now();
@@ -565,7 +565,7 @@ async function checkWordPressConnectivity(): Promise<ServiceHealthCheck> {
  *   }
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function checkGitHubActionsConfiguration(): Promise<ServiceHealthCheck> {
   const startTime = Date.now();
@@ -665,7 +665,7 @@ async function checkGitHubActionsConfiguration(): Promise<ServiceHealthCheck> {
  *   }
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function checkScraperDependencies(): Promise<ServiceHealthCheck> {
   const startTime = Date.now();

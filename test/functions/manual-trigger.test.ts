@@ -21,7 +21,7 @@
  * ```
  *
  * @module manual-trigger-test-suite
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../src/functions/manual-trigger.mts} for the function being tested
  * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
@@ -41,7 +41,7 @@ import * as utils from '../../src/lib/utils.js';
  * including success indicators, operational metadata, and error information for
  * comprehensive test validation and assertion coverage.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ManualTriggerResponse {
   success: boolean;
@@ -93,7 +93,7 @@ const mockEnvConfig = {
  * utilities for webhook signature generation, request creation, and GitHub API mock setup
  * following the established BaseTestUtils pattern.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 class ManualTriggerTestUtils {
   /**
@@ -114,7 +114,7 @@ class ManualTriggerTestUtils {
    *   {'x-webhook-signature': 'sha256=abc123'}
    * );
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createMockRequest(
     method: string = 'POST',
@@ -144,7 +144,7 @@ class ManualTriggerTestUtils {
    * const context = ManualTriggerTestUtils.createMockContext();
    * const response = await manualTriggerFunction(request, context);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createMockContext(): Context {
     return {
@@ -168,7 +168,7 @@ class ManualTriggerTestUtils {
    * const data = await ManualTriggerTestUtils.parseResponse(response);
    * expect(data.success).toBe(true);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static async parseResponse(response: Response): Promise<ManualTriggerResponse> {
     return JSON.parse(await response.text()) as ManualTriggerResponse;
@@ -191,7 +191,7 @@ class ManualTriggerTestUtils {
    * );
    * // Returns: 'sha256=abc123def456...'
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static generateValidSignature(payload: string, secret: string): string {
     const signature = createHmac('sha256', secret).update(payload).digest('hex');
@@ -214,7 +214,7 @@ class ManualTriggerTestUtils {
    * const response = await manualTriggerFunction(request, context);
    * expect(response.status).toBe(200);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupSuccessfulMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);
@@ -254,7 +254,7 @@ class ManualTriggerTestUtils {
    * const response = await manualTriggerFunction(request, context);
    * expect(response.status).toBe(500);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupFailedGitHubMocks(): void {
     this.setupSuccessfulMocks();
@@ -285,7 +285,7 @@ class ManualTriggerTestUtils {
    * const response = await manualTriggerFunction(request, context);
    * expect(data.error).toContain('GITHUB_TOKEN');
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupMissingEnvironmentMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);

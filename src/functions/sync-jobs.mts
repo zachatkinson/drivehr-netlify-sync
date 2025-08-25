@@ -73,7 +73,7 @@
  * ```
  *
  * @module sync-jobs-function
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../services/wordpress-client.js} for WordPress integration client
  * @see {@link ../../lib/utils.js} for HMAC signature validation utilities
  * @see {@link ../../lib/logger.js} for structured logging capabilities
@@ -96,7 +96,7 @@ import type { NormalizedJob, JobSource } from '../types/job.js';
  * and CORS policy management. This interface enables clean separation of concerns
  * and facilitates testing through dependency injection patterns.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface WebhookDependencies {
   readonly wordPressClient: ReturnType<typeof createWordPressClient>;
@@ -112,7 +112,7 @@ interface WebhookDependencies {
  * between GitHub Actions scraping workflows and the webhook receiver function,
  * ensuring type-safe data transfer and processing.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface GitHubActionsWebhookPayload {
   source: JobSource;
@@ -153,7 +153,7 @@ interface GitHubActionsWebhookPayload {
  * // CORS policy available for preflight responses
  * const corsHeaders = configureCorsHeaders(deps.corsConfig);
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 function initializeWebhookDependencies(): WebhookDependencies {
   const env = getEnvironmentConfig();
@@ -242,7 +242,7 @@ function initializeWebhookDependencies(): WebhookDependencies {
  *     wordpress_configured: true,
  *     webhook_configured: true,
  *     architecture: "github-actions-scraper",
- *     version: "2.0.0"
+ *     version: "1.0.0"
  *   },
  *   requestId: "webhook_abc123",
  *   timestamp: "2025-08-24T19:30:00.000Z"
@@ -271,7 +271,7 @@ function initializeWebhookDependencies(): WebhookDependencies {
  *   timestamp: "2025-08-24T19:30:00.000Z"
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 export default async (req: Request, context: Context) => {
   const requestId = generateRequestId();
@@ -361,7 +361,7 @@ export default async (req: Request, context: Context) => {
  * // Access-Control-Allow-Headers: Content-Type, Authorization, X-Webhook-Signature
  * // Access-Control-Max-Age: 86400
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 function handleOptionsRequest(
   securityHeaders: SecurityHeaders,
@@ -414,13 +414,13 @@ function handleOptionsRequest(
  *     wordpress_configured: true,
  *     webhook_configured: true,
  *     architecture: "github-actions-scraper",
- *     version: "2.0.0"
+ *     version: "1.0.0"
  *   },
  *   requestId: "webhook_123",
  *   timestamp: "2025-08-24T19:30:00.000Z"
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function handleHealthCheck(
   deps: WebhookDependencies,
@@ -440,7 +440,7 @@ async function handleHealthCheck(
       wordpress_configured: Boolean(env.wpApiUrl),
       webhook_configured: Boolean(env.webhookSecret),
       architecture: 'github-actions-scraper',
-      version: '2.0.0',
+      version: process.env['npm_package_version'] ?? '1.0.0',
     };
 
     logger.info('Health check completed', { requestId, status: healthStatus.status });
@@ -533,7 +533,7 @@ async function handleHealthCheck(
  *   timestamp: "2025-08-24T19:30:00.000Z"
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function handleWebhookData(
   deps: WebhookDependencies,
@@ -703,7 +703,7 @@ async function handleWebhookData(
  *   // Reject request with 401 Unauthorized
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 function validateWebhookSignature(payload: string, signature: string, secret: string): boolean {
   return SecurityUtils.validateHmacSignature(payload, signature, secret);
@@ -740,7 +740,7 @@ function validateWebhookSignature(payload: string, signature: string, secret: st
  *   timestamp: new Date().toISOString()
  * };
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 function generateRequestId(): string {
   return `webhook_${StringUtils.generateRequestId()}`;

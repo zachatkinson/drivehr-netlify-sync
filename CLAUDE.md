@@ -501,42 +501,72 @@ and pass without errors:**
    - For production releases, use `pnpm run security:prod` for high-level audit
    - Auto-fixable vulnerabilities can be resolved with `pnpm run security:fix`
 
-5. **Changelog Update** (MANDATORY)
-   - CHANGELOG.md must be updated to document all changes before commit
-   - Include version number, date, and categorized changes (Added, Changed,
-     Fixed, etc.)
-   - Follow Keep a Changelog format: https://keepachangelog.com/
-   - Changes must be meaningful and describe business impact, not just technical
-     details
-   - Example entry format:
-
-   ```markdown
-   ## [1.2.0] - 2024-01-15
-
-   ### Added
-
-   - Playwright scraper tests with comprehensive error handling and edge cases
-   - Enhanced telemetry system tests for initialization errors and metrics
-     recording
-
-   ### Changed
-
-   - Updated JSDoc documentation to comply with enterprise standards
-   - Improved test coverage from 74% to 85%
-
-   ### Fixed
-
-   - Resolved TypeScript strict mode compliance issues in test files
-   ```
+5. **Conventional Commit Messages** (MANDATORY)
+   - All commits MUST follow conventional commit format for semantic-release
+     automation
+   - CHANGELOG.md is automatically generated - DO NOT manually edit it
+   - Commit message format: `type(scope): description`
+   - Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+   - Breaking changes: Add `!` after type/scope or include `BREAKING CHANGE:` in
+     body
+   - Examples:
+     ```bash
+     feat(auth): add OAuth2 integration for enhanced security
+     fix(scraper): resolve timeout issues with large datasets
+     docs: update API documentation with new endpoints
+     feat!: migrate to new authentication system
+     ```
+   - Semantic-release will automatically:
+     - Calculate next version number from commit messages
+     - Generate CHANGELOG.md entries
+     - Create GitHub releases with proper tags
+     - Update package.json version
 
 **These checks are NOT optional - they are requirements. Commits that bypass
 these checks will be rejected.**
 
 #### Commit Messages
 
-- Use conventional commit format: `type(scope): description`
-- Include ticket numbers when applicable
-- Write descriptive commit messages explaining the "why"
+**CRITICAL: Use Conventional Commit Format for Automated Versioning**
+
+All commit messages MUST follow conventional commit format for semantic-release:
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Required Types:**
+
+- `feat`: New feature (triggers MINOR version bump)
+- `fix`: Bug fix (triggers PATCH version bump)
+- `feat!` or `BREAKING CHANGE`: Breaking change (triggers MAJOR version bump)
+- `docs`: Documentation changes only (no version bump)
+- `test`: Test changes only (no version bump)
+- `chore`: Maintenance tasks (no version bump)
+- `ci`: CI/CD changes (no version bump)
+- `refactor`: Code refactoring (no version bump)
+- `perf`: Performance improvements (triggers PATCH version bump)
+
+**Examples:**
+
+```
+feat(auth): add OAuth2 authentication support
+fix(scraper): resolve timeout issues with large job datasets
+feat!(api): remove deprecated job status endpoint
+
+BREAKING CHANGE: The job status endpoint has been removed. Use the new job details endpoint instead.
+```
+
+**IMPORTANT:** Semantic-release automatically:
+
+- Generates version numbers based on commit types
+- Updates CHANGELOG.md with release notes
+- Creates GitHub releases with proper tags
+- Only manual CHANGELOG.md updates needed are for unreleased features
 
 #### Branch Protection
 
@@ -551,6 +581,33 @@ these checks will be rejected.**
 - Security scanning must pass
 - Type checking must pass
 - No eslint-disable additions without justification
+
+#### Automated Release Process
+
+**Enterprise-grade semantic versioning is fully automated:**
+
+1. **Push to Main Branch**: Triggers automated release pipeline
+2. **Semantic Analysis**: Analyzes commit messages for version changes
+3. **Version Calculation**: Automatically determines next version number
+4. **CHANGELOG Generation**: Updates CHANGELOG.md with release notes
+5. **GitHub Release**: Creates tagged release with generated notes
+6. **Package Updates**: Updates package.json version automatically
+
+**Manual Release Testing:**
+
+```bash
+# Test release locally (dry-run)
+pnpm run release:dry-run
+
+# Manual release (emergency only)
+pnpm run release
+```
+
+**Version Bump Examples:**
+
+- `fix:` commit → 1.0.0 → 1.0.1 (patch)
+- `feat:` commit → 1.0.1 → 1.1.0 (minor)
+- `feat!:` or `BREAKING CHANGE:` → 1.1.0 → 2.0.0 (major)
 
 ### 9. Documentation Standards
 

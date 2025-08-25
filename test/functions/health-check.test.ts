@@ -31,7 +31,7 @@
  * ```
  *
  * @module health-check-test-suite
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../src/functions/health-check.mts} for the function being tested
  * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
@@ -49,7 +49,7 @@ import * as httpClient from '../../src/lib/http-client.js';
  * to ensure type compatibility and comprehensive validation coverage.
  * This interface supports all health states: healthy, degraded, and unhealthy.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface HealthCheckResponse {
   status: string;
@@ -78,7 +78,7 @@ interface HealthCheckResponse {
  * to validate individual service health check results with detailed
  * diagnostic information and performance metrics.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ServiceStatus {
   name: string;
@@ -134,7 +134,7 @@ const mockEnvConfig = {
  * environment configuration, WordPress connectivity, GitHub Actions,
  * and scraper dependencies.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 class HealthCheckTestUtils {
   /**
@@ -152,7 +152,7 @@ class HealthCheckTestUtils {
    * const getRequest = HealthCheckTestUtils.createMockRequest();
    * const postRequest = HealthCheckTestUtils.createMockRequest('POST');
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createMockRequest(method: string = 'GET', headers: Record<string, string> = {}): Request {
     return new Request('https://example.com/.netlify/functions/health-check', {
@@ -172,7 +172,7 @@ class HealthCheckTestUtils {
    * ```typescript
    * const context = HealthCheckTestUtils.createMockContext();
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static createMockContext(): Context {
     return {
@@ -193,7 +193,7 @@ class HealthCheckTestUtils {
    * const data = await HealthCheckTestUtils.parseResponse(response);
    * expect(data.status).toBe('healthy');
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static async parseResponse(response: Response): Promise<HealthCheckResponse> {
     return JSON.parse(await response.text()) as HealthCheckResponse;
@@ -211,7 +211,7 @@ class HealthCheckTestUtils {
    * HealthCheckTestUtils.setupSuccessfulMocks();
    * // Test healthy system scenarios
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupSuccessfulMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);
@@ -240,7 +240,7 @@ class HealthCheckTestUtils {
    * HealthCheckTestUtils.setupFailedWordPressMocks();
    * // Test degraded system scenarios
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupFailedWordPressMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue(mockEnvConfig);
@@ -269,7 +269,7 @@ class HealthCheckTestUtils {
    * HealthCheckTestUtils.setupInvalidEnvironmentMocks();
    * // Test unhealthy system scenarios
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupInvalidEnvironmentMocks(): void {
     vi.spyOn(env, 'getEnvironmentConfig').mockReturnValue({
@@ -303,7 +303,7 @@ describe('Health Check Function', () => {
         const healthData = {
           status: 'healthy',
           timestamp: new Date().toISOString(),
-          version: '2.0.0',
+          version: process.env['npm_package_version'] ?? '1.0.0',
           architecture: 'github-actions-scraper',
           environment: 'development',
           services: [
@@ -356,7 +356,7 @@ describe('Health Check Function', () => {
       expect(response.status).toBe(200);
       expect(data.status).toBe('healthy');
       expect(data.architecture).toBe('github-actions-scraper');
-      expect(data.version).toBe('2.0.0');
+      expect(data.version).toBe(process.env['npm_package_version'] ?? '1.0.0');
       expect(data.summary?.healthy_services).toBe(4);
       expect(data.summary?.total_services).toBe(4);
       expect(data.configuration?.wordpress_configured).toBe(true);
@@ -370,7 +370,7 @@ describe('Health Check Function', () => {
         const healthData = {
           status: 'degraded',
           timestamp: new Date().toISOString(),
-          version: '2.0.0',
+          version: process.env['npm_package_version'] ?? '1.0.0',
           architecture: 'github-actions-scraper',
           environment: 'development',
           services: [
@@ -428,7 +428,7 @@ describe('Health Check Function', () => {
         const healthData = {
           status: 'unhealthy',
           timestamp: new Date().toISOString(),
-          version: '2.0.0',
+          version: process.env['npm_package_version'] ?? '1.0.0',
           architecture: 'github-actions-scraper',
           environment: 'development',
           services: [
@@ -567,7 +567,7 @@ describe('Health Check Function', () => {
           JSON.stringify({
             status: 'unhealthy',
             timestamp: new Date().toISOString(),
-            version: '2.0.0',
+            version: process.env['npm_package_version'] ?? '1.0.0',
             architecture: 'github-actions-scraper',
             environment: 'unknown',
             services: [],

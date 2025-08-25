@@ -24,6 +24,9 @@ and this project adheres to
   interface compliance
 - Mandatory CHANGELOG.md update requirement in pre-commit workflow to ensure
   proper documentation of all changes
+- Enterprise-grade automated versioning with semantic-release
+- Automated CHANGELOG.md generation and GitHub releases
+- Conventional commit format enforcement for version management
 
 ### Changed
 

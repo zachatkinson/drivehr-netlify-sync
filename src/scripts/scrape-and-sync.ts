@@ -38,7 +38,7 @@
  * ```
  *
  * @module scrape-and-sync
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../services/playwright-scraper.ts} for browser automation implementation
  * @see {@link ../services/wordpress-client.ts} for WordPress integration patterns
  * @see {@link ../../CLAUDE.md} for development standards and security requirements
@@ -64,7 +64,7 @@ const __dirname = dirname(__filename);
  * optimized for GitHub Actions CI/CD pipeline execution with
  * comprehensive security and performance controls.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ScrapeAndSyncConfig {
   /** DriveHR API configuration */
@@ -91,7 +91,7 @@ interface ScrapeAndSyncConfig {
  * communication success, failure scenarios, and
  * job processing metrics for monitoring and debugging.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface WebhookResult {
   success: boolean;
@@ -107,7 +107,7 @@ interface WebhookResult {
  * artifact locations, and detailed status information for
  * GitHub Actions reporting and monitoring dashboards.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface ScrapeAndSyncResult {
   success: boolean;
@@ -132,7 +132,7 @@ interface ScrapeAndSyncResult {
  * Provides retry mechanisms, comprehensive error handling, and
  * structured logging for production deployment reliability.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 class WordPressWebhookClient {
   constructor(
@@ -159,7 +159,7 @@ class WordPressWebhookClient {
    *   console.log(`Synced ${result.jobsProcessed} jobs successfully`);
    * }
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   async sendJobs(jobs: NormalizedJob[], source: string = 'github-actions'): Promise<WebhookResult> {
     const logger = getLogger();
@@ -222,7 +222,7 @@ class WordPressWebhookClient {
    * @private
    * @param payload - JSON payload to sign for authentication
    * @returns Hex-encoded HMAC-SHA256 signature
-   * @since 2.0.0
+   * @since 1.0.0
    */
   private generateSignature(payload: string): string {
     return createHmac('sha256', this.webhookSecret).update(payload).digest('hex');
@@ -245,7 +245,7 @@ class WordPressWebhookClient {
  * console.log(`Scraping for company: ${config.driveHr.companyId}`);
  * console.log(`WordPress target: ${config.wordpress.apiUrl}`);
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
   const logger = getLogger();
@@ -310,7 +310,7 @@ async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
  *
  * @returns Promise that resolves when directories are created
  * @throws {Error} When directory creation fails due to permissions
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function createOutputDirectories(): Promise<void> {
   const dirs = ['./logs', './temp'];
@@ -335,7 +335,7 @@ async function createOutputDirectories(): Promise<void> {
  * const artifactPath = await saveJobsArtifact(jobs, 'run-123');
  * console.log(`Jobs saved to: ${artifactPath}`);
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function saveJobsArtifact(jobs: NormalizedJob[], runId: string = 'local'): Promise<string> {
   const filename = `scraped-jobs-${runId}-${Date.now()}.json`;
@@ -368,7 +368,7 @@ async function saveJobsArtifact(jobs: NormalizedJob[], runId: string = 'local'):
  * const logPath = await saveLogArtifact(executionResult, 'run-123');
  * console.log(`Execution log saved to: ${logPath}`);
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function saveLogArtifact(
   result: ScrapeAndSyncResult,
@@ -411,7 +411,7 @@ async function saveLogArtifact(
  *   console.error(`❌ Failed: ${result.error}`);
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
   const startTime = Date.now();
@@ -547,7 +547,7 @@ async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
  * # With environment variables
  * DRIVEHR_COMPANY_ID=123 node scrape-and-sync.ts
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  */
 async function main(): Promise<void> {
   const logger = getLogger();
@@ -609,7 +609,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  *   console.log(`Artifacts: ${JSON.stringify(result.artifacts, null, 2)}`);
  * }
  * ```
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link executeScrapeAndSync} for the main execution function
  * @see {@link ScrapeAndSyncResult} for the result type definition
  */

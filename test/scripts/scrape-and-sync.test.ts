@@ -23,7 +23,7 @@
  * ```
  *
  * @module scrape-and-sync-test-suite
- * @since 2.0.0
+ * @since 1.0.0
  * @see {@link ../../src/scripts/scrape-and-sync.ts} for the script being tested
  * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
@@ -58,7 +58,7 @@ import { executeScrapeAndSync } from '../../src/scripts/scrape-and-sync.js';
  * Defines the structure for mocking environment configuration
  * during scrape and sync script testing.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 interface MockEnvironmentConfig {
   driveHrCompanyId: string;
@@ -76,7 +76,7 @@ interface MockEnvironmentConfig {
  * simulation, and artifact generation validation. Implements comprehensive
  * DRY principles for complex integration testing scenarios.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
 class ScrapeAndSyncTestUtils {
   /**
@@ -85,7 +85,7 @@ class ScrapeAndSyncTestUtils {
    * Provides comprehensive logging mock with all required methods
    * for testing structured logging in GitHub Actions environment.
    *
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static mockLogger = {
     info: vi.fn(),
@@ -101,7 +101,7 @@ class ScrapeAndSyncTestUtils {
    * Provides realistic test data for environment configuration
    * including all required GitHub Actions and WordPress variables.
    *
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static mockEnvConfig: MockEnvironmentConfig = {
     driveHrCompanyId: 'test-company-uuid',
@@ -191,7 +191,7 @@ class ScrapeAndSyncTestUtils {
    * const result = await executeScrapeAndSync();
    * expect(result.success).toBe(true);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupSuccessfulMocks(): void {
     // Mock environment configuration
@@ -262,7 +262,7 @@ class ScrapeAndSyncTestUtils {
    * const result = await executeScrapeAndSync();
    * expect(result.jobs).toHaveLength(0);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupEmptyScrapeMocks(): void {
     this.setupSuccessfulMocks();
@@ -288,7 +288,7 @@ class ScrapeAndSyncTestUtils {
    * const result = await executeScrapeAndSync();
    * expect(result.success).toBe(false);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupFailedScrapeMocks(): void {
     this.setupSuccessfulMocks();
@@ -314,7 +314,7 @@ class ScrapeAndSyncTestUtils {
    * const result = await executeScrapeAndSync();
    * expect(result.syncSuccess).toBe(false);
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupFailedSyncMocks(): void {
     this.setupSuccessfulMocks();
@@ -351,7 +351,7 @@ class ScrapeAndSyncTestUtils {
    * ScrapeAndSyncTestUtils.setupMissingConfigMocks();
    * await expect(executeScrapeAndSync()).rejects.toThrow('DRIVEHR_COMPANY_ID');
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static setupMissingConfigMocks(): void {
     vi.mocked(getEnvironmentConfig).mockImplementation(() => {
@@ -372,7 +372,7 @@ class ScrapeAndSyncTestUtils {
    *   ScrapeAndSyncTestUtils.cleanup();
    * });
    * ```
-   * @since 2.0.0
+   * @since 1.0.0
    */
   static cleanup(): void {
     delete process.env['GITHUB_RUN_ID'];
