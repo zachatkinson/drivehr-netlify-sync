@@ -5,7 +5,6 @@
 [![Security Rating](https://img.shields.io/badge/security-A+-brightgreen.svg)](./SECURITY.md)
 [![Release](https://img.shields.io/github/release/zachatkinson/drivehr-netlify-sync.svg)](https://GitHub.com/zachatkinson/drivehr-netlify-sync/releases/)
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
-[![Netlify Status](https://api.netlify.com/api/v1/badges/drivehr-sync/deploy-status)](https://app.netlify.com/sites/drivehr-sync/deploys)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](https://www.typescriptlang.org/)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
