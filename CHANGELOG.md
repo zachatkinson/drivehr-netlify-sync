@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.1.0...v1.2.0) (2025-08-25)
+
+### Features
+
+- **tests:** boost telemetry system coverage from 35.48% to 94.47%
+  ([ebbf590](https://github.com/zachatkinson/drivehr-netlify-sync/commit/ebbf590d8aeed2f1e8631e71f767c83d4615b517))
+
 # [1.1.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.0.1...v1.1.0) (2025-08-25)
 
 ### Features
