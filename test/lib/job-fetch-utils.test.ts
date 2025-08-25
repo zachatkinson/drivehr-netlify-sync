@@ -59,7 +59,6 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
 
   static readonly STANDARD_CONFIG: DriveHrApiConfig = {
     companyId: 'test-company',
-    apiBaseUrl: 'https://api.test-company.com',
     careersUrl: 'https://drivehris.app/careers/test-company/list',
   };
 
@@ -72,14 +71,12 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
       name: 'minimal config',
       config: {
         companyId: 'minimal-co',
-        apiBaseUrl: 'https://api.minimal.com',
       } as DriveHrApiConfig,
     },
     {
       name: 'custom careers URL',
       config: {
         companyId: 'custom-corp',
-        apiBaseUrl: 'https://custom-api.com',
         careersUrl: 'https://jobs.custom-corp.com/openings',
       } as DriveHrApiConfig,
     },
@@ -87,7 +84,6 @@ class JobFetchUtilsTestUtils extends BaseTestUtils {
       name: 'special characters in company ID',
       config: {
         companyId: 'tech-startup-2024',
-        apiBaseUrl: 'https://tech-startup-2024.api.com',
       } as DriveHrApiConfig,
     },
   ] as const;
@@ -239,7 +235,6 @@ describe('Job Fetch Utils', () => {
       it('should use explicit careers URL when provided', () => {
         const config = {
           companyId: 'test-co',
-          apiBaseUrl: 'https://api.test-co.com',
           careersUrl: 'https://custom.example.com/jobs',
         };
 
@@ -251,7 +246,6 @@ describe('Job Fetch Utils', () => {
       it('should build default careers URL when not provided', () => {
         const config = {
           companyId: 'default-company',
-          apiBaseUrl: 'https://api.default-company.com',
         } as DriveHrApiConfig;
 
         const url = DriveHrUrlBuilder.buildCareersPageUrl(config);
@@ -272,7 +266,6 @@ describe('Job Fetch Utils', () => {
         testCases.forEach(companyId => {
           const config = {
             companyId,
-            apiBaseUrl: `https://api.${companyId}.com`,
           } as DriveHrApiConfig;
           const url = DriveHrUrlBuilder.buildCareersPageUrl(config);
 
@@ -284,7 +277,6 @@ describe('Job Fetch Utils', () => {
       it('should prefer explicit URL over default construction', () => {
         const config = {
           companyId: 'test-company',
-          apiBaseUrl: 'https://api.test-company.com',
           careersUrl: 'https://completely-different.com/careers-page',
         };
 

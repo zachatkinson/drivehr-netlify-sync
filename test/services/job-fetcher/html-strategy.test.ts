@@ -63,7 +63,6 @@ class HtmlStrategyTestUtils extends JobFetcherTestUtils {
   static createInvalidConfig(): DriveHrApiConfig {
     return {
       companyId: 'test-company',
-      apiBaseUrl: 'https://api.example.com',
     } as DriveHrApiConfig;
   }
 

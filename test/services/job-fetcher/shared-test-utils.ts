@@ -65,7 +65,6 @@ export class JobFetcherTestUtils extends BaseTestUtils {
    */
   static readonly STANDARD_CONFIG: DriveHrApiConfig = {
     companyId: 'test-company',
-    apiBaseUrl: 'https://api.test-company.com',
     careersUrl: 'https://drivehr.app/careers/test-company/list',
     timeout: 30000,
     retries: 3,
@@ -87,7 +86,6 @@ export class JobFetcherTestUtils extends BaseTestUtils {
       name: 'Complete config',
       config: {
         companyId: 'complete',
-        apiBaseUrl: 'https://api.complete.com',
         careersUrl: 'https://complete.com/careers',
         timeout: 60000,
         retries: 5,

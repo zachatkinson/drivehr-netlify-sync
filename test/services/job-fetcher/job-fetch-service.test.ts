@@ -58,7 +58,6 @@ class JobFetchServiceTestUtils extends JobFetcherTestUtils {
   static createValidApiConfig(): DriveHrApiConfig {
     return {
       companyId: 'test-company',
-      apiBaseUrl: 'https://api.drivehr.app',
       careersUrl: 'https://careers.example.com/jobs',
     };
   }
@@ -105,7 +104,6 @@ class JobFetchServiceTestUtils extends JobFetcherTestUtils {
   static createUnhandleableConfig(): DriveHrApiConfig {
     return {
       companyId: 'test',
-      apiBaseUrl: '',
       careersUrl: '',
     };
   }
@@ -329,7 +327,6 @@ describe('JobFetchService', () => {
     it('should handle configuration validation errors', async () => {
       const invalidConfig: DriveHrApiConfig = {
         companyId: '', // Empty company ID
-        apiBaseUrl: '',
         careersUrl: '',
       };
 
@@ -543,7 +540,6 @@ describe('JobFetchService', () => {
       // Test with configuration that has multiple URL options
       const configWithMultipleOptions: DriveHrApiConfig = {
         companyId: 'multi-strategy-test',
-        apiBaseUrl: 'https://api.drivehr.app',
         careersUrl: 'https://careers.example.com/jobs',
       };
 
