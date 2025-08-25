@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: Enhanced CI Pipeline
 
 on:
   push:
@@ -18,10 +18,152 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  # Code Quality and Security Checks
+  # Detect Changed Files for Smart Test Selection
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      lib-changed: ${{ steps.changes.outputs.lib }}
+      services-changed: ${{ steps.changes.outputs.services }}
+      functions-changed: ${{ steps.changes.outputs.functions }}
+      scripts-changed: ${{ steps.changes.outputs.scripts }}
+      config-changed: ${{ steps.changes.outputs.config }}
+      all-tests-required: ${{ steps.check-requirements.outputs.all-tests }}
+      test-matrix: ${{ steps.build-matrix.outputs.matrix }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changed files
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            lib:
+              - 'src/lib/**'
+              - 'test/lib/**'
+            services:
+              - 'src/services/**'
+              - 'test/services/**'
+            functions:
+              - 'src/functions/**'
+              - 'test/functions/**'
+            scripts:
+              - 'src/scripts/**'
+              - 'test/scripts/**'
+            config:
+              - '*.json'
+              - '*.yml'
+              - '*.yaml'
+              - '*.toml'
+              - '.github/**'
+              - 'tsconfig*.json'
+              - 'eslint.config.ts'
+              - 'vitest.config.ts'
+
+      - name: Check if all tests are required
+        id: check-requirements
+        run: |
+          # Force all tests on main branch, config changes, or scheduled runs
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || \
+             [[ "${{ steps.changes.outputs.config }}" == "true" ]] || \
+             [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "all-tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "all-tests=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build test matrix
+        id: build-matrix
+        run: |
+          if [[ "${{ steps.check-requirements.outputs.all-tests }}" == "true" ]]; then
+            # Full test matrix for main branch or config changes
+            echo 'matrix={"include":[
+              {"name":"Config","pattern":"test/lib/config.test.ts","category":"lib"},
+              {"name":"HTTP-Client","pattern":"test/lib/http-client.test.ts","category":"lib"},
+              {"name":"Environment-Utilities","pattern":"test/lib/env.test.ts","category":"lib"},
+              {"name":"Logger","pattern":"test/lib/logger.test.ts","category":"lib"},
+              {"name":"Utils","pattern":"test/lib/utils.test.ts","category":"lib"},
+              {"name":"Job-Fetch-Utils","pattern":"test/lib/job-fetch-utils.test.ts","category":"lib"},
+              {"name":"Performance-Monitor","pattern":"test/lib/performance-monitor.test.ts","category":"lib"},
+              {"name":"Telemetry","pattern":"test/lib/telemetry.test.ts","category":"lib"},
+              {"name":"Telemetry-Init","pattern":"test/lib/telemetry-init.test.ts","category":"lib"},
+              {"name":"Job-Fetcher-Services","pattern":"test/services/job-fetcher","category":"services"},
+              {"name":"HTML-Parser-Service","pattern":"test/services/html-parser.test.ts","category":"services"},
+              {"name":"WordPress-Client-Service","pattern":"test/services/wordpress-client.test.ts","category":"services"},
+              {"name":"Playwright-Scraper-Service","pattern":"test/services/playwright-scraper.test.ts","category":"services"},
+              {"name":"Sync-Jobs-Function","pattern":"test/functions/sync-jobs.test.ts","category":"functions"},
+              {"name":"Health-Check-Function","pattern":"test/functions/health-check.test.ts","category":"functions"},
+              {"name":"Manual-Trigger-Function","pattern":"test/functions/manual-trigger.test.ts","category":"functions"},
+              {"name":"Manual-Trigger-Integration","pattern":"test/functions/manual-trigger-integration.test.ts","category":"functions"},
+              {"name":"Scrape-and-Sync-Script","pattern":"test/scripts/scrape-and-sync.test.ts","category":"scripts"},
+              {"name":"WordPress-Payload-Testing","pattern":"test/scripts/test-wordpress-payload.test.ts","category":"scripts"}
+            ]}' >> $GITHUB_OUTPUT
+          else
+            # Smart test selection based on changed files
+            tests=()
+            
+            if [[ "${{ steps.changes.outputs.lib }}" == "true" ]]; then
+              tests+=(
+                '{"name":"Config","pattern":"test/lib/config.test.ts","category":"lib"}'
+                '{"name":"HTTP-Client","pattern":"test/lib/http-client.test.ts","category":"lib"}'
+                '{"name":"Environment-Utilities","pattern":"test/lib/env.test.ts","category":"lib"}'
+                '{"name":"Logger","pattern":"test/lib/logger.test.ts","category":"lib"}'
+                '{"name":"Utils","pattern":"test/lib/utils.test.ts","category":"lib"}'
+                '{"name":"Job-Fetch-Utils","pattern":"test/lib/job-fetch-utils.test.ts","category":"lib"}'
+                '{"name":"Performance-Monitor","pattern":"test/lib/performance-monitor.test.ts","category":"lib"}'
+                '{"name":"Telemetry","pattern":"test/lib/telemetry.test.ts","category":"lib"}'
+                '{"name":"Telemetry-Init","pattern":"test/lib/telemetry-init.test.ts","category":"lib"}'
+              )
+            fi
+            
+            if [[ "${{ steps.changes.outputs.services }}" == "true" ]]; then
+              tests+=(
+                '{"name":"Job-Fetcher-Services","pattern":"test/services/job-fetcher","category":"services"}'
+                '{"name":"HTML-Parser-Service","pattern":"test/services/html-parser.test.ts","category":"services"}'
+                '{"name":"WordPress-Client-Service","pattern":"test/services/wordpress-client.test.ts","category":"services"}'
+                '{"name":"Playwright-Scraper-Service","pattern":"test/services/playwright-scraper.test.ts","category":"services"}'
+              )
+            fi
+            
+            if [[ "${{ steps.changes.outputs.functions }}" == "true" ]]; then
+              tests+=(
+                '{"name":"Sync-Jobs-Function","pattern":"test/functions/sync-jobs.test.ts","category":"functions"}'
+                '{"name":"Health-Check-Function","pattern":"test/functions/health-check.test.ts","category":"functions"}'
+                '{"name":"Manual-Trigger-Function","pattern":"test/functions/manual-trigger.test.ts","category":"functions"}'
+                '{"name":"Manual-Trigger-Integration","pattern":"test/functions/manual-trigger-integration.test.ts","category":"functions"}'
+              )
+            fi
+            
+            if [[ "${{ steps.changes.outputs.scripts }}" == "true" ]]; then
+              tests+=(
+                '{"name":"Scrape-and-Sync-Script","pattern":"test/scripts/scrape-and-sync.test.ts","category":"scripts"}'
+                '{"name":"WordPress-Payload-Testing","pattern":"test/scripts/test-wordpress-payload.test.ts","category":"scripts"}'
+              )
+            fi
+            
+            # If no specific changes detected, run core tests
+            if [ ${#tests[@]} -eq 0 ]; then
+              tests=(
+                '{"name":"Config","pattern":"test/lib/config.test.ts","category":"lib"}'
+                '{"name":"HTTP-Client","pattern":"test/lib/http-client.test.ts","category":"lib"}'
+                '{"name":"Sync-Jobs-Function","pattern":"test/functions/sync-jobs.test.ts","category":"functions"}'
+              )
+            fi
+            
+            # Join tests array into JSON
+            matrix_json=$(printf '%s,' "${tests[@]}" | sed 's/,$//')
+            echo "matrix={\"include\":[$matrix_json]}" >> $GITHUB_OUTPUT
+          fi
+
+  # Enhanced Code Quality and Security Checks
   quality:
     name: Code Quality & Security
     runs-on: ubuntu-latest
+    needs: detect-changes
 
     steps:
       - name: Checkout code
@@ -48,67 +190,47 @@ jobs:
       - name: Format checking
         run: pnpm run format:check
 
-      - name: Security audit
-        run: pnpm audit --audit-level moderate
+      - name: Enhanced security audit - Moderate level
+        run: pnpm run security
+        continue-on-error: false
+
+      - name: Enhanced security audit - Production dependencies only
+        run: pnpm run security:prod
+        continue-on-error: true
+
+      - name: Generate security audit report
+        if: always()
+        run: |
+          echo "## Security Audit Results" > security-report.md
+          echo "### Moderate Level Audit" >> security-report.md
+          pnpm audit --audit-level moderate --json > security-moderate.json || true
+          echo "### Production Dependencies Audit" >> security-report.md  
+          pnpm audit --audit-level high --prod --json > security-prod.json || true
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-audit-results
+          path: |
+            security-*.json
+            security-report.md
+          retention-days: 30
 
       - name: Dependency vulnerability check
         uses: actions/dependency-review-action@v4
         if: github.event_name == 'pull_request'
 
-  # Unit and Integration Tests
+  # Smart Test Execution
   test:
-    name: ${{ matrix.test-suite.name }}
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
-    needs: quality
+    needs: [detect-changes, quality]
+    if: needs.detect-changes.outputs.test-matrix != ''
 
     strategy:
-      matrix:
-        test-suite:
-          # Library Tests
-          - name: 'Config'
-            pattern: 'test/lib/config.test.ts'
-          - name: 'HTTP-Client'
-            pattern: 'test/lib/http-client.test.ts'
-          - name: 'Environment-Utilities'
-            pattern: 'test/lib/env.test.ts'
-          - name: 'Logger'
-            pattern: 'test/lib/logger.test.ts'
-          - name: 'Utils'
-            pattern: 'test/lib/utils.test.ts'
-          - name: 'Job-Fetch-Utils'
-            pattern: 'test/lib/job-fetch-utils.test.ts'
-          - name: 'Performance-Monitor'
-            pattern: 'test/lib/performance-monitor.test.ts'
-          - name: 'Telemetry'
-            pattern: 'test/lib/telemetry.test.ts'
-          - name: 'Telemetry-Init'
-            pattern: 'test/lib/telemetry-init.test.ts'
-
-          # Service Tests
-          - name: 'Job-Fetcher-Services'
-            pattern: 'test/services/job-fetcher'
-          - name: 'HTML-Parser-Service'
-            pattern: 'test/services/html-parser.test.ts'
-          - name: 'WordPress-Client-Service'
-            pattern: 'test/services/wordpress-client.test.ts'
-          - name: 'Playwright-Scraper-Service'
-            pattern: 'test/services/playwright-scraper.test.ts'
-
-          # Function Tests
-          - name: 'Sync-Jobs-Function'
-            pattern: 'test/functions/sync-jobs.test.ts'
-          - name: 'Health-Check-Function'
-            pattern: 'test/functions/health-check.test.ts'
-          - name: 'Manual-Trigger-Function'
-            pattern: 'test/functions/manual-trigger.test.ts'
-          - name: 'Manual-Trigger-Integration'
-            pattern: 'test/functions/manual-trigger-integration.test.ts'
-
-          # Script Tests
-          - name: 'Scrape-and-Sync-Script'
-            pattern: 'test/scripts/scrape-and-sync.test.ts'
-          - name: 'WordPress-Payload-Testing'
-            pattern: 'test/scripts/test-wordpress-payload.test.ts'
+      matrix: ${{ fromJson(needs.detect-changes.outputs.test-matrix) }}
+      fail-fast: false
 
     steps:
       - name: Checkout code
@@ -129,8 +251,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Run ${{ matrix.test-suite.name }}
-        run: pnpm exec vitest run ${{ matrix.test-suite.pattern }} --coverage
+      - name: Run ${{ matrix.name }} Tests
+        run: pnpm exec vitest run ${{ matrix.pattern }} --coverage
         env:
           NODE_ENV: test
           DRIVEHR_COMPANY_ID: 'test-company-123'
@@ -141,8 +263,8 @@ jobs:
         uses: codecov/codecov-action@v5.5.0
         with:
           files: ./coverage/lcov.info
-          flags: ${{ matrix.test-suite.name }}
-          name: ${{ matrix.test-suite.name }}-coverage
+          flags: ${{ matrix.name }}
+          name: ${{ matrix.name }}-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
           verbose: true
@@ -151,7 +273,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-${{ matrix.test-suite.name }}
+          name: coverage-${{ matrix.name }}
           path: |
             coverage/
             test-report.junit.xml
@@ -205,9 +327,9 @@ jobs:
           echo "✅ Build verification completed"
           echo "🏗️ Netlify will handle the production build and deployment"
 
-  # Security Scanning
+  # Enhanced Security Scanning
   security:
-    name: Security Scanning
+    name: Enhanced Security Scanning
     runs-on: ubuntu-latest
     needs: quality
 
@@ -227,8 +349,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Run npm audit for vulnerabilities
-        run: pnpm audit --audit-level moderate || echo "Security audit completed with warnings"
+      - name: High-severity vulnerability scan
+        run: pnpm run security:high
+        continue-on-error: true
+
+      - name: Production dependency vulnerability scan
+        run: pnpm run security:prod
+        continue-on-error: false
 
       - name: CodeQL Analysis
         uses: github/codeql-action/init@v3
@@ -246,28 +373,81 @@ jobs:
           echo "Secret scanning is automatically enabled for private repos with GitHub Advanced Security"
           echo "For additional secret patterns, configure .gitleaks.toml or similar tools"
 
-  # CI Success Notification
+      - name: Generate comprehensive security report
+        if: always()
+        run: |
+          echo "# 🔒 Comprehensive Security Report" > security-comprehensive-report.md
+          echo "Generated on: $(date)" >> security-comprehensive-report.md
+          echo "" >> security-comprehensive-report.md
+
+          echo "## Dependency Vulnerabilities" >> security-comprehensive-report.md
+          echo "### High-Severity Issues" >> security-comprehensive-report.md
+          pnpm audit --audit-level high --json > audit-high.json 2>/dev/null || echo "No high-severity issues found" >> security-comprehensive-report.md
+
+          echo "### Production Dependencies" >> security-comprehensive-report.md  
+          pnpm audit --prod --audit-level moderate --json > audit-prod.json 2>/dev/null || echo "No production dependency issues found" >> security-comprehensive-report.md
+
+          echo "## Recommendations" >> security-comprehensive-report.md
+          echo "- Run \`pnpm run security:fix\` to auto-resolve fixable vulnerabilities" >> security-comprehensive-report.md
+          echo "- Review manual fixes for remaining vulnerabilities" >> security-comprehensive-report.md
+          echo "- Consider dependency alternatives for persistent high-risk packages" >> security-comprehensive-report.md
+
+      - name: Upload comprehensive security artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comprehensive-security-results
+          path: |
+            audit-*.json
+            security-comprehensive-report.md
+          retention-days: 90
+
+  # CI Success Notification with Enhanced Reporting
   ci-success:
-    name: CI Pipeline Complete
+    name: Enhanced CI Pipeline Complete
     runs-on: ubuntu-latest
-    needs: [quality, test, build, security]
+    needs: [detect-changes, quality, test, build, security]
     if: always()
 
     steps:
-      - name: Check CI status
+      - name: Check CI status and generate report
         run: |
+          echo "# 🚀 Enhanced CI Pipeline Report" > ci-report.md
+          echo "Generated on: $(date)" >> ci-report.md
+          echo "" >> ci-report.md
+
+          echo "## Test Optimization Results" >> ci-report.md
+          echo "- All tests required: ${{ needs.detect-changes.outputs.all-tests-required }}" >> ci-report.md
+          echo "- Lib changes detected: ${{ needs.detect-changes.outputs.lib-changed }}" >> ci-report.md
+          echo "- Services changes detected: ${{ needs.detect-changes.outputs.services-changed }}" >> ci-report.md
+          echo "- Functions changes detected: ${{ needs.detect-changes.outputs.functions-changed }}" >> ci-report.md
+          echo "- Scripts changes detected: ${{ needs.detect-changes.outputs.scripts-changed }}" >> ci-report.md
+          echo "- Config changes detected: ${{ needs.detect-changes.outputs.config-changed }}" >> ci-report.md
+          echo "" >> ci-report.md
+
+          echo "## Pipeline Results" >> ci-report.md
+          echo "- Quality checks: ${{ needs.quality.result }}" >> ci-report.md
+          echo "- Tests: ${{ needs.test.result }}" >> ci-report.md
+          echo "- Build: ${{ needs.build.result }}" >> ci-report.md
+          echo "- Security: ${{ needs.security.result }}" >> ci-report.md
+
           if [ "${{ needs.quality.result }}" = "success" ] && \
              [ "${{ needs.test.result }}" = "success" ] && \
              [ "${{ needs.build.result }}" = "success" ] && \
              [ "${{ needs.security.result }}" = "success" ]; then
-            echo "✅ All CI checks passed - Ready for deployment"
+            echo "✅ All enhanced CI checks passed - Ready for deployment"
             echo "🚀 Netlify will automatically deploy from main branch"
+            echo "⚡ Smart test selection optimized CI performance"
             exit 0
           else
-            echo "❌ CI pipeline failed - Deployment blocked"
-            echo "Quality: ${{ needs.quality.result }}"
-            echo "Tests: ${{ needs.test.result }}" 
-            echo "Build: ${{ needs.build.result }}"
-            echo "Security: ${{ needs.security.result }}"
+            echo "❌ Enhanced CI pipeline failed - Deployment blocked"
             exit 1
           fi
+
+      - name: Upload CI report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: enhanced-ci-report
+          path: ci-report.md
+          retention-days: 30

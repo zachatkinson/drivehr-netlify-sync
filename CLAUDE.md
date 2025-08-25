@@ -495,6 +495,12 @@ and pass without errors:**
    - All remaining issues must be resolved manually
    - No eslint-disable additions without architectural justification
 
+4. **Security Audit**: `pnpm run security`
+   - Must pass dependency vulnerability scan at moderate level
+   - Critical and high-severity vulnerabilities must be addressed
+   - For production releases, use `pnpm run security:prod` for high-level audit
+   - Auto-fixable vulnerabilities can be resolved with `pnpm run security:fix`
+
 **These checks are NOT optional - they are requirements. Commits that bypass
 these checks will be rejected.**
 
@@ -615,7 +621,10 @@ pnpm run lint:fix      # Auto-fix linting issues
 pnpm run type-check    # TypeScript validation
 pnpm run test          # Run test suite
 pnpm run test:coverage # Generate coverage report
-pnpm run security      # Security vulnerability scan
+pnpm run security      # Security vulnerability scan (moderate level)
+pnpm run security:high # High-severity vulnerability scan
+pnpm run security:prod # Production dependency audit (high level)
+pnpm run security:fix  # Auto-fix security vulnerabilities
 pnpm install           # Install dependencies
 pnpm add <package>     # Add production dependency
 pnpm add -D <package>  # Add development dependency
