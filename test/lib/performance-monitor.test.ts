@@ -778,7 +778,7 @@ describe('PerformanceMonitor', () => {
       // Reset singleton to get default thresholds
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (PerformanceMonitor as any).instance = undefined;
-      
+
       const monitor = PerformanceMonitor.getInstance(); // Default thresholds: warning 1000ms, critical 5000ms
       monitor.clearMetrics(); // Clear any existing metrics
 
