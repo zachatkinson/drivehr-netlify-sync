@@ -1,24 +1,26 @@
 /**
  * HTML Parser Service Test Suite
  *
- * Comprehensive test coverage for HTML parser service following
+ * Comprehensive test coverage for the enterprise HTML parser service following
  * enterprise testing standards with DRY principles and SOLID architecture.
- * This test suite validates the HTML parsing service that extracts structured
- * job data from unstructured HTML content using configurable CSS selectors
- * and intelligent fallback mechanisms.
+ * This test suite validates HTML job data extraction, CSS selector strategies,
+ * intelligent fallback mechanisms, and robust error handling for production
+ * job scraping operations.
  *
  * Test Features:
- * - HtmlParsingConfig: Configuration interface and defaults
- * - HtmlParserService: Main parsing service with CSS selectors
- * - createHtmlParser: Factory function with configuration merging
- * - parseJobsFromHtml: Core parsing logic with various HTML structures
- * - Error handling and edge cases for malformed HTML
- * - Integration patterns with different job site layouts
+ * - HtmlParserService class and factory function testing
+ * - Configurable CSS selector strategy validation
+ * - Multi-format HTML structure parsing
+ * - Intelligent text extraction and data normalization
+ * - URL resolution and date parsing validation
+ * - Error boundary testing with malformed HTML
+ * - Performance testing with large HTML documents
+ * - Configuration flexibility and fallback mechanisms
  *
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/services/html-parser.test.ts -- --grep "HtmlParserService"
+ * pnpm test test/services/html-parser.test.ts -- --grep "parsing"
  * ```
  *
  * @module html-parser-test-suite
@@ -40,18 +42,22 @@ import * as logger from '../../src/lib/logger.js';
 import * as utils from '../../src/lib/utils.js';
 
 /**
- * Specialized test utilities for HTML parser testing
+ * Specialized test utilities for HTML parser service testing
  *
- * Extends BaseTestUtils with HTML-parser-specific testing capabilities including
- * sample HTML generation, selector testing patterns, and comprehensive
- * test data creation. Implements DRY principles for consistent test patterns.
+ * Extends BaseTestUtils with HTML parsing-specific testing capabilities
+ * including mock HTML structure generation, CSS selector testing, and
+ * data extraction validation. Implements DRY principles for complex
+ * HTML parsing test scenarios.
  *
- * @extends BaseTestUtils
  * @since 1.0.0
  */
 class HtmlParserTestUtils extends BaseTestUtils {
   /**
-   * Mock logger for testing logging behavior
+   * Mock logger instance for HTML parser testing
+   *
+   * Provides comprehensive logging mock with all required methods
+   * for testing HTML parsing operations and error scenarios.
+   *
    * @since 1.0.0
    */
   static mockLogger = {
@@ -62,10 +68,6 @@ class HtmlParserTestUtils extends BaseTestUtils {
     trace: vi.fn(),
   };
 
-  /**
-   * Sample HTML content with various job posting structures
-   * @since 1.0.0
-   */
   static readonly SAMPLE_HTML_STRUCTURES = {
     standardJobListing: `
       <html>
@@ -163,10 +165,6 @@ class HtmlParserTestUtils extends BaseTestUtils {
     `,
   } as const;
 
-  /**
-   * Expected parsed job data for testing
-   * @since 1.0.0
-   */
   static readonly EXPECTED_JOB_DATA = {
     standardJobs: [
       {
@@ -218,10 +216,6 @@ class HtmlParserTestUtils extends BaseTestUtils {
     ] as RawJobData[],
   } as const;
 
-  /**
-   * Custom parsing configurations for testing
-   * @since 1.0.0
-   */
   static readonly TEST_CONFIGS = {
     restrictive: {
       jobSelectors: ['.specific-job-card'],
@@ -250,17 +244,17 @@ class HtmlParserTestUtils extends BaseTestUtils {
   } as const;
 
   /**
-   * Setup mocks for testing HTML parser service
+   * Setup comprehensive mocks for HTML parser testing
    *
    * Configures all necessary mocks including logger, date utilities,
-   * string utilities, and URL utilities for consistent test behavior.
+   * string utilities, and URL utilities for consistent HTML parsing
+   * test execution.
    *
-   * @returns {void} No return value
    * @example
    * ```typescript
-   * beforeEach(() => {
-   *   HtmlParserTestUtils.setupMocks();
-   * });
+   * HtmlParserTestUtils.setupMocks();
+   * const parser = createHtmlParser();
+   * const jobs = parser.parseJobsFromHtml(html, baseUrl);
    * ```
    * @since 1.0.0
    */
@@ -286,12 +280,11 @@ class HtmlParserTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Restore mocks after testing
+   * Restore all mocks for clean test isolation
    *
-   * Cleans up all mock functions and restores original implementations
-   * to prevent test interference between test cases.
+   * Ensures each test starts with clean mock state by restoring
+   * all mocks and clearing mock call history.
    *
-   * @returns {void} No return value
    * @example
    * ```typescript
    * afterEach(() => {
@@ -306,19 +299,18 @@ class HtmlParserTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Verify job data structure and content
+   * Verify extracted job data matches expected results
    *
-   * Performs comprehensive validation of job data objects to ensure
-   * all fields match expected values with proper typing and content.
+   * Performs comprehensive validation of extracted job data against
+   * expected values, ensuring all job fields are correctly parsed
+   * and formatted.
    *
-   * @param {RawJobData} actual - The actual job data to validate
-   * @param {RawJobData} expected - The expected job data values
-   * @returns {void} No return value, throws assertion errors on mismatch
+   * @param actual - Actually extracted job data from HTML parsing
+   * @param expected - Expected job data structure
    * @example
    * ```typescript
-   * const actualJob = parser.parseJobsFromHtml(html)[0];
-   * const expectedJob = HtmlParserTestUtils.EXPECTED_JOB_DATA.standardJobs[0];
-   * HtmlParserTestUtils.verifyJobData(actualJob, expectedJob);
+   * const extractedJobs = parser.parseJobsFromHtml(html, baseUrl);
+   * HtmlParserTestUtils.verifyJobData(extractedJobs[0], expectedJob);
    * ```
    * @since 1.0.0
    */
@@ -334,27 +326,28 @@ class HtmlParserTestUtils extends BaseTestUtils {
   }
 
   /**
-   * Create test HTML with custom structure
+   * Create custom HTML structure for testing specific scenarios
    *
-   * Generates HTML content with job data using customizable selectors
-   * for testing various HTML parser configurations and edge cases.
+   * Generates HTML with configurable job data and CSS selectors for testing
+   * different HTML structures and selector strategies. Supports customizable
+   * element types and class names to validate parser flexibility.
    *
-   * @param {Object} jobData - Job data and selector configuration
-   * @param {string} jobData.title - Job title (required)
-   * @param {string} [jobData.department] - Job department (optional)
-   * @param {string} [jobData.location] - Job location (optional)
-   * @param {string} [jobData.type] - Job type (optional)
-   * @param {string} [jobData.description] - Job description (optional)
-   * @param {Object} [jobData.selectors] - Custom CSS selectors (optional)
-   * @returns {string} Generated HTML string with job data
+   * @param jobData - Job data and selector configuration for HTML generation
+   * @param jobData.title - Job title (required)
+   * @param jobData.department - Job department (optional)
+   * @param jobData.location - Job location (optional)
+   * @param jobData.type - Employment type (optional)
+   * @param jobData.description - Job description (optional)
+   * @param jobData.selectors - Custom CSS selectors and element types
+   * @returns Generated HTML string with specified job data and structure
    * @example
    * ```typescript
    * const html = HtmlParserTestUtils.createTestHtml({
-   *   title: 'Software Engineer',
+   *   title: 'Senior Developer',
    *   department: 'Engineering',
-   *   selectors: { container: 'custom-job-card' }
+   *   selectors: { container: 'custom-job-card', title: 'h3' }
    * });
-   * const jobs = parser.parseJobsFromHtml(html, 'https://example.com');
+   * const jobs = parser.parseJobsFromHtml(html, baseUrl);
    * ```
    * @since 1.0.0
    */

@@ -1,0 +1,736 @@
+/**
+ * Playwright Scraper Test Suite
+ *
+ * Comprehensive test coverage for the Playwright-based web scraper service following
+ * enterprise testing standards with DRY principles and SOLID architecture.
+ * This test suite validates browser automation, job extraction, and error handling.
+ *
+ * Test Features:
+ * - Browser initialization and configuration testing
+ * - Job extraction from multiple strategies (Element UI, JSON-LD, text patterns)
+ * - Error handling and resilience testing
+ * - Resource management and cleanup testing
+ * - Mock management with proper sequential call handling
+ *
+ * @example
+ * ```typescript
+ * // Run specific test group
+ * pnpm test test/services/playwright-scraper.test.ts -- --grep "extraction"
+ * ```
+ *
+ * @module playwright-scraper-test-suite
+ * @since 1.0.0
+ * @see {@link ../../src/services/playwright-scraper.ts} for the service being tested
+ * @see {@link ../../CLAUDE.md} for testing standards and practices
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { PlaywrightScraper } from '../../src/services/playwright-scraper.js';
+import type { Browser, Page, BrowserContext } from 'playwright';
+
+vi.mock('playwright', async () => {
+  const mockPage = {
+    goto: vi.fn(),
+    url: vi.fn().mockReturnValue('https://example.com/careers'),
+    setDefaultTimeout: vi.fn(),
+    setDefaultNavigationTimeout: vi.fn(),
+    route: vi.fn(),
+    on: vi.fn(),
+    waitForSelector: vi.fn(),
+    waitForLoadState: vi.fn(),
+    waitForTimeout: vi.fn(),
+    locator: vi.fn(),
+    evaluate: vi.fn(),
+    screenshot: vi.fn(),
+    close: vi.fn(),
+  };
+
+  const mockContext = {
+    newPage: vi.fn().mockResolvedValue(mockPage),
+    addInitScript: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn(),
+  };
+
+  const mockBrowser = {
+    newContext: vi.fn().mockResolvedValue(mockContext),
+    close: vi.fn(),
+  };
+
+  const mockChromium = {
+    launch: vi.fn().mockResolvedValue(mockBrowser),
+  };
+
+  return {
+    chromium: mockChromium,
+  };
+});
+
+vi.mock('../../src/lib/logger.js', () => ({
+  getLogger: vi.fn(() => ({
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
+}));
+
+vi.mock('../../src/lib/job-fetch-utils.js', () => ({
+  DriveHrUrlBuilder: {
+    buildCareersPageUrl: vi.fn().mockReturnValue('https://example.com/careers'),
+  },
+}));
+
+vi.mock('../../src/lib/utils.js', () => ({
+  DateUtils: {
+    toIsoString: vi.fn().mockReturnValue('2024-01-01T00:00:00.000Z'),
+    getCurrentIsoTimestamp: vi.fn().mockReturnValue('2024-01-01T00:00:00.000Z'),
+  },
+}));
+
+/**
+ * Playwright scraper test utilities
+ *
+ * Extends testing capabilities with Playwright-specific mock management
+ * and test data factories. Maintains DRY principles while providing
+ * specialized testing methods for browser automation scenarios.
+ *
+ * @since 1.0.0
+ */
+class PlaywrightTestUtils {
+  static mockPlaywright: {
+    chromium: {
+      launch: ReturnType<typeof vi.fn>;
+    };
+  };
+
+  static mockBrowser: Browser;
+  static mockContext: BrowserContext;
+  static mockPage: Page;
+
+  /**
+   * Initialize Playwright mocks for testing
+   *
+   * Sets up mock browser, context, and page objects with proper
+   * integration with Vitest mocking system. Ensures consistent
+   * mock state across all test scenarios.
+   *
+   * @since 1.0.0
+   */
+  static async initializeMocks() {
+    const { chromium } = await import('playwright');
+    // ARCHITECTURAL JUSTIFICATION: Mock setup requires type casting for Playwright browser integration
+    // Real chromium instance must be cast to mock structure for Vitest compatibility. Alternative
+    // type-safe mock interfaces would require extensive definitions and maintenance overhead.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.mockPlaywright = { chromium } as any;
+
+    // ARCHITECTURAL JUSTIFICATION: Test mocking requires dynamic type casting to access mock results
+    // Playwright browser mock needs casting to access Vitest mock properties like .mock.results.
+    // Alternative type-safe mock interfaces would require extensive maintenance overhead.
+
+    this.mockBrowser =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (chromium as any).launch.mock.results[0]?.value ??
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (await (chromium as any).launch());
+
+    // ARCHITECTURAL JUSTIFICATION: Mock Playwright context requires type casting for test setup
+    // Complex mock object structure needs casting for Vitest integration with Playwright types
+
+    this.mockContext =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.mockBrowser as any).newContext.mock.results[0]?.value ??
+      (await this.mockBrowser.newContext());
+
+    // ARCHITECTURAL JUSTIFICATION: Mock Playwright page requires type casting for test setup
+    // Complex mock object structure needs casting for Vitest integration with Playwright types
+
+    this.mockPage =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (this.mockContext as any).newPage.mock.results[0]?.value ??
+      (await this.mockContext.newPage());
+  }
+
+  /**
+   * Reset all Playwright mocks to clean state
+   *
+   * Clears all mock call history and resets default behavior
+   * for browser automation mocks. Essential for test isolation.
+   *
+   * @since 1.0.0
+   */
+  static resetMocks(): void {
+    vi.clearAllMocks();
+    // ARCHITECTURAL JUSTIFICATION: Mock Page.goto return type casting for Vitest compatibility
+    // Page navigation methods return Response | null but mock needs explicit undefined casting
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(this.mockPage.goto).mockResolvedValue(undefined as any);
+    // ARCHITECTURAL JUSTIFICATION: Mock Page.waitForSelector return type casting for Vitest compatibility
+    // Method returns ElementHandle | null but mock needs explicit null casting
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(this.mockPage.waitForSelector).mockResolvedValue(null as any);
+    vi.mocked(this.mockPage.waitForLoadState).mockResolvedValue(undefined);
+
+    // ARCHITECTURAL JUSTIFICATION: Mock Playwright Locator interface requires type casting
+    // Complex mock object structure needs casting for Vitest integration with Playwright types
+
+    vi.mocked(this.mockPage.locator).mockReturnValue({
+      count: vi.fn().mockResolvedValue(0),
+      nth: vi.fn().mockReturnThis(),
+      textContent: vi.fn().mockResolvedValue(''),
+      getAttribute: vi.fn().mockResolvedValue(''),
+      innerText: vi.fn().mockResolvedValue(''),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  }
+
+  /**
+   * Create mock job data for testing
+   *
+   * @param overrides - Optional property overrides
+   * @returns Mock job data object
+   * @since 1.0.0
+   */
+  static createMockJob(overrides = {}) {
+    return {
+      id: 'test-job-1',
+      title: 'Software Engineer',
+      department: 'Engineering',
+      location: 'San Francisco, CA',
+      type: 'Full-time',
+      description: 'Test job description',
+      posted_date: '2024-01-01T00:00:00Z',
+      apply_url: 'https://example.com/apply/test-job-1',
+      ...overrides,
+    };
+  }
+
+  /**
+   * Create mock job element objects for testing
+   *
+   * @param count - Number of mock elements to create
+   * @returns Array of mock Playwright element objects
+   * @since 1.0.0
+   */
+  static createMockJobElements(count = 3) {
+    return Array.from({ length: count }, (_, index) => ({
+      count: vi.fn().mockResolvedValue(1),
+      nth: vi.fn().mockReturnThis(),
+      locator: vi.fn().mockReturnThis(),
+      textContent: vi.fn().mockResolvedValue(`Job ${index + 1}`),
+      getAttribute: vi.fn().mockResolvedValue(`https://example.com/job-${index + 1}`),
+      innerText: vi.fn().mockResolvedValue(`Job description ${index + 1}`),
+    }));
+  }
+
+  /**
+   * Setup comprehensive job extraction mocks
+   *
+   * Configures Playwright page mocks to simulate job listings with
+   * proper element structure and content for extraction testing.
+   *
+   * @param jobCount - Number of jobs to simulate
+   * @since 1.0.0
+   */
+  static setupJobExtractionMocks(jobCount = 3) {
+    const mockLocator = {
+      count: vi.fn().mockResolvedValue(jobCount),
+      nth: vi.fn((index: number) => ({
+        locator: vi.fn((selector: string) => {
+          if (
+            selector.includes('title') ||
+            selector.includes('h1') ||
+            selector.includes('h2') ||
+            selector.includes('h3')
+          ) {
+            return { textContent: vi.fn().mockResolvedValue(`Test Job ${index + 1}`) };
+          }
+          if (selector.includes('department') || selector.includes('category')) {
+            return { textContent: vi.fn().mockResolvedValue('Engineering') };
+          }
+          if (selector.includes('location') || selector.includes('city')) {
+            return { textContent: vi.fn().mockResolvedValue('San Francisco, CA') };
+          }
+          if (selector.includes('type') || selector.includes('employment')) {
+            return { textContent: vi.fn().mockResolvedValue('Full-time') };
+          }
+          if (selector.includes('description') || selector.includes('summary')) {
+            return { textContent: vi.fn().mockResolvedValue('Test job description') };
+          }
+          if (selector.includes('date') || selector.includes('posted')) {
+            return { textContent: vi.fn().mockResolvedValue('2024-01-01') };
+          }
+          if (selector.includes('apply') || selector.includes('link')) {
+            return {
+              getAttribute: vi.fn().mockResolvedValue(`https://example.com/apply/job-${index + 1}`),
+            };
+          }
+          return { textContent: vi.fn().mockResolvedValue('') };
+        }),
+        textContent: vi.fn().mockResolvedValue(`Test Job ${index + 1}`),
+        getAttribute: vi.fn().mockResolvedValue(`https://example.com/apply/job-${index + 1}`),
+      })),
+    };
+
+    // ARCHITECTURAL JUSTIFICATION: Playwright Locator interface mocking requires type casting
+    // Mock objects implement partial interfaces needed for testing without full complexity
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(this.mockPage.locator).mockReturnValue(mockLocator as any);
+  }
+
+  /**
+   * Setup empty job page mocks
+   *
+   * Configures mocks to simulate careers pages with no job listings.
+   * Used for testing fallback strategies and empty state handling.
+   *
+   * @since 1.0.0
+   */
+  static setupEmptyJobMocks() {
+    const mockLocator = {
+      count: vi.fn().mockResolvedValue(0),
+      nth: vi.fn(),
+    };
+
+    // ARCHITECTURAL JUSTIFICATION: Playwright Locator interface mocking requires type casting
+    // Mock objects implement partial interfaces needed for testing without full complexity
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(this.mockPage.locator).mockReturnValue(mockLocator as any);
+  }
+
+  /**
+   * Setup JSON-LD structured data mocks
+   *
+   * Configures page.evaluate mock to return structured job data
+   * for testing JSON-LD extraction strategy scenarios.
+   *
+   * @param jobData - Array of structured job data objects
+   * @since 1.0.0
+   */
+  static setupJsonLdMocks(jobData: unknown[] = []) {
+    vi.mocked(this.mockPage.evaluate).mockImplementation(async (fn: unknown) => {
+      if (typeof fn === 'function' && fn.toString().includes('application/ld+json')) {
+        return jobData.length > 0 ? [{ jobPosting: jobData }] : [];
+      }
+      return [];
+    });
+  }
+
+  /**
+   * Setup network error simulation mocks
+   *
+   * Configures page navigation to fail with network errors
+   * for testing error handling and recovery scenarios.
+   *
+   * @since 1.0.0
+   */
+  static setupNetworkErrorMocks() {
+    vi.mocked(this.mockPage.goto).mockRejectedValue(new Error('Navigation failed'));
+  }
+
+  /**
+   * Setup selector timeout simulation mocks
+   *
+   * Configures selector waiting to timeout for testing
+   * timeout handling and fallback strategies.
+   *
+   * @since 1.0.0
+   */
+  static setupSelectorTimeoutMocks() {
+    vi.mocked(this.mockPage.waitForSelector).mockRejectedValue(
+      Object.assign(new Error('Timeout'), { name: 'TimeoutError' })
+    );
+  }
+
+  /**
+   * Verify proper browser resource cleanup
+   *
+   * Asserts that page, context, and browser close methods
+   * were called to ensure proper resource management.
+   *
+   * @since 1.0.0
+   */
+  static expectCleanupCalled() {
+    expect(this.mockPage.close).toHaveBeenCalled();
+    expect(this.mockContext.close).toHaveBeenCalled();
+    expect(this.mockBrowser.close).toHaveBeenCalled();
+  }
+}
+
+describe('PlaywrightScraper', () => {
+  let scraper: PlaywrightScraper;
+
+  beforeEach(async () => {
+    await PlaywrightTestUtils.initializeMocks();
+    PlaywrightTestUtils.resetMocks();
+    scraper = new PlaywrightScraper();
+  });
+
+  afterEach(async () => {
+    vi.clearAllMocks();
+  });
+
+  describe('initialization', () => {
+    it('should create scraper instance', () => {
+      expect(scraper).toBeInstanceOf(PlaywrightScraper);
+    });
+
+    it('should initialize browser with proper configuration', async () => {
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+
+      await scraper.scrapeJobs(config);
+
+      expect(PlaywrightTestUtils.mockPlaywright.chromium.launch).toHaveBeenCalledWith({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+    });
+
+    it('should set proper page timeouts', async () => {
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+
+      await scraper.scrapeJobs(config);
+
+      expect(PlaywrightTestUtils.mockPage.setDefaultTimeout).toHaveBeenCalledWith(30000);
+      expect(PlaywrightTestUtils.mockPage.setDefaultNavigationTimeout).toHaveBeenCalledWith(30000);
+    });
+  });
+
+  describe('job extraction strategies', () => {
+    it('should extract jobs using element-based strategy', async () => {
+      PlaywrightTestUtils.setupJobExtractionMocks(2);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(2);
+      // ARCHITECTURAL JUSTIFICATION: Test verification after explicit length assertion
+      // guarantees array has elements. Non-null assertion is safe and more readable than
+      // additional conditional checks in test code. Alternative optional chaining would
+      // mask test failures rather than providing clear assertion points.
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      expect(result.jobs[0]!.title).toBe('Test Job 1');
+    });
+
+    it('should extract jobs using JSON-LD strategy when elements not found', async () => {
+      PlaywrightTestUtils.setupEmptyJobMocks();
+      PlaywrightTestUtils.setupJsonLdMocks([
+        {
+          title: 'JSON Job',
+          hiringOrganization: { name: 'Test Company' },
+          jobLocation: { address: { addressLocality: 'San Francisco' } },
+          employmentType: 'FULL_TIME',
+        },
+      ]);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(1);
+      // ARCHITECTURAL JUSTIFICATION: Test verification after explicit length assertion
+      // guarantees array has elements. Non-null assertion is safe and more readable than
+      // additional conditional checks in test code. Alternative optional chaining would
+      // mask test failures rather than providing clear assertion points.
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      expect(result.jobs[0]!.title).toBe('JSON Job');
+    });
+
+    it('should handle missing job elements gracefully', async () => {
+      const mockLocator = {
+        count: vi.fn().mockResolvedValue(1),
+        nth: vi.fn(() => ({
+          locator: vi.fn(() => ({ textContent: vi.fn().mockResolvedValue('') })),
+          textContent: vi.fn().mockResolvedValue(''),
+          getAttribute: vi.fn().mockResolvedValue(''),
+        })),
+      };
+
+      // ARCHITECTURAL JUSTIFICATION: Mock Playwright Locator interface requires type casting
+      // Complex mock object structure needs casting for Vitest integration with Playwright types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(PlaywrightTestUtils.mockPage.locator).mockReturnValue(mockLocator as any);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(0);
+    });
+
+    it('should filter out jobs without titles', async () => {
+      const mockLocator = {
+        count: vi.fn().mockResolvedValue(2),
+        nth: vi.fn((index: number) => ({
+          locator: vi.fn((selector: string) => {
+            if (selector.includes('title') && index === 0) {
+              return { textContent: vi.fn().mockResolvedValue('') };
+            }
+            if (selector.includes('title') && index === 1) {
+              return { textContent: vi.fn().mockResolvedValue('Valid Job') };
+            }
+            return { textContent: vi.fn().mockResolvedValue('Test data') };
+          }),
+          textContent: vi.fn().mockResolvedValue(index === 0 ? '' : 'Valid Job'),
+          getAttribute: vi.fn().mockResolvedValue(`https://example.com/job-${index + 1}`),
+        })),
+      };
+
+      // ARCHITECTURAL JUSTIFICATION: Mock Playwright Locator interface requires type casting
+      // Complex mock object structure needs casting for Vitest integration with Playwright types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(PlaywrightTestUtils.mockPage.locator).mockReturnValue(mockLocator as any);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(1);
+      // ARCHITECTURAL JUSTIFICATION: Test verification after explicit length assertion
+      // guarantees array has elements. Non-null assertion is safe and more readable than
+      // additional conditional checks in test code. Alternative optional chaining would
+      // mask test failures rather than providing clear assertion points.
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      expect(result.jobs[0]!.title).toBe('Valid Job');
+    });
+  });
+
+  describe('error handling and resilience', () => {
+    it('should handle navigation failures', async () => {
+      PlaywrightTestUtils.setupNetworkErrorMocks();
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://invalid-url.com',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Navigation failed');
+    });
+
+    it('should handle selector timeouts with fallback to network idle', async () => {
+      PlaywrightTestUtils.setupSelectorTimeoutMocks();
+      PlaywrightTestUtils.setupJobExtractionMocks(1);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(PlaywrightTestUtils.mockPage.waitForLoadState).toHaveBeenCalledWith('networkidle');
+      expect(result.success).toBe(true);
+    });
+
+    it('should ensure cleanup on success', async () => {
+      PlaywrightTestUtils.setupJobExtractionMocks(1);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      await scraper.scrapeJobs(config);
+
+      PlaywrightTestUtils.expectCleanupCalled();
+    });
+
+    it('should ensure cleanup on error', async () => {
+      PlaywrightTestUtils.setupNetworkErrorMocks();
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://invalid-url.com',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      await scraper.scrapeJobs(config);
+
+      PlaywrightTestUtils.expectCleanupCalled();
+    });
+
+    it('should handle JSON-LD parsing errors gracefully', async () => {
+      PlaywrightTestUtils.setupEmptyJobMocks();
+      vi.mocked(PlaywrightTestUtils.mockPage.evaluate).mockRejectedValue(
+        new Error('JSON parsing failed')
+      );
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(true);
+      expect(result.jobs).toHaveLength(0);
+    });
+
+    it('should handle page context errors', async () => {
+      vi.mocked(PlaywrightTestUtils.mockContext.newPage).mockRejectedValue(
+        new Error('Page creation failed')
+      );
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Page creation failed');
+    });
+  });
+
+  describe('configuration handling', () => {
+    it('should handle minimal configuration', async () => {
+      PlaywrightTestUtils.setupJobExtractionMocks(1);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(true);
+      expect(PlaywrightTestUtils.mockPage.goto).toHaveBeenCalledWith(
+        'https://example.com/careers',
+        expect.any(Object)
+      );
+    });
+
+    it('should use URL builder for careers page URL', async () => {
+      PlaywrightTestUtils.setupJobExtractionMocks(1);
+
+      const config = {
+        companyId: 'test-company',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      await scraper.scrapeJobs(config);
+
+      const { DriveHrUrlBuilder } = await import('../../src/lib/job-fetch-utils.js');
+      expect(DriveHrUrlBuilder.buildCareersPageUrl).toHaveBeenCalledWith(config);
+    });
+  });
+
+  describe('result structure', () => {
+    it('should return proper success result structure', async () => {
+      PlaywrightTestUtils.setupJobExtractionMocks(2);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result).toMatchObject({
+        success: true,
+        jobs: expect.any(Array),
+        totalCount: 2,
+        method: 'playwright',
+        fetchedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/),
+      });
+    });
+
+    it('should return proper error result structure', async () => {
+      PlaywrightTestUtils.setupNetworkErrorMocks();
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://invalid-url.com',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result).toMatchObject({
+        success: false,
+        error: expect.stringContaining('Navigation failed'),
+        totalCount: 0,
+        method: 'playwright',
+        fetchedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/),
+      });
+    });
+
+    it('should normalize job data correctly', async () => {
+      const mockLocator = {
+        count: vi.fn().mockResolvedValue(1),
+        nth: vi.fn(() => ({
+          locator: vi.fn((selector: string) => {
+            const selectorMap: Record<string, string> = {
+              title: 'Senior Developer',
+              department: 'Tech',
+              location: 'Remote',
+              type: 'Full-time',
+              description: 'Great opportunity',
+              date: '2024-01-15',
+              apply: 'https://apply.com/job',
+            };
+
+            for (const [key, value] of Object.entries(selectorMap)) {
+              if (selector.includes(key)) {
+                return key === 'apply'
+                  ? { getAttribute: vi.fn().mockResolvedValue(value) }
+                  : { textContent: vi.fn().mockResolvedValue(value) };
+              }
+            }
+            return { textContent: vi.fn().mockResolvedValue('') };
+          }),
+        })),
+      };
+
+      // ARCHITECTURAL JUSTIFICATION: Mock Playwright Locator interface requires type casting
+      // Complex mock object structure needs casting for Vitest integration with Playwright types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.mocked(PlaywrightTestUtils.mockPage.locator).mockReturnValue(mockLocator as any);
+
+      const config = {
+        companyId: 'test',
+        careersUrl: 'https://example.com/careers',
+        apiBaseUrl: 'https://api.example.com',
+      };
+      const result = await scraper.scrapeJobs(config);
+
+      expect(result.success).toBe(true);
+      expect(result.jobs[0]).toMatchObject({
+        title: 'Senior Developer',
+        department: 'Tech',
+        location: 'Remote',
+        type: 'Full-time',
+        description: 'Great opportunity',
+        posted_date: expect.stringMatching(/2024-01-15/),
+        apply_url: 'https://apply.com/job',
+      });
+    });
+  });
+});
