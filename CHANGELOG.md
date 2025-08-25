@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.6.1...v1.7.0) (2025-08-25)
+
+### Features
+
+- Add intelligent CI + Codecov integration with carryforward flags
+  ([1584c4b](https://github.com/zachatkinson/drivehr-netlify-sync/commit/1584c4b282cc68249c67824ad336120f37c31d3e))
+
 ## [1.6.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.6.0...v1.6.1) (2025-08-25)
 
 ### Bug Fixes
