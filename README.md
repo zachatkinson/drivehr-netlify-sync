@@ -1,354 +1,449 @@
 # DriveHR Netlify Sync
 
-> **Enterprise-grade job synchronization service built with TypeScript and
-> Netlify Functions**
-
 [![CI Pipeline](https://github.com/zachatkinson/drivehr-netlify-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/zachatkinson/drivehr-netlify-sync/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync/branch/main/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Netlify Functions](https://img.shields.io/badge/Netlify-Functions-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![codecov](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync/branch/main/graph/badge.svg)](https://codecov.io/gh/zachatkinson/drivehr-netlify-sync)
+[![Security Rating](https://img.shields.io/badge/security-A+-brightgreen.svg)](./SECURITY.md)
 
-A secure, high-performance service that synchronizes job postings from DriveHR
-to WordPress via webhook integration. Built with modern TypeScript,
+Enterprise-grade TypeScript serverless function for automated DriveHR job
+scraping and WordPress synchronization. Built with modern DevOps practices,
 comprehensive testing, and enterprise security standards.
-
-## ✨ Features
-
-- 🔐 **Secure Webhook Processing** - HMAC-SHA256 signature validation
-- ⚡ **High Performance** - Optimized Netlify Functions with TypeScript
-- 🧪 **Comprehensive Testing** - 80%+ code coverage across 18 test suites
-- 📊 **Production Monitoring** - Health checks and telemetry integration
-- 🛡️ **Enterprise Security** - CORS, security headers, input validation
-- 🔄 **Reliable Sync** - Robust error handling and retry logic
-- 📝 **Type Safety** - Full TypeScript with strict configuration
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Node.js** 18+ with **pnpm**
-- **Netlify CLI** for local development
-- **DriveHR Company ID** (UUID format)
-- **WordPress** site with webhook endpoint
-
-### Installation
-
 ```bash
-# Clone the repository
-git clone https://github.com/zachatkinson/drivehr-netlify-sync.git
-cd drivehr-netlify-sync
-
 # Install dependencies
 pnpm install
+
+# Run development server
+pnpm run dev
 
 # Run tests
 pnpm test
 
-# Start local development server
-netlify dev
+# Build for production
+pnpm run build
+
+# Deploy to Netlify
+netlify deploy --prod
 ```
 
-### Environment Setup
+## 📋 Table of Contents
 
-Create `.env` file:
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [API Reference](#api-reference)
+- [Development](#development)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Monitoring](#monitoring)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
 
-```env
-# Required Configuration
-DRIVEHR_COMPANY_ID=your-company-uuid-here
-WP_API_URL=https://your-wordpress-site.com/webhook/endpoint
-WEBHOOK_SECRET=your-secure-secret-minimum-32-characters
+## Overview
 
-# Optional Configuration
-LOG_LEVEL=info
-NODE_ENV=development
-```
+DriveHR Netlify Sync is a modern serverless application that automatically
+scrapes job postings from DriveHR and synchronizes them with WordPress sites via
+secure webhooks. Built for enterprise environments with reliability, security,
+and observability as core principles.
 
-## 🏗️ Architecture
+### Key Benefits
+
+- **Zero-downtime deployments** with Netlify Functions
+- **Enterprise security** with HMAC signature validation
+- **Intelligent scraping** with Playwright-based automation
+- **Comprehensive monitoring** with OpenTelemetry integration
+- **99.9% reliability** with robust error handling and retries
+
+## Features
+
+### 🔄 Automated Job Synchronization
+
+- Real-time job scraping from DriveHR platforms
+- Intelligent data normalization and validation
+- Secure webhook delivery to WordPress endpoints
+- Automatic retry with exponential backoff
+
+### 🛡️ Enterprise Security
+
+- HMAC SHA-256 webhook signature validation
+- Comprehensive input sanitization
+- Security headers and CSRF protection
+- Vulnerability scanning and dependency auditing
+
+### 📊 Observability & Monitoring
+
+- OpenTelemetry distributed tracing
+- Performance metrics and alerting
+- Comprehensive logging with structured JSON
+- Real-time health checks and status monitoring
+
+### 🧪 Quality Assurance
+
+- 80%+ test coverage with Vitest
+- Automated security scanning
+- Type-safe TypeScript throughout
+- Pre-commit hooks with linting and formatting
+
+## Architecture
+
+### System Components
 
 ```mermaid
-graph LR
-    A[External Trigger] -->|HMAC Signed Request| B[Netlify Functions]
-    B --> C[Job Fetcher Service]
-    C --> D[DriveHR API]
-    C --> E[HTML Parser Service]
-    B --> F[WordPress Client]
-    F -->|Webhook| G[WordPress Site]
-    B --> H[Health Monitor]
-    B --> I[Telemetry Service]
+graph TD
+    A[GitHub Actions] -->|Triggers| B[Netlify Function]
+    B -->|Scrapes| C[DriveHR Platform]
+    B -->|Validates & Transforms| D[Job Normalizer]
+    D -->|Sends Webhook| E[WordPress Site]
+    B -->|Logs & Metrics| F[Monitoring]
 ```
 
-### Core Components
+### Technology Stack
 
-| Component                   | Purpose                 | Location                           |
-| --------------------------- | ----------------------- | ---------------------------------- |
-| **Sync Jobs Function**      | Main webhook processor  | `src/functions/sync-jobs.mts`      |
-| **Health Check Function**   | System monitoring       | `src/functions/health-check.mts`   |
-| **Manual Trigger Function** | Administrative controls | `src/functions/manual-trigger.mts` |
-| **Job Fetcher Service**     | DriveHR data retrieval  | `src/services/job-fetcher.ts`      |
-| **WordPress Client**        | WordPress integration   | `src/services/wordpress-client.ts` |
-| **HTML Parser Service**     | Job data extraction     | `src/services/html-parser.ts`      |
+- **Runtime**: Node.js 20+ with ES Modules
+- **Language**: TypeScript 5.9+ (strict mode)
+- **Platform**: Netlify Functions (AWS Lambda)
+- **Testing**: Vitest with Playwright integration
+- **Monitoring**: OpenTelemetry + Custom metrics
+- **CI/CD**: GitHub Actions with smart test selection
 
-## 📡 API Endpoints
+## Installation
 
-### Health Check
+### Prerequisites
 
-```http
-GET /.netlify/functions/health-check
+- Node.js 20.0.0 or higher
+- pnpm 8.0.0 or higher
+- Git 2.30.0 or higher
+
+### Setup
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/zachatkinson/drivehr-netlify-sync.git
+   cd drivehr-netlify-sync
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   pnpm install
+   ```
+
+3. **Configure environment variables**
+
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Verify installation**
+   ```bash
+   pnpm run format && pnpm typecheck && pnpm lint && pnpm test
+   ```
+
+## Configuration
+
+### Environment Variables
+
+| Variable             | Description                               | Required | Default |
+| -------------------- | ----------------------------------------- | -------- | ------- |
+| `DRIVEHR_COMPANY_ID` | DriveHR company identifier                | ✅       | -       |
+| `WP_API_URL`         | WordPress webhook endpoint                | ✅       | -       |
+| `WEBHOOK_SECRET`     | HMAC signature secret                     | ✅       | -       |
+| `GITHUB_TOKEN`       | GitHub API token for automation           | ✅       | -       |
+| `GITHUB_REPOSITORY`  | Repository for workflow triggers          | ✅       | -       |
+| `LOG_LEVEL`          | Logging verbosity (debug/info/warn/error) | ❌       | `info`  |
+| `ENABLE_TELEMETRY`   | OpenTelemetry tracing                     | ❌       | `true`  |
+
+### WordPress Integration
+
+The WordPress endpoint must be configured at:
+
+```
+https://yoursite.com/webhook/drivehr-sync
 ```
 
-**Response**: System health status and configuration validation
+**Important**: We use a custom webhook handler, NOT the WordPress REST API.
 
-### Job Synchronization
+### Security Configuration
 
-```http
-POST /.netlify/functions/sync-jobs
-Content-Type: application/json
-X-Webhook-Signature: sha256=<hmac-signature>
-
-{
-  "source": "manual",
-  "timestamp": "2025-01-21T12:00:00.000Z"
-}
-```
-
-**Response**: Sync results with job statistics
-
-### Manual Trigger
-
-```http
-POST /.netlify/functions/manual-trigger
-Content-Type: application/json
-X-Webhook-Signature: sha256=<hmac-signature>
-
-{
-  "force_sync": true,
-  "reason": "Content update required"
-}
-```
-
-**Response**: Trigger confirmation and execution status
-
-## 🔒 Security
-
-### HMAC Signature Validation
-
-All webhook requests require valid HMAC-SHA256 signatures:
+All webhook requests include HMAC SHA-256 signatures:
 
 ```typescript
 const signature = crypto
-  .createHmac('sha256', process.env.WEBHOOK_SECRET!)
+  .createHmac('sha256', WEBHOOK_SECRET)
   .update(JSON.stringify(payload))
   .digest('hex');
-
-const webhookSignature = `sha256=${signature}`;
 ```
 
-### Security Headers
+## Usage
 
-- **Content Security Policy (CSP)**
-- **X-Frame-Options: DENY**
-- **X-Content-Type-Options: nosniff**
-- **Referrer-Policy: strict-origin-when-cross-origin**
-- **Permissions-Policy: geolocation=(), camera=(), microphone=()**
+### Manual Trigger
 
-### CORS Configuration
-
-- Restricted to authorized origins
-- Specific allowed methods and headers
-- Preflight request handling
-
-## 🧪 Testing
-
-### Run Tests
+Trigger job synchronization manually:
 
 ```bash
-# Full test suite
-pnpm test
+# Using GitHub CLI
+gh workflow run scrape-jobs.yml
 
-# Coverage report
-pnpm run test:coverage
-
-# Specific test file
-pnpm test test/services/job-fetcher.test.ts
-
-# Watch mode
-pnpm test --watch
+# Using manual trigger function
+curl -X POST https://yoursite.netlify.app/.netlify/functions/manual-trigger \
+  -H "Content-Type: application/json" \
+  -H "X-Hub-Signature-256: sha256=<signature>" \
+  -d '{"force_sync": true}'
 ```
 
-### Test Structure
+### Automated Scheduling
 
-- **Unit Tests** - Individual function testing
-- **Integration Tests** - Service interaction validation
-- **Function Tests** - Netlify endpoint testing
-- **Mock Tests** - External service simulation
+Jobs are automatically synchronized via GitHub Actions cron:
 
-### Current Coverage
-
-- **80.46%** line coverage
-- **2,339** of **2,907** lines covered
-- **18** comprehensive test suites
-- **Zero** critical uncovered paths
-
-## 📊 Monitoring
+- **Production**: Every 4 hours (6 times daily)
+- **Development**: Configurable via workflow dispatch
 
 ### Health Monitoring
 
-```bash
-# Check system health
-curl https://your-site.netlify.app/.netlify/functions/health-check
+Check system health:
 
-# Expected response
-{
-  "success": true,
-  "data": {
-    "status": "healthy",
-    "environment": "production",
-    "wordpress_configured": true,
-    "architecture": "netlify-functions"
-  }
-}
+```bash
+curl https://yoursite.netlify.app/.netlify/functions/health-check
 ```
 
-### Performance Metrics
+## API Reference
 
-- Function execution time tracking
-- Memory usage monitoring
-- Job processing statistics
-- Error rate monitoring
+### Functions
 
-### Telemetry Integration
+#### `sync-jobs`
 
-- OpenTelemetry spans and metrics
-- Distributed tracing support
-- Custom business metrics
-- Performance monitoring
+Main webhook receiver for job synchronization.
 
-## 🚀 Deployment
+**Endpoint**: `/.netlify/functions/sync-jobs` **Method**: POST **Content-Type**:
+application/json
 
-### Netlify Deployment
+#### `manual-trigger`
 
-1. **Connect Repository**
-   - Link your GitHub repository to Netlify
-   - Set build command: `pnpm run build`
-   - Set publish directory: `dist`
+Manually trigger GitHub Actions workflow.
 
-2. **Environment Variables**
+**Endpoint**: `/.netlify/functions/manual-trigger` **Method**: POST
+**Authentication**: HMAC signature required
+
+#### `health-check`
+
+System health and status monitoring.
+
+**Endpoint**: `/.netlify/functions/health-check` **Method**: GET **Response**:
+JSON health status
+
+## Development
+
+### Development Workflow
+
+1. **Create feature branch**
 
    ```bash
-   DRIVEHR_COMPANY_ID=your-company-uuid
-   WP_API_URL=https://your-wordpress-site.com/webhook/endpoint
-   WEBHOOK_SECRET=your-secure-secret-minimum-32-characters
-   NODE_ENV=production
-   LOG_LEVEL=info
+   git checkout -b feature/your-feature-name
    ```
 
-3. **Deploy**
+2. **Make changes following CLAUDE.md standards**
 
    ```bash
-   # Via Git push (auto-deploy)
-   git push origin main
-
-   # Or via Netlify CLI
-   netlify deploy --prod
+   # Required pre-commit checks
+   pnpm run format
+   pnpm typecheck
+   pnpm lint:fix
+   pnpm run security
    ```
 
-### Verification
+3. **Run comprehensive tests**
 
-```bash
-# Test health endpoint
-curl https://your-site.netlify.app/.netlify/functions/health-check
+   ```bash
+   pnpm test
+   pnpm test:coverage
+   ```
 
-# Test manual trigger (with proper signature)
-curl -X POST https://your-site.netlify.app/.netlify/functions/manual-trigger \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Signature: sha256=your-signature" \
-  -d '{"force_sync": true, "reason": "deployment verification"}'
-```
-
-## 🛠️ Development
-
-### Scripts
-
-```bash
-pnpm dev              # Start development server
-pnpm build            # Build for production
-pnpm test             # Run test suite
-pnpm test:coverage    # Generate coverage report
-pnpm lint             # ESLint code quality check
-pnpm lint:fix         # Auto-fix linting issues
-pnpm typecheck        # TypeScript type checking
-pnpm format           # Format code with Prettier
-```
-
-### Code Quality
-
-- **ESLint** - Zero warnings/errors policy
-- **TypeScript** - Strict mode configuration
-- **Prettier** - Consistent code formatting
-- **Husky** - Pre-commit hooks
-- **lint-staged** - Staged file linting
-
-### Pre-commit Checks
-
-All commits must pass:
-
-- TypeScript compilation (`pnpm typecheck`)
-- ESLint validation (`pnpm lint`)
-- Code formatting (`pnpm format`)
-- Test suite (`pnpm test`)
-
-## 📖 Documentation
-
-- **[API Specification](./docs/api-specification.yaml)** - OpenAPI 3.0
-  documentation
-- **[Architecture Guide](./ARCHITECTURE.md)** - Detailed system architecture
-- **[Deployment Guide](./DEPLOYMENT.md)** - Production deployment instructions
-- **[Development Standards](./CLAUDE.md)** - Code quality and contribution
-  guidelines
-
-## 🤝 Contributing
-
-1. **Fork** the repository
-2. **Create** feature branch: `git checkout -b feature/amazing-feature`
-3. **Make** your changes following our [development standards](./CLAUDE.md)
-4. **Test** your changes: `pnpm test && pnpm lint && pnpm typecheck`
-5. **Commit** with conventional commit format:
-   `git commit -m 'feat: add amazing feature'`
-6. **Push** to branch: `git push origin feature/amazing-feature`
-7. **Open** a Pull Request
+4. **Commit and push**
+   ```bash
+   git add .
+   git commit -m "feat: your feature description"
+   git push origin feature/your-feature-name
+   ```
 
 ### Code Standards
 
-- Follow existing code style and patterns
-- Maintain or improve test coverage
-- Add JSDoc documentation for public APIs
-- Use semantic commit messages
-- Zero tolerance for ESLint warnings
+This project follows strict enterprise development standards documented in
+[CLAUDE.md](./CLAUDE.md):
 
-## 📄 License
+- **Zero tolerance for `any` types**
+- **Comprehensive JSDoc documentation**
+- **SOLID principles enforcement**
+- **Security-first development**
+- **80%+ test coverage requirement**
 
-This project is licensed under the **MIT License** - see the
-[LICENSE](./LICENSE) file for details.
+## Testing
 
-## 🆘 Support
+### Test Suites
 
-### Getting Help
+```bash
+# Run all tests
+pnpm test
 
+# Run with coverage
+pnpm test:coverage
+
+# Run specific test suites
+pnpm test test/lib/
+pnpm test test/services/
+pnpm test test/functions/
+```
+
+### Test Categories
+
+- **Unit Tests**: Individual function and class testing
+- **Integration Tests**: Service interaction validation
+- **End-to-end Tests**: Complete workflow verification
+- **Security Tests**: Vulnerability and penetration testing
+
+### CI Test Matrix
+
+Our smart CI system runs tests based on changed files:
+
+- **Library changes**: Runs lib test suites
+- **Service changes**: Runs service test suites
+- **Function changes**: Runs function test suites
+- **Config changes**: Runs full test matrix
+
+## Deployment
+
+### Netlify Deployment
+
+1. **Connect repository to Netlify**
+2. **Configure build settings**:
+   - Build command: `pnpm run build`
+   - Publish directory: `dist`
+   - Functions directory: `dist/functions`
+
+3. **Set environment variables** in Netlify dashboard
+4. **Deploy**: Automatic on main branch push
+
+### Manual Deployment
+
+```bash
+# Build production bundle
+pnpm run build
+
+# Deploy to Netlify
+netlify deploy --prod --dir=dist --functions=dist/functions
+```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide.
+
+## Monitoring
+
+### Observability Stack
+
+- **Metrics**: Custom performance and business metrics
+- **Logging**: Structured JSON with correlation IDs
+- **Tracing**: OpenTelemetry distributed tracing
+- **Health Checks**: Automated endpoint monitoring
+
+### Key Metrics
+
+- Job scraping success rate
+- Webhook delivery reliability
+- Function execution duration
+- Error rates by component
+
+### Alerting
+
+Production alerts are configured for:
+
+- Function execution failures
+- WordPress webhook delivery failures
+- Security signature validation failures
+- Performance degradation
+
+## Security
+
+### Security Practices
+
+- **Dependency scanning**: Automated with pnpm audit
+- **Vulnerability monitoring**: GitHub Security Advisories
+- **Secure secrets management**: Environment variables only
+- **Input validation**: Comprehensive sanitization
+- **HTTPS enforcement**: All endpoints secured
+
+### Vulnerability Reporting
+
+Please report security vulnerabilities via [SECURITY.md](./SECURITY.md).
+
+### Security Auditing
+
+```bash
+# Run security audit
+pnpm run security
+
+# High-severity scan
+pnpm run security:high
+
+# Production dependencies only
+pnpm run security:prod
+```
+
+## Contributing
+
+### Development Setup
+
+1. Fork the repository
+2. Clone your fork
+3. Install dependencies: `pnpm install`
+4. Create feature branch
+5. Follow [CLAUDE.md](./CLAUDE.md) standards
+6. Submit pull request
+
+### Pull Request Process
+
+1. **Pre-commit checks must pass**:
+   - Code formatting
+   - Type checking
+   - Linting
+   - Security audit
+
+2. **Tests must pass**:
+   - All existing tests
+   - New feature tests
+   - 80%+ coverage maintained
+
+3. **Security review required** for:
+   - Authentication changes
+   - External integrations
+   - Dependency updates
+
+### Code Review Checklist
+
+- [ ] Follows SOLID principles
+- [ ] Comprehensive JSDoc documentation
+- [ ] No code duplication (DRY)
+- [ ] Proper error handling
+- [ ] Security considerations addressed
+- [ ] Tests written and passing
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
+for details.
+
+## Support
+
+- **Documentation**: See [DEPLOYMENT.md](./DEPLOYMENT.md) for deployment guide
+- **Standards**: See [CLAUDE.md](./CLAUDE.md) for development standards
+- **Security**: See [SECURITY.md](./SECURITY.md) for security practices
 - **Issues**:
   [GitHub Issues](https://github.com/zachatkinson/drivehr-netlify-sync/issues)
-- **Discussions**:
-  [GitHub Discussions](https://github.com/zachatkinson/drivehr-netlify-sync/discussions)
-- **Documentation**: Check the `docs/` directory
-
-### Troubleshooting
-
-1. **Check Health Endpoint**: Verify system configuration
-2. **Review Logs**: Enable debug logging with `LOG_LEVEL=debug`
-3. **Validate Environment**: Ensure all required variables are set
-4. **Test Connectivity**: Verify WordPress and DriveHR accessibility
 
 ---
 
-**Built with ❤️ by the DriveHR team** | **Powered by Netlify Functions &
-TypeScript**
+**Built with ❤️ using modern TypeScript and enterprise-grade DevOps practices.**

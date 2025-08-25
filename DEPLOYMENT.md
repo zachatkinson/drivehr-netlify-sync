@@ -1,391 +1,779 @@
 # Deployment Guide
 
-> **Simple, straightforward deployment instructions for DriveHR Netlify Sync**
+This deployment guide provides comprehensive instructions for deploying DriveHR
+Netlify Sync in production environments. Follow enterprise deployment practices
+with security, monitoring, and reliability as core principles.
 
-## 🚀 Quick Deployment
+## 📋 Table of Contents
 
-Our serverless architecture makes deployment remarkably simple - just connect
-your repository to Netlify and configure environment variables. No complex
-infrastructure or orchestration required.
+- [Prerequisites](#prerequisites)
+- [Environment Setup](#environment-setup)
+- [Netlify Configuration](#netlify-configuration)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Security Configuration](#security-configuration)
+- [Monitoring & Observability](#monitoring--observability)
+- [Database & External Services](#database--external-services)
+- [Performance Optimization](#performance-optimization)
+- [Disaster Recovery](#disaster-recovery)
+- [Troubleshooting](#troubleshooting)
+- [Maintenance](#maintenance)
 
-## 📋 Prerequisites
+## Prerequisites
 
-- **GitHub Repository** - Fork or clone this repository
-- **Netlify Account** - Free tier sufficient for most use cases
-- **WordPress Site** - With webhook endpoint configured
-- **DriveHR Company ID** - UUID format from your DriveHR account
+### System Requirements
 
-## 🌐 Netlify Deployment
+| Component | Minimum | Recommended |
+| --------- | ------- | ----------- |
+| Node.js   | 20.0.0  | 20.18.0+    |
+| pnpm      | 8.0.0   | 9.0.0+      |
+| Git       | 2.30.0  | 2.42.0+     |
+| Memory    | 512MB   | 1GB+        |
+| Storage   | 1GB     | 2GB+        |
 
-### 1. Connect Repository to Netlify
+### Required Accounts & Services
 
-**Option A: Netlify Dashboard**
+- **Netlify Account** with Functions enabled
+- **GitHub Repository** with Actions enabled
+- **WordPress Site** with webhook capability
+- **DriveHR Account** with API access
+- **Codecov Account** (optional, for coverage reporting)
 
-1. Login to [Netlify](https://netlify.com)
-2. Click "New site from Git"
-3. Choose GitHub and authorize access
-4. Select your `drivehr-netlify-sync` repository
-5. Configure build settings:
-   - **Build command**: `pnpm run build`
-   - **Publish directory**: `dist`
-   - **Functions directory**: `dist/functions` (auto-detected)
-
-**Option B: Netlify CLI**
+### Development Tools
 
 ```bash
-# Install Netlify CLI
-npm install -g netlify-cli
+# Required global tools
+npm install -g pnpm@latest
+npm install -g netlify-cli@latest
+npm install -g @antfu/ni@latest
 
+# Verify installation
+node --version    # Should be 20+
+pnpm --version    # Should be 8+
+netlify --version # Should be latest
+```
+
+## Environment Setup
+
+### 1. Repository Setup
+
+```bash
+# Clone repository
+git clone https://github.com/zachatkinson/drivehr-netlify-sync.git
+cd drivehr-netlify-sync
+
+# Install dependencies
+pnpm install
+
+# Verify setup
+pnpm run format && pnpm typecheck && pnpm lint && pnpm test
+```
+
+### 2. Environment Configuration
+
+Create production environment file:
+
+```bash
+# Create environment file
+cp .env.example .env.production
+```
+
+#### Required Environment Variables
+
+```bash
+# DriveHR Configuration
+DRIVEHR_COMPANY_ID=your_company_id
+DRIVEHR_BASE_URL=https://your-company.drivehr.com
+
+# WordPress Integration
+WP_API_URL=https://yoursite.com/webhook/drivehr-sync
+WEBHOOK_SECRET=your_secure_webhook_secret_minimum_32_chars
+
+# GitHub Integration
+GITHUB_TOKEN=ghp_your_github_personal_access_token
+GITHUB_REPOSITORY=your-username/drivehr-netlify-sync
+
+# Application Configuration
+LOG_LEVEL=info
+NODE_ENV=production
+ENABLE_TELEMETRY=true
+
+# Security Headers
+CORS_ORIGINS=https://yoursite.com,https://www.yoursite.com
+RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW=900000
+
+# Performance Settings
+FUNCTION_TIMEOUT=30000
+MAX_CONCURRENT_JOBS=10
+RETRY_MAX_ATTEMPTS=3
+RETRY_DELAY_MS=1000
+```
+
+### 3. Security Configuration
+
+#### HMAC Webhook Secret Generation
+
+```bash
+# Generate secure webhook secret (use one of these methods)
+openssl rand -hex 32
+node -p "require('crypto').randomBytes(32).toString('hex')"
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+#### GitHub Token Setup
+
+1. Go to GitHub → Settings → Developer settings → Personal access tokens
+2. Create token with permissions:
+   - `repo` (if private repository)
+   - `actions:write`
+   - `contents:read`
+   - `metadata:read`
+
+## Netlify Configuration
+
+### 1. Site Creation
+
+#### Via Netlify Dashboard
+
+1. **Connect Repository**
+   - New site from Git
+   - Choose GitHub provider
+   - Select `drivehr-netlify-sync` repository
+   - Authorize Netlify access
+
+2. **Build Settings**
+   ```
+   Build command: pnpm run build
+   Publish directory: dist
+   Functions directory: dist/functions
+   ```
+
+#### Via Netlify CLI
+
+```bash
 # Login to Netlify
 netlify login
 
-# Initialize site from repository root
+# Initialize site
 netlify init
 
-# Deploy
-netlify deploy --prod
+# Configure build settings
+netlify sites:update --build-cmd "pnpm run build" --dir "dist" --functions "dist/functions"
 ```
 
-### 2. Configure Environment Variables
+### 2. Environment Variables Setup
 
-In your Netlify site dashboard → **Site settings** → **Environment variables**:
+#### Via Dashboard
 
-| Variable             | Value                                       | Required |
-| -------------------- | ------------------------------------------- | -------- |
-| `DRIVEHR_COMPANY_ID` | `your-uuid-from-drivehr`                    | ✅       |
-| `WP_API_URL`         | `https://yoursite.com/webhook/drivehr-sync` | ✅       |
-| `WEBHOOK_SECRET`     | `secure-secret-32-chars-minimum`            | ✅       |
-| `NODE_ENV`           | `production`                                | ✅       |
-| `LOG_LEVEL`          | `info`                                      | ❌       |
+Site Settings → Environment variables → Add variables
 
-#### Setting Environment Variables
-
-**Via Netlify Dashboard:**
-
-1. Go to **Site settings** → **Environment variables**
-2. Click **Add a variable**
-3. Enter name and value
-4. Click **Create variable**
-
-**Via Netlify CLI:**
+#### Via CLI
 
 ```bash
-netlify env:set DRIVEHR_COMPANY_ID "your-uuid-here"
-netlify env:set WP_API_URL "https://yoursite.com/webhook/endpoint"
-netlify env:set WEBHOOK_SECRET "your-secure-secret-key"
+# Set environment variables
+netlify env:set DRIVEHR_COMPANY_ID "your_company_id"
+netlify env:set WP_API_URL "https://yoursite.com/webhook/drivehr-sync"
+netlify env:set WEBHOOK_SECRET "your_secure_webhook_secret"
+netlify env:set GITHUB_TOKEN "ghp_your_token"
+netlify env:set GITHUB_REPOSITORY "your-username/repo-name"
+netlify env:set LOG_LEVEL "info"
 netlify env:set NODE_ENV "production"
-```
+netlify env:set ENABLE_TELEMETRY "true"
 
-### 3. Deploy and Verify
-
-**Automatic Deployment:**
-
-- Push to `main` branch triggers automatic deployment
-- Build process runs `pnpm run build`
-- Functions automatically deployed to `/.netlify/functions/`
-
-**Manual Deployment:**
-
-```bash
-# Deploy to production
-netlify deploy --prod
-
-# Deploy preview
-netlify deploy
-```
-
-## ✅ Verification Steps
-
-### 1. Health Check
-
-```bash
-curl https://your-site-name.netlify.app/.netlify/functions/health-check
-```
-
-**Expected Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "status": "healthy",
-    "environment": "production",
-    "wordpress_configured": true,
-    "drivehr_configured": true,
-    "architecture": "netlify-functions"
-  }
-}
-```
-
-### 2. Test Manual Trigger
-
-Generate HMAC signature:
-
-```bash
-# Generate test payload signature
-echo -n '{"force_sync": false, "reason": "deployment test"}' | \
-  openssl dgst -sha256 -hmac "your-webhook-secret" -binary | \
-  base64
-```
-
-Test endpoint:
-
-```bash
-curl -X POST https://your-site-name.netlify.app/.netlify/functions/manual-trigger \
-  -H "Content-Type: application/json" \
-  -H "X-Webhook-Signature: sha256=YOUR_GENERATED_SIGNATURE" \
-  -d '{"force_sync": false, "reason": "deployment test"}'
-```
-
-**Expected Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "message": "Manual sync triggered successfully",
-    "timestamp": "2025-01-21T12:00:00.000Z"
-  }
-}
-```
-
-### 3. Monitor Function Logs
-
-**Via Netlify Dashboard:**
-
-1. Go to **Functions** tab
-2. Click on function name
-3. View **Function log**
-
-**Via CLI:**
-
-```bash
-netlify logs:function sync-jobs --tail
-```
-
-## 🔧 Configuration Details
-
-### Required Environment Variables
-
-#### `DRIVEHR_COMPANY_ID`
-
-- **Format**: UUID (e.g., `123e4567-e89b-12d3-a456-426614174000`)
-- **Purpose**: Identifies your company in DriveHR system
-- **Where to find**: DriveHR admin panel or career page URL
-
-#### `WP_API_URL`
-
-- **Format**: Full URL (e.g., `https://yoursite.com/webhook/drivehr-sync`)
-- **Purpose**: WordPress webhook endpoint for job data
-- **Requirements**: Must accept POST requests with JSON payload
-
-#### `WEBHOOK_SECRET`
-
-- **Format**: String (minimum 32 characters)
-- **Purpose**: HMAC signature validation for security
-- **Generate**: `openssl rand -hex 32`
-
-#### `NODE_ENV`
-
-- **Format**: `production` | `development` | `staging`
-- **Purpose**: Controls logging, security headers, and error handling
-- **Production**: Use `production` for live deployment
-
-### Optional Environment Variables
-
-#### `LOG_LEVEL`
-
-- **Default**: `info`
-- **Options**: `error` | `warn` | `info` | `debug` | `trace`
-- **Purpose**: Controls logging verbosity
-
-## 🔍 Troubleshooting
-
-### Build Failures
-
-**TypeScript Errors:**
-
-```bash
-# Run locally to identify issues
-pnpm run typecheck
-pnpm run lint
-```
-
-**Dependency Issues:**
-
-```bash
-# Clear cache and reinstall
-rm -rf node_modules pnpm-lock.yaml
-pnpm install
-```
-
-### Function Errors
-
-**Environment Variables:**
-
-- Verify all required variables are set in Netlify
-- Check variable names match exactly (case-sensitive)
-- Ensure no trailing spaces in values
-
-**HMAC Signature Issues:**
-
-- Verify webhook secret matches between systems
-- Ensure signature format: `sha256=hexdigest`
-- Use UTF-8 encoding for payload
-
-**WordPress Connectivity:**
-
-- Test WordPress endpoint directly
-- Verify URL accessibility from external networks
-- Check WordPress webhook handler implementation
-
-### Common Issues
-
-#### "Configuration not loaded" Error
-
-**Cause**: Missing required environment variables  
-**Fix**: Verify all required variables are set in Netlify dashboard
-
-#### "Invalid webhook signature" Error
-
-**Cause**: HMAC signature mismatch  
-**Fix**: Ensure `WEBHOOK_SECRET` matches in all systems
-
-#### Function timeout
-
-**Cause**: WordPress endpoint slow/unresponsive  
-**Fix**: Optimize WordPress webhook handler, increase timeout if needed
-
-#### "Module not found" Error
-
-**Cause**: Build or import path issues  
-**Fix**: Check import paths use `.js` extensions, run build locally
-
-## 📊 Monitoring
-
-### Function Performance
-
-**Netlify Analytics:**
-
-- Function invocation count
-- Execution duration
-- Error rates
-- Memory usage
-
-**Built-in Monitoring:**
-
-```bash
-# View recent function logs
-netlify logs:function sync-jobs --since="1h"
-
-# Monitor specific function
-netlify logs:function health-check --tail
-```
-
-### Health Monitoring
-
-**Automated Health Checks:** Set up external monitoring (e.g., UptimeRobot) to
-check:
-
-```
-GET https://your-site.netlify.app/.netlify/functions/health-check
-```
-
-**Expected Response Time**: < 2 seconds  
-**Expected Uptime**: 99.9%
-
-## 🔄 Updates & Maintenance
-
-### Updating Code
-
-1. **Push Changes**: Commit and push to `main` branch
-2. **Auto-Deploy**: Netlify automatically builds and deploys
-3. **Verify**: Check health endpoint after deployment
-4. **Monitor**: Watch function logs for any issues
-
-### Environment Updates
-
-```bash
-# Update environment variables
-netlify env:set VARIABLE_NAME "new-value"
-
-# List current variables
+# Verify variables
 netlify env:list
-
-# Trigger redeploy with new variables
-netlify deploy --prod --build
 ```
 
-### Rollback
+### 3. Function Configuration
 
-**Via Netlify Dashboard:**
+Create `netlify.toml` in project root:
 
-1. Go to **Deploys** tab
-2. Find previous successful deploy
-3. Click **Publish deploy**
+```toml
+[build]
+  command = "pnpm run build"
+  functions = "dist/functions"
+  publish = "dist"
 
-**Via CLI:**
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "9"
+
+[[functions]]
+  included_files = ["dist/**"]
+
+[functions]
+  directory = "dist/functions"
+
+[functions."sync-jobs"]
+  timeout = 30
+
+[functions."manual-trigger"]
+  timeout = 15
+
+[functions."health-check"]
+  timeout = 5
+
+[dev]
+  functions = "dist/functions"
+  publish = "dist"
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    X-XSS-Protection = "1; mode=block"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+```
+
+## CI/CD Pipeline
+
+### 1. GitHub Actions Setup
+
+Our intelligent CI pipeline is pre-configured with:
+
+- **Smart test selection** based on changed files
+- **Security auditing** with vulnerability scanning
+- **Quality gates** with formatting, linting, type checking
+- **Coverage reporting** with Codecov integration
+- **Performance monitoring** with build optimization
+
+### 2. Repository Secrets
+
+Configure in GitHub → Settings → Secrets and variables → Actions:
 
 ```bash
-# List recent deploys
-netlify api listSiteDeploys --site-id="your-site-id"
+# Required secrets
+NETLIFY_AUTH_TOKEN=your_netlify_token
+NETLIFY_SITE_ID=your_site_id
+CODECOV_TOKEN=your_codecov_token (optional)
 
-# Rollback to specific deploy
-netlify api restoreSiteDeploy --site-id="your-site-id" --deploy-id="deploy-id"
+# Optional secrets for enhanced monitoring
+SENTRY_AUTH_TOKEN=your_sentry_token
+DATADOG_API_KEY=your_datadog_key
 ```
 
-## 🔐 Security Considerations
+### 3. Deployment Workflow
 
-### Webhook Security
+```yaml
+# .github/workflows/deploy.yml (example)
+name: Deploy to Production
+on:
+  push:
+    branches: [main]
 
-- Always use HTTPS endpoints
-- Implement proper HMAC validation in WordPress
-- Use strong, unique webhook secrets
-- Regularly rotate webhook secrets
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
 
-### Environment Variables
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-- Never commit secrets to version control
-- Use Netlify's encrypted environment variables
-- Limit access to production environment settings
-- Monitor for leaked credentials
+      - name: Run quality checks
+        run: |
+          pnpm run format:check
+          pnpm typecheck  
+          pnpm lint
+          pnpm run security
 
-### Network Security
+      - name: Run tests
+        run: pnpm test:coverage
 
-- WordPress endpoints should validate signatures
-- Consider IP allowlisting if possible
-- Enable WordPress security plugins
-- Use CDN/WAF for additional protection
+      - name: Build
+        run: pnpm run build
 
-## 📈 Scaling
+      - name: Deploy to Netlify
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --prod --dir=dist --functions=dist/functions
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+```
 
-### Performance Optimization
+## Security Configuration
 
-- Functions auto-scale based on demand
-- No infrastructure management required
-- Cold start optimization built-in
+### 1. Webhook Security
 
-### Cost Optimization
+#### WordPress Endpoint Setup
 
-- Netlify Free tier: 125,000 function calls/month
-- Pro tier: 2,000,000 function calls/month
-- Monitor usage in Netlify analytics
+Ensure your WordPress webhook endpoint validates HMAC signatures:
 
-### High Availability
+```php
+<?php
+// WordPress webhook handler example
+function verify_drivehr_signature($payload, $signature) {
+    $expected = hash_hmac('sha256', $payload, WEBHOOK_SECRET);
+    return hash_equals($expected, $signature);
+}
 
-- Netlify provides 99.9% uptime SLA
-- Global CDN distribution
-- Automatic failover and redundancy
+function handle_drivehr_webhook() {
+    $signature = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
+    $payload = file_get_contents('php://input');
+
+    if (!verify_drivehr_signature($payload, str_replace('sha256=', '', $signature))) {
+        http_response_code(401);
+        exit('Unauthorized');
+    }
+
+    // Process webhook payload
+    $data = json_decode($payload, true);
+    // Handle job data...
+}
+```
+
+### 2. Function Security
+
+#### Rate Limiting
+
+```javascript
+// Implemented in functions with
+const rateLimit = {
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // requests per window
+};
+```
+
+#### Input Validation
+
+```javascript
+// All inputs validated with Zod schemas
+const JobSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(5000),
+  company: z.string().min(1).max(100),
+  // ... additional validation
+});
+```
+
+### 3. Security Headers
+
+Configured in `netlify.toml`:
+
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+
+## Monitoring & Observability
+
+### 1. Health Checks
+
+The system includes comprehensive health monitoring:
+
+```bash
+# Check function health
+curl https://yoursite.netlify.app/.netlify/functions/health-check
+
+# Expected response
+{
+  "status": "healthy",
+  "timestamp": "2024-01-01T12:00:00Z",
+  "version": "1.0.0",
+  "uptime": 3600,
+  "dependencies": {
+    "wordpress": "ok",
+    "github": "ok"
+  }
+}
+```
+
+### 2. Logging Configuration
+
+#### Structured Logging
+
+```javascript
+// All functions use structured JSON logging
+logger.info('Job sync started', {
+  correlationId: 'abc-123',
+  jobCount: 25,
+  source: 'drivehr',
+  timestamp: new Date().toISOString(),
+});
+```
+
+#### Log Levels
+
+- `error`: System errors, failures
+- `warn`: Recoverable issues, deprecations
+- `info`: Normal operations, job completions
+- `debug`: Detailed tracing (development only)
+
+### 3. Metrics & Alerting
+
+#### Key Performance Indicators
+
+Monitor these metrics in production:
+
+```javascript
+// Business Metrics
+-job_sync_success_rate -
+  job_sync_duration -
+  webhook_delivery_success_rate -
+  error_rate_by_function -
+  // System Metrics
+  function_cold_start_duration -
+  memory_usage_percentage -
+  function_timeout_rate -
+  concurrent_execution_count;
+```
+
+#### Recommended Alerting Thresholds
+
+```yaml
+alerts:
+  - name: 'Job Sync Failure Rate'
+    condition: 'job_sync_success_rate < 95%'
+    duration: '5m'
+
+  - name: 'Function Errors'
+    condition: 'error_rate > 1%'
+    duration: '2m'
+
+  - name: 'High Response Time'
+    condition: 'p95_response_time > 10s'
+    duration: '5m'
+```
+
+## Database & External Services
+
+### 1. WordPress Integration
+
+#### Endpoint Requirements
+
+```bash
+# WordPress endpoint must be accessible
+curl -X POST https://yoursite.com/webhook/drivehr-sync \
+  -H "Content-Type: application/json" \
+  -H "X-Hub-Signature-256: sha256=signature" \
+  -d '{"test": "connection"}'
+```
+
+#### WordPress Configuration
+
+Required WordPress setup:
+
+- Custom webhook handler (not REST API)
+- HMAC signature validation
+- Job data processing capability
+- Error handling and logging
+
+### 2. DriveHR Integration
+
+#### Access Requirements
+
+- Company-specific DriveHR URL
+- Valid company ID
+- Network access to DriveHR platform
+- Ability to scrape job listings
+
+#### Rate Limiting Compliance
+
+- Maximum 1 request per minute to DriveHR
+- Respect robots.txt and scraping policies
+- Implement exponential backoff for errors
+
+### 3. GitHub Integration
+
+#### Workflow Triggers
+
+- Personal access token with appropriate scopes
+- Repository dispatch permissions
+- Actions workflow enabled
+
+## Performance Optimization
+
+### 1. Function Performance
+
+#### Memory Allocation
+
+```toml
+# netlify.toml function optimization
+[functions."sync-jobs"]
+  memory = 1024  # MB for large job datasets
+
+[functions."manual-trigger"]
+  memory = 512   # MB for API calls
+
+[functions."health-check"]
+  memory = 256   # MB for simple checks
+```
+
+#### Cold Start Optimization
+
+- Minimal dependencies in function bundles
+- Tree-shaking enabled in build process
+- Connection pooling for external services
+- Cached configuration and secrets
+
+### 2. Build Optimization
+
+```json
+{
+  "build": {
+    "esbuild": {
+      "bundle": true,
+      "minify": true,
+      "target": "node20",
+      "format": "esm",
+      "treeShaking": true
+    }
+  }
+}
+```
+
+### 3. Caching Strategy
+
+#### Function-level Caching
+
+```javascript
+// Configuration caching
+const configCache = new Map();
+const getCachedConfig = key => {
+  if (!configCache.has(key)) {
+    configCache.set(key, loadConfig(key));
+  }
+  return configCache.get(key);
+};
+```
+
+## Disaster Recovery
+
+### 1. Backup Strategy
+
+#### Code Repository
+
+- Primary: GitHub repository
+- Mirror: Consider GitLab or Bitbucket mirror
+- Local: Development team local clones
+
+#### Configuration Backup
+
+```bash
+# Export Netlify configuration
+netlify sites:list --json > netlify-sites-backup.json
+netlify env:list --json > environment-backup.json
+
+# Store securely (encrypted)
+gpg --encrypt --recipient admin@company.com environment-backup.json
+```
+
+### 2. Recovery Procedures
+
+#### Service Outage Response
+
+1. **Identify Impact**
+
+   ```bash
+   # Check function status
+   curl https://yoursite.netlify.app/.netlify/functions/health-check
+
+   # Check CI/CD pipeline
+   gh run list --repo your-username/drivehr-netlify-sync
+   ```
+
+2. **Implement Workarounds**
+   - Manual job synchronization
+   - Temporary WordPress direct updates
+   - Communication to stakeholders
+
+3. **Recovery Process**
+   - Restore from last known good deployment
+   - Validate all environment variables
+   - Run comprehensive test suite
+   - Monitor for 24 hours post-recovery
+
+#### Data Recovery
+
+```bash
+# Restore environment configuration
+netlify env:set --from-file environment-backup.json
+
+# Redeploy from last stable commit
+git checkout last-stable-tag
+netlify deploy --prod
+```
+
+## Troubleshooting
+
+### 1. Common Issues
+
+#### Function Timeout Errors
+
+```bash
+# Symptoms
+Error: Function timeout after 30000ms
+
+# Solutions
+1. Check function memory allocation
+2. Optimize database queries
+3. Implement request pagination
+4. Add connection pooling
+```
+
+#### Webhook Delivery Failures
+
+```bash
+# Symptoms
+HTTP 401 Unauthorized on WordPress endpoint
+
+# Solutions
+1. Verify WEBHOOK_SECRET matches WordPress
+2. Check HMAC signature generation
+3. Validate WordPress endpoint availability
+4. Review WordPress error logs
+```
+
+#### Build Failures
+
+```bash
+# Symptoms
+Build command failed with exit code 1
+
+# Solutions
+1. Check Node.js version compatibility
+2. Clear pnpm cache: pnpm store prune
+3. Verify dependencies: pnpm install --frozen-lockfile
+4. Check TypeScript compilation: pnpm typecheck
+```
+
+### 2. Debugging Tools
+
+#### Local Development
+
+```bash
+# Run functions locally
+netlify dev
+
+# Debug with verbose logging
+LOG_LEVEL=debug netlify dev
+
+# Test specific function
+netlify functions:invoke sync-jobs --payload '{"test": true}'
+```
+
+#### Production Debugging
+
+```bash
+# View function logs
+netlify logs:functions
+
+# Monitor real-time
+netlify logs:functions --follow
+
+# Check build logs
+netlify logs:build
+```
+
+### 3. Performance Debugging
+
+#### Function Performance Analysis
+
+```bash
+# Enable performance monitoring
+ENABLE_TELEMETRY=true
+
+# Analyze cold start times
+curl -w "@curl-format.txt" -o /dev/null -s https://yoursite.netlify.app/.netlify/functions/health-check
+```
+
+#### Memory Usage Analysis
+
+```javascript
+// Add to function for debugging
+process.memoryUsage();
+// Returns: { rss, heapTotal, heapUsed, external, arrayBuffers }
+```
+
+## Maintenance
+
+### 1. Regular Updates
+
+#### Dependency Updates
+
+```bash
+# Weekly dependency check
+pnpm update --interactive
+
+# Security updates
+pnpm audit --fix
+
+# Check for vulnerabilities
+pnpm run security
+```
+
+#### Node.js Updates
+
+```bash
+# Check current version
+node --version
+
+# Update in netlify.toml
+[build.environment]
+  NODE_VERSION = "20.18.0"  # Latest LTS
+```
+
+### 2. Monitoring & Alerts
+
+#### Weekly Health Checks
+
+- [ ] Function response times < 5s average
+- [ ] Error rate < 0.1%
+- [ ] Job sync success rate > 99%
+- [ ] WordPress webhook delivery > 98%
+- [ ] Security audit passing
+
+#### Monthly Reviews
+
+- [ ] Dependency vulnerability scan
+- [ ] Performance metrics analysis
+- [ ] Cost optimization review
+- [ ] Documentation updates
+- [ ] Disaster recovery test
+
+### 3. Scaling Considerations
+
+#### Traffic Growth
+
+```javascript
+// Monitor these metrics for scaling decisions
+-concurrent_function_executions -
+  average_response_time -
+  memory_usage_percentage -
+  error_rate_trends;
+```
+
+#### Cost Optimization
+
+```bash
+# Review Netlify usage
+netlify status
+
+# Optimize function memory allocation based on usage
+# Monitor and adjust timeout values
+# Implement request caching where appropriate
+```
 
 ---
 
-**Deployment is complete! Your DriveHR sync service is now live and ready to
-process job synchronization requests.**
+## Additional Resources
 
-## 📞 Support
+- **[README.md](./README.md)** - Project overview and quick start
+- **[CLAUDE.md](./CLAUDE.md)** - Development standards and practices
+- **[SECURITY.md](./SECURITY.md)** - Security policies and reporting
+- **[Netlify Functions Documentation](https://docs.netlify.com/functions/overview/)**
+- **[GitHub Actions Documentation](https://docs.github.com/en/actions)**
 
-- **Issues**:
-  [GitHub Issues](https://github.com/zachatkinson/drivehr-netlify-sync/issues)
-- **Documentation**: [Project Documentation](./README.md)
-- **Health Check**: Monitor `/.netlify/functions/health-check` endpoint
-- **Logs**: Use `netlify logs:function function-name` for troubleshooting
+---
+
+**For additional support, please open an issue in the GitHub repository or
+contact the development team.**
