@@ -81,29 +81,7 @@ jobs:
         run: |
           if [[ "${{ steps.check-requirements.outputs.all-tests }}" == "true" ]]; then
             # Full test matrix for main branch or config changes
-            cat << 'EOF' >> $GITHUB_OUTPUT
-          matrix={"include":[
-            {"name":"Config","pattern":"test/lib/config.test.ts","category":"lib"},
-            {"name":"HTTP-Client","pattern":"test/lib/http-client.test.ts","category":"lib"},
-            {"name":"Environment-Utilities","pattern":"test/lib/env.test.ts","category":"lib"},
-            {"name":"Logger","pattern":"test/lib/logger.test.ts","category":"lib"},
-            {"name":"Utils","pattern":"test/lib/utils.test.ts","category":"lib"},
-            {"name":"Job-Fetch-Utils","pattern":"test/lib/job-fetch-utils.test.ts","category":"lib"},
-            {"name":"Performance-Monitor","pattern":"test/lib/performance-monitor.test.ts","category":"lib"},
-            {"name":"Telemetry","pattern":"test/lib/telemetry.test.ts","category":"lib"},
-            {"name":"Telemetry-Init","pattern":"test/lib/telemetry-init.test.ts","category":"lib"},
-            {"name":"Job-Fetcher-Services","pattern":"test/services/job-fetcher","category":"services"},
-            {"name":"HTML-Parser-Service","pattern":"test/services/html-parser.test.ts","category":"services"},
-            {"name":"WordPress-Client-Service","pattern":"test/services/wordpress-client.test.ts","category":"services"},
-            {"name":"Playwright-Scraper-Service","pattern":"test/services/playwright-scraper.test.ts","category":"services"},
-            {"name":"Sync-Jobs-Function","pattern":"test/functions/sync-jobs.test.ts","category":"functions"},
-            {"name":"Health-Check-Function","pattern":"test/functions/health-check.test.ts","category":"functions"},
-            {"name":"Manual-Trigger-Function","pattern":"test/functions/manual-trigger.test.ts","category":"functions"},
-            {"name":"Manual-Trigger-Integration","pattern":"test/functions/manual-trigger-integration.test.ts","category":"functions"},
-            {"name":"Scrape-and-Sync-Script","pattern":"test/scripts/scrape-and-sync.test.ts","category":"scripts"},
-            {"name":"WordPress-Payload-Testing","pattern":"test/scripts/test-wordpress-payload.test.ts","category":"scripts"}
-          ]}
-          EOF
+            echo "matrix={\"include\":[{\"name\":\"Config\",\"pattern\":\"test/lib/config.test.ts\",\"category\":\"lib\"},{\"name\":\"HTTP-Client\",\"pattern\":\"test/lib/http-client.test.ts\",\"category\":\"lib\"},{\"name\":\"Environment-Utilities\",\"pattern\":\"test/lib/env.test.ts\",\"category\":\"lib\"},{\"name\":\"Logger\",\"pattern\":\"test/lib/logger.test.ts\",\"category\":\"lib\"},{\"name\":\"Utils\",\"pattern\":\"test/lib/utils.test.ts\",\"category\":\"lib\"},{\"name\":\"Job-Fetch-Utils\",\"pattern\":\"test/lib/job-fetch-utils.test.ts\",\"category\":\"lib\"},{\"name\":\"Performance-Monitor\",\"pattern\":\"test/lib/performance-monitor.test.ts\",\"category\":\"lib\"},{\"name\":\"Telemetry\",\"pattern\":\"test/lib/telemetry.test.ts\",\"category\":\"lib\"},{\"name\":\"Telemetry-Init\",\"pattern\":\"test/lib/telemetry-init.test.ts\",\"category\":\"lib\"},{\"name\":\"Job-Fetcher-Services\",\"pattern\":\"test/services/job-fetcher\",\"category\":\"services\"},{\"name\":\"HTML-Parser-Service\",\"pattern\":\"test/services/html-parser.test.ts\",\"category\":\"services\"},{\"name\":\"WordPress-Client-Service\",\"pattern\":\"test/services/wordpress-client.test.ts\",\"category\":\"services\"},{\"name\":\"Playwright-Scraper-Service\",\"pattern\":\"test/services/playwright-scraper.test.ts\",\"category\":\"services\"},{\"name\":\"Sync-Jobs-Function\",\"pattern\":\"test/functions/sync-jobs.test.ts\",\"category\":\"functions\"},{\"name\":\"Health-Check-Function\",\"pattern\":\"test/functions/health-check.test.ts\",\"category\":\"functions\"},{\"name\":\"Manual-Trigger-Function\",\"pattern\":\"test/functions/manual-trigger.test.ts\",\"category\":\"functions\"},{\"name\":\"Manual-Trigger-Integration\",\"pattern\":\"test/functions/manual-trigger-integration.test.ts\",\"category\":\"functions\"},{\"name\":\"Scrape-and-Sync-Script\",\"pattern\":\"test/scripts/scrape-and-sync.test.ts\",\"category\":\"scripts\"},{\"name\":\"WordPress-Payload-Testing\",\"pattern\":\"test/scripts/test-wordpress-payload.test.ts\",\"category\":\"scripts\"}]}" >> $GITHUB_OUTPUT
           else
             # Smart test selection based on changed files
             tests=()
