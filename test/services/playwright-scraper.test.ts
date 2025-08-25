@@ -1281,44 +1281,23 @@ describe('PlaywrightScraper Simple Tests', () => {
       expect(result.error).toBe('Unknown scraping error');
     });
 
-    it.skip('should test screenshot path generation in debug mode', async () => {
-      const scraper = new PlaywrightScraper({ debug: true, retries: 1 });
+    it('should test screenshot path generation in debug mode', async () => {
+      const scraper = new PlaywrightScraper({ debug: true });
 
+      // Test the takeDebugScreenshot method directly
       const mockPage = {
-        setUserAgent: vi.fn().mockResolvedValue(undefined),
-        setDefaultTimeout: vi.fn().mockResolvedValue(undefined),
-        setDefaultNavigationTimeout: vi.fn().mockResolvedValue(undefined),
-        goto: vi.fn().mockResolvedValue(undefined),
-        waitForSelector: vi.fn().mockResolvedValue(undefined),
-        waitForTimeout: vi.fn().mockResolvedValue(undefined),
-        evaluate: vi.fn().mockResolvedValue([]), // Empty jobs array
         screenshot: vi.fn().mockResolvedValue(Buffer.from('screenshot')),
-        close: vi.fn().mockResolvedValue(undefined),
       };
 
-      const mockContext = {
-        newPage: vi.fn().mockResolvedValue(mockPage),
-        addInitScript: vi.fn().mockResolvedValue(undefined),
-        close: vi.fn().mockResolvedValue(undefined),
-      };
+      // Access private method for testing
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for testing private methods in comprehensive coverage tests
+      const takeDebugScreenshot = (scraper as any).takeDebugScreenshot.bind(scraper);
 
-      const mockBrowser = {
-        newContext: vi.fn().mockResolvedValue(mockContext),
-        close: vi.fn().mockResolvedValue(undefined),
-      };
+      const screenshotPath = await takeDebugScreenshot(mockPage, 'test-company');
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for Playwright browser mock typing compatibility
-      vi.mocked(chromium.launch).mockResolvedValue(mockBrowser as any);
-
-      const result = await scraper.scrapeJobs(
-        { companyId: 'test-company', careersUrl: 'https://test.com' },
-        'manual'
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.screenshotPath).toBeDefined();
+      expect(screenshotPath).toMatch(/^\.\/temp\/scrape-debug-test-company-.*\.png$/);
       expect(mockPage.screenshot).toHaveBeenCalledWith({
-        path: expect.stringMatching(/^\.\/temp\/scrape-debug-test-company-.*\.png$/),
+        path: screenshotPath,
         fullPage: true,
       });
 
