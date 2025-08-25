@@ -501,6 +501,34 @@ and pass without errors:**
    - For production releases, use `pnpm run security:prod` for high-level audit
    - Auto-fixable vulnerabilities can be resolved with `pnpm run security:fix`
 
+5. **Changelog Update** (MANDATORY)
+   - CHANGELOG.md must be updated to document all changes before commit
+   - Include version number, date, and categorized changes (Added, Changed,
+     Fixed, etc.)
+   - Follow Keep a Changelog format: https://keepachangelog.com/
+   - Changes must be meaningful and describe business impact, not just technical
+     details
+   - Example entry format:
+
+   ```markdown
+   ## [1.2.0] - 2024-01-15
+
+   ### Added
+
+   - Playwright scraper tests with comprehensive error handling and edge cases
+   - Enhanced telemetry system tests for initialization errors and metrics
+     recording
+
+   ### Changed
+
+   - Updated JSDoc documentation to comply with enterprise standards
+   - Improved test coverage from 74% to 85%
+
+   ### Fixed
+
+   - Resolved TypeScript strict mode compliance issues in test files
+   ```
+
 **These checks are NOT optional - they are requirements. Commits that bypass
 these checks will be rejected.**
 

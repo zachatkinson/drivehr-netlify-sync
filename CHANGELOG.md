@@ -19,6 +19,11 @@ and this project adheres to
   changes)
 - Enhanced error handling with custom error types and structured logging
 - Comprehensive JSDoc documentation for all public APIs and test utilities
+- Comprehensive Playwright scraper test suite with 21 test cases covering
+  configuration validation, initialization patterns, resource disposal, and API
+  interface compliance
+- Mandatory CHANGELOG.md update requirement in pre-commit workflow to ensure
+  proper documentation of all changes
 
 ### Changed
 
@@ -26,6 +31,10 @@ and this project adheres to
 - Updated all test files to follow enterprise JSDoc documentation standards
 - Improved HMAC signature validation with better Unicode support
 - Enhanced rate limiting with configurable windows and limits
+- Replaced complex Playwright browser automation mocks with simplified interface
+  testing for more reliable CI/CD execution
+- Enhanced pre-commit requirements in CLAUDE.md to include mandatory changelog
+  updates
 
 ### Fixed
 
