@@ -584,11 +584,130 @@ BREAKING CHANGE: The job status endpoint has been removed. Use the new job detai
 - Creates GitHub releases with proper tags
 - Only manual CHANGELOG.md updates needed are for unreleased features
 
-#### Branch Protection
+#### Git Flow Rules (NON-NEGOTIABLE)
 
-- All changes must go through Pull Requests
-- Require passing CI/CD checks before merge
-- Require code review approval from at least one maintainer
+**CRITICAL: These Git Flow rules are MANDATORY and NON-NEGOTIABLE for
+maintaining CI efficiency, coverage accuracy, and code quality.**
+
+##### Feature Branch Development (REQUIRED)
+
+**ALL development work MUST be done on feature branches - NEVER push directly to
+main except for the specific exceptions listed below.**
+
+1. **Create Feature Branches for ALL Work:**
+
+   ```bash
+   # Feature development
+   git checkout -b feature/add-new-scraper-support
+   git checkout -b feature/enhance-webhook-validation
+
+   # Bug fixes
+   git checkout -b fix/playwright-timeout-issues
+   git checkout -b fix/memory-leak-in-parser
+
+   # Documentation updates
+   git checkout -b docs/update-deployment-guide
+   git checkout -b docs/add-api-examples
+
+   # Refactoring work
+   git checkout -b refactor/optimize-job-processing
+   ```
+
+2. **Branch Naming Conventions (MANDATORY):**
+   - `feature/` - New features or enhancements
+   - `fix/` - Bug fixes and issue resolution
+   - `docs/` - Documentation-only changes
+   - `refactor/` - Code refactoring without feature changes
+   - `perf/` - Performance improvements
+   - `test/` - Test-only additions or improvements
+   - Use kebab-case for branch names (lowercase with hyphens)
+
+##### Pull Request Workflow (REQUIRED)
+
+**Every feature branch MUST go through Pull Request workflow:**
+
+1. **Development Process:**
+
+   ```bash
+   # Work on feature branch
+   git checkout -b feature/new-feature
+   # Make changes, commit with conventional format
+   git add .
+   git commit -m "feat(scraper): add support for new job board format"
+   # Push feature branch
+   git push -u origin feature/new-feature
+   ```
+
+2. **Pull Request Benefits:**
+   - **⚡ Fast CI**: Only runs intelligent tests relevant to your changes
+   - **📊 Accurate Coverage**: Carryforward flags maintain full coverage context
+   - **🔍 Targeted Review**: Reviewers see exactly what changed and what tests
+     ran
+   - **🚀 Quick Iteration**: Fast feedback loop during development
+
+3. **PR Approval Process:**
+   - At least one code review approval required
+   - All CI checks must pass (quality, tests, security)
+   - No merge until all conversations resolved
+
+##### Direct Push to Main - RARE EXCEPTIONS ONLY
+
+**Direct pushes to main are ONLY allowed for:**
+
+1. **Critical Hotfixes (Production Emergencies):**
+
+   ```bash
+   # ONLY for production-breaking issues requiring immediate deployment
+   git checkout main
+   git pull
+   # Make minimal fix
+   git add .
+   git commit -m "fix!: resolve critical security vulnerability in auth"
+   git push origin main
+   ```
+
+2. **Documentation-Only Changes (Use Sparingly):**
+   ```bash
+   # ONLY for minor documentation fixes with zero code impact
+   git commit -m "docs: fix typo in README installation section"
+   ```
+
+**IMPORTANT: Every direct push to main triggers BOTH intelligent CI AND baseline
+coverage job - use judiciously.**
+
+##### CI Behavior by Branch Type
+
+**Understanding CI execution patterns:**
+
+- **Feature Branches (PRs)**:
+  - ⚡ Runs intelligent CI only (fast, targeted tests)
+  - 📊 Uses carryforward flags for coverage accuracy
+  - 🔄 No baseline coverage job (keeps CI fast)
+
+- **Main Branch**:
+  - 🎯 Runs intelligent CI for changed areas
+  - 📊 ALSO runs full baseline coverage job
+  - 🔄 Establishes complete coverage context
+  - 📈 Updates all carryforward flag baselines
+
+- **Scheduled (Daily 2 AM UTC)**:
+  - 📊 Runs full baseline coverage only
+  - 🔄 Refreshes coverage context without code changes
+
+##### Enforcement
+
+**These rules are enforced through:**
+
+1. **Branch Protection Rules**: GitHub branch protection prevents direct pushes
+2. **CI Configuration**: Different behavior based on branch type
+3. **Code Review**: All PRs require maintainer approval
+4. **Automated Checks**: All quality gates must pass
+
+**Violations of these Git Flow rules will result in:**
+
+- PR rejection
+- Request for proper feature branch workflow
+- Potential reversion of direct main pushes (if not critical hotfixes)
 
 #### CI/CD Requirements
 
