@@ -98,9 +98,13 @@ and code quality standards.
 - **Check CHANGELOG.md first** to get the latest version before adding @since
   tags
 - **Update CHANGELOG.md** before commits to document all changes
-- When adding new code/tests, use the latest version from CHANGELOG.md
-- Example: If CHANGELOG.md shows v1.2.0 as latest, use `@since 1.2.0` for new
-  code
+- **ONLY update @since tags for NEW code/tests** - existing code keeps its
+  original @since version to track when it was first added
+- When adding new functions, classes, or test methods, use the latest version
+  from CHANGELOG.md
+- **DO NOT update existing @since tags** - they serve as historical markers
+- Example: If CHANGELOG.md shows v1.3.0 as latest, use `@since 1.3.0` only for
+  newly added code
 
 **Documentation requirements:**
 

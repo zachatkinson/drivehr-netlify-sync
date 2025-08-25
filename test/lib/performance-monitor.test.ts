@@ -736,4 +736,472 @@ describe('PerformanceMonitor', () => {
       expect(mockNext).toHaveBeenCalled();
     });
   });
+
+  describe('when testing implementation coverage', () => {
+    it('should respect disabled monitoring configuration', () => {
+      // Reset singleton to test configuration
+      PerformanceMonitorTestUtils.resetAllMetrics();
+      // ARCHITECTURAL JUSTIFICATION: Testing singleton configuration requires resetting private static instance
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (PerformanceMonitor as any).instance = undefined;
+
+      const disabledMonitor = PerformanceMonitor.getInstance({ enabled: false });
+
+      // Operations should be no-ops when disabled
+      const timer = disabledMonitor.startTimer('disabled-timer');
+      expect(timer.end()).toBeUndefined();
+      expect(timer.elapsed()).toBe(0);
+
+      disabledMonitor.recordMetric('disabled-metric', 100, 'count');
+      const report = disabledMonitor.getPerformanceReport();
+      expect(report.totalMetrics).toBe(0);
+    });
+
+    it('should handle custom configuration thresholds', () => {
+      PerformanceMonitorTestUtils.resetAllMetrics();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (PerformanceMonitor as any).instance = undefined;
+
+      const customMonitor = PerformanceMonitor.getInstance({
+        thresholds: { warning: 100, critical: 500 },
+        maxMetrics: 50,
+      });
+
+      const config = customMonitor.getConfig();
+      expect(config.thresholds.warning).toBe(100);
+      expect(config.thresholds.critical).toBe(500);
+      expect(config.maxMetrics).toBe(50);
+    });
+
+    it('should trigger performance threshold warnings and errors', () => {
+      PerformanceMonitorTestUtils.resetAllMetrics();
+      // Reset singleton to get default thresholds
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (PerformanceMonitor as any).instance = undefined;
+      
+      const monitor = PerformanceMonitor.getInstance(); // Default thresholds: warning 1000ms, critical 5000ms
+      monitor.clearMetrics(); // Clear any existing metrics
+
+      // Mock a slow operation that exceeds warning threshold but not critical (1000ms warning, 5000ms critical)
+      monitor.recordMetric('slow-operation', 1200, 'milliseconds');
+      const report = monitor.getPerformanceReport();
+
+      expect(report.violations).toBeDefined();
+      expect(report.violations.length).toBeGreaterThan(0);
+      expect(report.violations[0]?.severity).toBe('warning');
+
+      // Test critical threshold
+      monitor.recordMetric('critical-operation', 6000, 'milliseconds');
+      const criticalReport = monitor.getPerformanceReport();
+      const criticalViolation = criticalReport.violations.find(
+        v => v.metric === 'critical-operation'
+      );
+      expect(criticalViolation?.severity).toBe('critical');
+    });
+
+    it('should prune old metrics when maxMetrics is exceeded', () => {
+      PerformanceMonitorTestUtils.resetAllMetrics();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (PerformanceMonitor as any).instance = undefined;
+
+      const monitor = PerformanceMonitor.getInstance({ maxMetrics: 5 });
+
+      // Add more metrics than the limit
+      for (let i = 0; i < 10; i++) {
+        monitor.recordMetric(`metric-${i}`, i, 'count');
+      }
+
+      const report = monitor.getPerformanceReport();
+      expect(report.totalMetrics).toBe(5); // Should be pruned to maxMetrics
+
+      // Verify newest metrics are kept
+      const metricNames = report.recentMetrics.map(m => m.name);
+      expect(metricNames).toContain('metric-9');
+      expect(metricNames).not.toContain('metric-0');
+    });
+
+    it('should generate comprehensive performance summaries', () => {
+      const monitor = PerformanceMonitor.getInstance();
+
+      // Add various timing metrics
+      monitor.recordMetric('fast-op', 50, 'milliseconds');
+      monitor.recordMetric('medium-op', 200, 'milliseconds');
+      monitor.recordMetric('slow-op', 800, 'milliseconds');
+      monitor.recordMetric('non-timing', 42, 'count'); // Non-timing metric
+
+      const report = monitor.getPerformanceReport();
+
+      expect(report.summary.totalExecutions).toBe(3); // Only timing metrics
+      expect(report.summary.averageExecutionTime).toBeCloseTo(350); // (50+200+800)/3
+      expect(report.summary.maxExecutionTime).toBe(800);
+      expect(report.summary.minExecutionTime).toBe(50);
+    });
+
+    it('should handle timer elapsed calculations accurately', async () => {
+      const monitor = PerformanceMonitor.getInstance();
+      const timer = monitor.startTimer('elapsed-test');
+
+      await PerformanceMonitorTestUtils.waitForMs(25);
+      const elapsed1 = timer.elapsed();
+
+      await PerformanceMonitorTestUtils.waitForMs(25);
+      const elapsed2 = timer.elapsed();
+
+      expect(elapsed1).toBeGreaterThan(20);
+      expect(elapsed1).toBeLessThan(40);
+      expect(elapsed2).toBeGreaterThan(elapsed1);
+      expect(elapsed2).toBeGreaterThan(45);
+
+      timer.end();
+    });
+
+    it('should handle timer operations after timer not found', () => {
+      const monitor = PerformanceMonitor.getInstance();
+      const timer = monitor.startTimer('temp-timer');
+
+      timer.end(); // End normally
+
+      // Simulate timer not found scenarios
+      const missingTimerElapsed = timer.elapsed();
+      expect(missingTimerElapsed).toBe(0);
+
+      // Calling end again should not crash and should log warning
+      timer.end();
+      expect(PerformanceMonitorTestUtils.mockLogger.warn).toHaveBeenCalledWith(
+        "Timer 'temp-timer' not found when attempting to end"
+      );
+    });
+
+    it('should export metrics in proper JSON format', () => {
+      const monitor = PerformanceMonitor.getInstance();
+
+      monitor.recordMetric('json-test', 123, 'bytes', { service: 'test' });
+
+      const jsonOutput = monitor.exportMetrics('json');
+      const parsed = JSON.parse(jsonOutput);
+
+      expect(parsed).toHaveProperty('timestamp');
+      expect(parsed).toHaveProperty('application', 'drivehr-netlify-sync');
+      expect(parsed).toHaveProperty('metrics');
+      expect(parsed).toHaveProperty('summary');
+
+      expect(Array.isArray(parsed.metrics)).toBe(true);
+      expect(parsed.metrics[0]).toMatchObject({
+        name: 'json-test',
+        value: 123,
+        unit: 'bytes',
+      });
+    });
+
+    it('should track memory usage correctly when enabled', () => {
+      PerformanceMonitorTestUtils.resetAllMetrics();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (PerformanceMonitor as any).instance = undefined;
+
+      const monitor = PerformanceMonitor.getInstance({
+        trackMemory: true,
+        collectionInterval: 0.1, // 100ms for testing
+      });
+
+      const config = monitor.getConfig();
+      expect(config.trackMemory).toBe(true);
+      expect(config.collectionInterval).toBe(0.1);
+    });
+
+    it('should handle memory tracking disabled', () => {
+      PerformanceMonitorTestUtils.resetAllMetrics();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (PerformanceMonitor as any).instance = undefined;
+
+      const monitor = PerformanceMonitor.getInstance({ trackMemory: false });
+      const config = monitor.getConfig();
+      expect(config.trackMemory).toBe(false);
+    });
+
+    it('should format Prometheus metrics with proper escaping', () => {
+      const monitor = PerformanceMonitor.getInstance();
+
+      monitor.recordMetric('test-metric-with-hyphens', 42, 'count', {
+        'label-with-hyphens': 'value',
+        service: 'test-service',
+      });
+
+      const prometheusOutput = monitor.exportMetrics('prometheus');
+
+      expect(prometheusOutput).toContain('test_metric_with_hyphens'); // Hyphens converted to underscores
+      expect(prometheusOutput).toContain('# HELP test_metric_with_hyphens');
+      expect(prometheusOutput).toContain('# TYPE test_metric_with_hyphens gauge');
+      expect(prometheusOutput).toContain('label-with-hyphens="value"');
+    });
+
+    it('should format InfluxDB metrics with correct timestamp precision', () => {
+      const monitor = PerformanceMonitor.getInstance();
+
+      monitor.recordMetric('influx-precision-test', 99.9, 'ratio', {
+        env: 'test',
+        region: 'us-east-1',
+      });
+
+      const influxOutput = monitor.exportMetrics('influxdb');
+
+      expect(influxOutput).toContain('influx_precision_test');
+      expect(influxOutput).toContain('env=test,region=us-east-1');
+      expect(influxOutput).toContain('value=99.9');
+      // Should end with nanosecond timestamp (16+ digits)
+      expect(influxOutput).toMatch(/\s\d{16,}$/);
+    });
+
+    it('should maintain configuration immutability', () => {
+      const monitor = PerformanceMonitor.getInstance();
+      const config = monitor.getConfig();
+
+      // Should be a copy, not the original
+      // ARCHITECTURAL JUSTIFICATION: Testing configuration immutability requires bypassing readonly
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (config as any).enabled = false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (config as any).maxMetrics = 999;
+
+      const freshConfig = monitor.getConfig();
+      expect(freshConfig.enabled).toBe(true); // Should not be modified
+      expect(freshConfig.maxMetrics).not.toBe(999);
+    });
+  });
+
+  describe('when using Express middleware functionality', () => {
+    it('should create middleware that starts and ends timers', async () => {
+      const { createPerformanceMiddleware } = await import('../../src/lib/performance-monitor.js');
+      PerformanceMonitorTestUtils.resetAllMetrics();
+
+      const middleware = createPerformanceMiddleware();
+
+      const mockReq = {
+        method: 'POST',
+        path: '/api/jobs',
+        get: vi.fn().mockReturnValue('Mozilla/5.0'),
+      };
+
+      let finishCallback: (() => void) | undefined;
+      const mockRes = {
+        on: vi.fn().mockImplementation((event: string, callback: () => void) => {
+          if (event === 'finish') {
+            finishCallback = callback;
+          }
+        }),
+        statusCode: 200,
+      };
+
+      const mockNext = vi.fn();
+
+      // Execute middleware
+      middleware(mockReq, mockRes, mockNext);
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockRes.on).toHaveBeenCalledWith('finish', expect.any(Function));
+
+      // Simulate response finish
+      if (finishCallback) {
+        finishCallback();
+      }
+
+      const monitor = PerformanceMonitor.getInstance();
+      const report = monitor.getPerformanceReport();
+
+      // Should have recorded both request timing and response status
+      expect(report.totalMetrics).toBe(2);
+      const metricNames = report.recentMetrics.map(m => m.name);
+      expect(metricNames).toContain('http-request');
+      expect(metricNames).toContain('http-response-status');
+    });
+
+    it('should record request metadata in middleware', async () => {
+      const { createPerformanceMiddleware } = await import('../../src/lib/performance-monitor.js');
+      PerformanceMonitorTestUtils.resetAllMetrics();
+
+      const middleware = createPerformanceMiddleware();
+
+      const mockReq = {
+        method: 'PUT',
+        path: '/api/jobs/123',
+        get: vi.fn().mockReturnValue('CustomUserAgent/1.0'),
+      };
+
+      let finishCallback: (() => void) | undefined;
+      const mockRes = {
+        on: vi.fn().mockImplementation((event: string, callback: () => void) => {
+          if (event === 'finish') {
+            finishCallback = callback;
+          }
+        }),
+        statusCode: 201,
+      };
+
+      const mockNext = vi.fn();
+
+      middleware(mockReq, mockRes, mockNext);
+
+      if (finishCallback) {
+        finishCallback();
+      }
+
+      const monitor = PerformanceMonitor.getInstance();
+      const report = monitor.getPerformanceReport();
+
+      const requestMetric = report.recentMetrics.find(m => m.name === 'http-request');
+      expect(requestMetric?.metadata).toMatchObject({
+        method: 'PUT',
+        path: '/api/jobs/123',
+        userAgent: 'CustomUserAgent/1.0',
+      });
+
+      const statusMetric = report.recentMetrics.find(m => m.name === 'http-response-status');
+      expect(statusMetric?.value).toBe(201);
+      expect(statusMetric?.metadata).toMatchObject({
+        method: 'PUT',
+        path: '/api/jobs/123',
+        status: 201,
+      });
+    });
+
+    it('should handle middleware with missing User-Agent header', async () => {
+      const { createPerformanceMiddleware } = await import('../../src/lib/performance-monitor.js');
+      PerformanceMonitorTestUtils.resetAllMetrics();
+
+      const middleware = createPerformanceMiddleware();
+
+      const mockReq = {
+        method: 'GET',
+        path: '/health',
+        get: vi.fn().mockReturnValue(undefined), // No User-Agent
+      };
+
+      let finishCallback: (() => void) | undefined;
+      const mockRes = {
+        on: vi.fn().mockImplementation((event: string, callback: () => void) => {
+          if (event === 'finish') {
+            finishCallback = callback;
+          }
+        }),
+        statusCode: 200,
+      };
+
+      const mockNext = vi.fn();
+
+      expect(() => middleware(mockReq, mockRes, mockNext)).not.toThrow();
+
+      if (finishCallback) {
+        finishCallback();
+      }
+
+      const monitor = PerformanceMonitor.getInstance();
+      const report = monitor.getPerformanceReport();
+
+      const requestMetric = report.recentMetrics.find(m => m.name === 'http-request');
+      expect(requestMetric?.metadata?.['userAgent']).toBeUndefined();
+    });
+  });
+
+  describe('when using performance decorator functionality', () => {
+    it('should wrap functions with timing measurement', async () => {
+      const { performanceMonitor } = await import('../../src/lib/performance-monitor.js');
+      PerformanceMonitorTestUtils.resetAllMetrics();
+
+      class TestService {
+        async processData(data: string): Promise<string> {
+          await PerformanceMonitorTestUtils.waitForMs(10);
+          return `processed-${data}`;
+        }
+      }
+
+      const descriptor = {
+        value: TestService.prototype.processData,
+      };
+
+      const decorator = performanceMonitor('custom-processing');
+      const wrappedDescriptor = decorator(TestService.prototype, 'processData', descriptor);
+
+      expect(wrappedDescriptor.value).toBeTypeOf('function');
+      // Decorator creates wrapper function so it should be different reference
+
+      // Test wrapped function
+      const service = new TestService();
+      service.processData = wrappedDescriptor.value.bind(service);
+
+      const result = await service.processData('test-input');
+      expect(result).toBe('processed-test-input');
+
+      const monitor = PerformanceMonitor.getInstance();
+      const report = monitor.getPerformanceReport();
+
+      const timingMetric = report.recentMetrics.find(m => m.name === 'custom-processing');
+      expect(timingMetric).toBeDefined();
+      expect(timingMetric?.unit).toBe('milliseconds');
+      expect(timingMetric?.value).toBeGreaterThan(0);
+    });
+
+    it('should handle decorator without custom name', async () => {
+      const { performanceMonitor } = await import('../../src/lib/performance-monitor.js');
+      PerformanceMonitorTestUtils.resetAllMetrics();
+
+      class TestClass {
+        async testMethod(): Promise<string> {
+          return 'test-result';
+        }
+      }
+
+      const descriptor = {
+        value: TestClass.prototype.testMethod,
+      };
+
+      const decorator = performanceMonitor(); // No custom name
+      const wrappedDescriptor = decorator(TestClass.prototype, 'testMethod', descriptor);
+
+      const instance = new TestClass();
+      instance.testMethod = wrappedDescriptor.value.bind(instance);
+
+      const result = await instance.testMethod();
+      expect(result).toBe('test-result');
+
+      const monitor = PerformanceMonitor.getInstance();
+      const report = monitor.getPerformanceReport();
+
+      const timingMetric = report.recentMetrics.find(m => m.name === 'TestClass.testMethod');
+      expect(timingMetric).toBeDefined();
+    });
+
+    it('should record error metrics when decorated function throws', async () => {
+      const { performanceMonitor } = await import('../../src/lib/performance-monitor.js');
+      PerformanceMonitorTestUtils.resetAllMetrics();
+
+      class ErrorService {
+        async failingMethod(): Promise<void> {
+          await PerformanceMonitorTestUtils.waitForMs(5);
+          throw new Error('Processing failed');
+        }
+      }
+
+      const descriptor = {
+        value: ErrorService.prototype.failingMethod,
+      };
+
+      const decorator = performanceMonitor('error-prone-operation');
+      const wrappedDescriptor = decorator(ErrorService.prototype, 'failingMethod', descriptor);
+
+      const service = new ErrorService();
+      service.failingMethod = wrappedDescriptor.value.bind(service);
+
+      await expect(service.failingMethod()).rejects.toThrow('Processing failed');
+
+      const monitor = PerformanceMonitor.getInstance();
+      const report = monitor.getPerformanceReport();
+
+      const timingMetric = report.recentMetrics.find(m => m.name === 'error-prone-operation');
+      const errorMetric = report.recentMetrics.find(m => m.name === 'error-prone-operation-error');
+
+      expect(timingMetric).toBeDefined(); // Timing should still be recorded
+      expect(errorMetric).toBeDefined();
+      expect(errorMetric?.value).toBe(1);
+      expect(errorMetric?.unit).toBe('count');
+      expect(errorMetric?.metadata?.['error']).toBe('Processing failed');
+    });
+  });
 });
