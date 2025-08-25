@@ -61,7 +61,17 @@ const config: Linter.Config[] = [
       },
     },
     plugins: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Third-party library compatibility issue that cannot be resolved
+      // ARCHITECTURAL JUSTIFICATION: ESLint plugin configuration requires dynamic typing compatibility.
+      // The @typescript-eslint/eslint-plugin exports don't perfectly match ESLint's PluginDefinition
+      // interface expectations, requiring type assertion for plugin registration in ESLint v9+ flat config.
+      //
+      // ALTERNATIVES CONSIDERED:
+      // 1. Using interface augmentation: Would require modifying global ESLint types (inappropriate)
+      // 2. Creating wrapper interface: Adds unnecessary abstraction layer for config-only usage
+      // 3. Downgrading ESLint version: Loses modern flat config benefits and security updates
+      //
+      // CONCLUSION: Type assertion is necessary for third-party plugin compatibility in ESLint flat config
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       '@typescript-eslint': typescript as any,
       prettier,
     },

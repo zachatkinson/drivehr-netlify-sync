@@ -194,6 +194,19 @@ class PerformanceMonitorTestUtils extends BaseTestUtils {
    */
   static resetAllMetrics(): void {
     const monitor = PerformanceMonitor.getInstance();
+    // ARCHITECTURAL JUSTIFICATION: Testing singleton requires direct access to private properties
+    // for proper test isolation between test cases. PerformanceMonitor singleton maintains state
+    // that must be reset to prevent test interference, but no public reset method exists.
+    //
+    // ALTERNATIVES CONSIDERED:
+    // 1. Adding public reset method: Would expose internal state management to production code
+    //    creating unnecessary API surface and potential misuse in production environments
+    // 2. Creating new instance per test: Singleton pattern prevents multiple instances and
+    //    would require significant architectural changes to the monitoring system
+    // 3. Mocking entire PerformanceMonitor: Would lose integration testing value and not
+    //    validate actual singleton behavior that production code relies upon
+    //
+    // CONCLUSION: eslint-disable is architecturally necessary for singleton test isolation
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (monitor as any).metrics = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

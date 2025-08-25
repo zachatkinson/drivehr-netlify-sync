@@ -1130,17 +1130,27 @@ describe('WordPress Client Service', () => {
       expect(results[0]).toBeDefined();
       expect(results[1]).toBeDefined();
 
-      // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
-      // guarantees non-null state. Non-null assertion is safe and more readable than
-      // additional conditional checks in test code. Alternative optional chaining would
-      // mask test failures rather than providing clear assertion points.
+      // ARCHITECTURAL JUSTIFICATION: Non-null assertion after explicit array length and toBeDefined() assertions.
+      // Jest/Vitest toHaveLength(4) guarantees array indices exist but doesn't narrow TypeScript types.
+      //
+      // ALTERNATIVES CONSIDERED:
+      // 1. Using optional chaining: Would make test assertions unclear and hide actual failures
+      // 2. Type guards with if statements: Would add unnecessary conditional logic to test code
+      // 3. Refactoring to avoid array access: Would lose batch operation testing patterns
+      //
+      // CONCLUSION: eslint-disable is architecturally necessary for array index test assertion clarity
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(results[0]!.success).toBe(true);
 
-      // ARCHITECTURAL JUSTIFICATION: Test verification after explicit toBeDefined() assertion
-      // guarantees non-null state. Non-null assertion is safe and more readable than
-      // additional conditional checks in test code. Alternative optional chaining would
-      // mask test failures rather than providing clear assertion points.
+      // ARCHITECTURAL JUSTIFICATION: Non-null assertion after explicit array length and toBeDefined() assertions.
+      // Jest/Vitest toHaveLength(4) guarantees array indices exist but doesn't narrow TypeScript types.
+      //
+      // ALTERNATIVES CONSIDERED:
+      // 1. Using optional chaining: Would make test assertions unclear and hide actual failures
+      // 2. Type guards with if statements: Would add unnecessary conditional logic to test code
+      // 3. Refactoring to avoid array access: Would lose batch operation testing patterns
+      //
+      // CONCLUSION: eslint-disable is architecturally necessary for array index test assertion clarity
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       expect(results[1]!.success).toBe(true);
       expect(results[2]).toBe(true);

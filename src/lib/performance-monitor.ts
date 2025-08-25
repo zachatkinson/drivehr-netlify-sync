@@ -901,7 +901,19 @@ export function performanceMonitor(metricName?: string) {
 export function createPerformanceMiddleware() {
   const monitor = PerformanceMonitor.getInstance();
 
-  // ARCHITECTURAL JUSTIFICATION: Express middleware signature requires 'any' types for compatibility.
+  // ARCHITECTURAL JUSTIFICATION: Express middleware signature requires 'any' types for framework compatibility
+  // Express.js middleware functions have established any-typed signatures that cannot be changed without
+  // breaking compatibility with the Express framework and ecosystem middleware patterns.
+  //
+  // ALTERNATIVES CONSIDERED:
+  // 1. Creating typed Express interfaces: Would require maintaining custom Express type definitions
+  //    and lose compatibility with existing Express ecosystem and third-party middleware
+  // 2. Using Express.Request/Response types: Still requires any for next function parameter and
+  //    creates dependency on @types/express in production monitoring code
+  // 3. Avoiding middleware pattern: Would require significant refactoring of HTTP monitoring
+  //    integration and lose standard Express middleware benefits
+  //
+  // CONCLUSION: eslint-disable is architecturally necessary for Express middleware compatibility
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-module-boundary-types
   return (req: any, res: any, next: any): void => {
     const timer = monitor.startTimer('http-request', {

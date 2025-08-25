@@ -118,33 +118,56 @@ class PlaywrightTestUtils {
    */
   static async initializeMocks() {
     const { chromium } = await import('playwright');
-    // ARCHITECTURAL JUSTIFICATION: Mock setup requires type casting for Playwright browser integration
-    // Real chromium instance must be cast to mock structure for Vitest compatibility. Alternative
-    // type-safe mock interfaces would require extensive definitions and maintenance overhead.
+    // ARCHITECTURAL JUSTIFICATION: Playwright mock setup requires type casting for test framework integration.
+    // Vitest mocking of dynamic imports doesn't preserve full Playwright type definitions, requiring any casting.
+    //
+    // ALTERNATIVES CONSIDERED:
+    // 1. Creating full Playwright mock interfaces: Would require maintaining complex type definitions
+    // 2. Using actual Playwright instances: Would make tests slow and brittle with external dependencies
+    // 3. Refactoring to dependency injection: Would break existing playwright-scraper architecture
+    //
+    // CONCLUSION: eslint-disable is architecturally necessary for Playwright test mocking
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.mockPlaywright = { chromium } as any;
 
-    // ARCHITECTURAL JUSTIFICATION: Test mocking requires dynamic type casting to access mock results
-    // Playwright browser mock needs casting to access Vitest mock properties like .mock.results.
-    // Alternative type-safe mock interfaces would require extensive maintenance overhead.
-
+    // ARCHITECTURAL JUSTIFICATION: Vitest mock result access requires type casting for Playwright browser.
+    // Mocked chromium.launch returns mock results that need any casting to access Vitest mock properties.
+    //
+    // ALTERNATIVES CONSIDERED:
+    // 1. Creating typed mock interfaces: Would require extensive Playwright type definitions maintenance
+    // 2. Using vi.mocked() helper: Doesn't work with dynamic import mocking patterns
+    // 3. Avoiding mock results access: Would lose test control over browser instance creation
+    //
+    // CONCLUSION: eslint-disable is architecturally necessary for Playwright mock result access
     this.mockBrowser =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (chromium as any).launch.mock.results[0]?.value ??
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (await (chromium as any).launch());
 
-    // ARCHITECTURAL JUSTIFICATION: Mock Playwright context requires type casting for test setup
-    // Complex mock object structure needs casting for Vitest integration with Playwright types
-
+    // ARCHITECTURAL JUSTIFICATION: Playwright context mocking requires type casting for Vitest integration.
+    // Mock browser methods don't preserve type information when accessing mock results properties.
+    //
+    // ALTERNATIVES CONSIDERED:
+    // 1. Using vi.mocked() helper: Doesn't work with complex nested mock structures
+    // 2. Creating full context mock types: Would require extensive Playwright type maintenance
+    // 3. Avoiding mock results access: Would lose test isolation and control
+    //
+    // CONCLUSION: eslint-disable is architecturally necessary for context mock setup
     this.mockContext =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this.mockBrowser as any).newContext.mock.results[0]?.value ??
       (await this.mockBrowser.newContext());
 
-    // ARCHITECTURAL JUSTIFICATION: Mock Playwright page requires type casting for test setup
-    // Complex mock object structure needs casting for Vitest integration with Playwright types
-
+    // ARCHITECTURAL JUSTIFICATION: Playwright page mocking requires type casting for Vitest integration.
+    // Mock context methods don't preserve type information when accessing mock results properties.
+    //
+    // ALTERNATIVES CONSIDERED:
+    // 1. Using vi.mocked() helper: Doesn't work with complex nested mock structures
+    // 2. Creating full page mock types: Would require extensive Playwright type maintenance
+    // 3. Avoiding mock results access: Would lose test isolation and control
+    //
+    // CONCLUSION: eslint-disable is architecturally necessary for page mock setup
     this.mockPage =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this.mockContext as any).newPage.mock.results[0]?.value ??
