@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.0...v1.7.1) (2025-08-25)
+
+### Bug Fixes
+
+- Update README badges to show current coverage and version
+  ([0ff7dd4](https://github.com/zachatkinson/drivehr-netlify-sync/commit/0ff7dd4303a765ec49841261bb7eea840c906c8d))
+
 # [1.7.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.6.1...v1.7.0) (2025-08-25)
 
 ### Features
