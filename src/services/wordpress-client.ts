@@ -477,16 +477,12 @@ class WordPressWebhookSyncOperation extends SyncOperationTemplate {
     const payload = JSON.stringify(context.syncRequest);
     const signature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
 
-    const response = await this.httpClient.post<JobSyncResponse>(
-      this.config.baseUrl,
-      context.syncRequest,
-      {
-        'Content-Type': 'application/json',
-        'X-Webhook-Signature': signature,
-        'X-Request-ID': context.requestId,
-        'User-Agent': 'DriveHR-Sync-Netlify/1.0',
-      }
-    );
+    const response = await this.httpClient.post<JobSyncResponse>(this.config.baseUrl, payload, {
+      'Content-Type': 'application/json',
+      'X-Webhook-Signature': signature,
+      'X-Request-ID': context.requestId,
+      'User-Agent': 'DriveHR-Sync-Netlify/1.0',
+    });
 
     if (!response.success) {
       throw new WordPressClientError(
@@ -748,15 +744,11 @@ export class WordPressWebhookClient implements IWordPressClient {
       });
       const signature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
 
-      const response = await this.httpClient.post(
-        this.config.baseUrl,
-        { action: 'health_check' },
-        {
-          'Content-Type': 'application/json',
-          'X-Webhook-Signature': signature,
-          'User-Agent': 'DriveHR-Sync-Netlify/1.0',
-        }
-      );
+      const response = await this.httpClient.post(this.config.baseUrl, payload, {
+        'Content-Type': 'application/json',
+        'X-Webhook-Signature': signature,
+        'User-Agent': 'DriveHR-Sync-Netlify/1.0',
+      });
 
       return response.success && response.status < 400;
     } catch (error) {

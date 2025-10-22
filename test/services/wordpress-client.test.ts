@@ -514,7 +514,22 @@ class WordPressClientTestUtils extends BaseTestUtils {
     payload: unknown,
     expectedHeaders: Record<string, string>
   ): void {
-    expect(this.mockHttpClient.post).toHaveBeenCalledWith(url, payload, expectedHeaders);
+    // Get the actual call to verify the stringified payload
+    const calls = this.mockHttpClient.post.mock.calls;
+    const lastCall = calls[calls.length - 1];
+
+    if (!lastCall) {
+      throw new Error('Expected mockHttpClient.post to have been called');
+    }
+
+    // Verify URL and headers
+    expect(lastCall[0]).toBe(url);
+    expect(lastCall[2]).toMatchObject(expectedHeaders);
+
+    // Parse the stringified payload and verify it matches expected structure
+    const actualPayload = JSON.parse(lastCall[1] as string);
+    const expectedPayload = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    expect(actualPayload).toMatchObject(expectedPayload as object);
   }
 
   /**
@@ -679,13 +694,15 @@ describe('WordPress Client Service', () => {
 
         expect(result.success).toBe(true);
         expect(result.syncedCount).toBe(3);
-        expect(WordPressClientTestUtils.mockHttpClient.post).toHaveBeenCalledWith(
+        WordPressClientTestUtils.verifyHttpCall(
           WordPressClientTestUtils.VALID_CONFIGS.basic.baseUrl,
           expect.objectContaining({
             source: 'manual',
             jobs: jobs,
           }),
-          expect.any(Object)
+          expect.objectContaining({
+            'Content-Type': 'application/json',
+          })
         );
       });
 
@@ -902,7 +919,7 @@ describe('WordPress Client Service', () => {
         expect(result).toBe(true);
         expect(WordPressClientTestUtils.mockHttpClient.post).toHaveBeenCalledWith(
           WordPressClientTestUtils.VALID_CONFIGS.basic.baseUrl,
-          { action: 'health_check' },
+          expect.stringContaining('health_check'),
           expect.objectContaining({
             'Content-Type': 'application/json',
             'X-Webhook-Signature': 'sha256=test-signature',
@@ -1079,16 +1096,13 @@ describe('WordPress Client Service', () => {
       expect(WordPressClientTestUtils.mockHttpClient.post).toHaveBeenNthCalledWith(
         1,
         WordPressClientTestUtils.VALID_CONFIGS.custom.baseUrl,
-        { action: 'health_check' },
+        expect.stringContaining('health_check'),
         expect.any(Object)
       );
       expect(WordPressClientTestUtils.mockHttpClient.post).toHaveBeenNthCalledWith(
         2,
         WordPressClientTestUtils.VALID_CONFIGS.custom.baseUrl,
-        expect.objectContaining({
-          source: 'manual',
-          jobs: jobs,
-        }),
+        expect.stringContaining('manual'),
         expect.any(Object)
       );
     });

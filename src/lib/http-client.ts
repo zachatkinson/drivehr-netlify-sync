@@ -615,7 +615,7 @@ export class HttpClient implements IHttpClient {
         const response = await fetch(fullUrl, {
           method,
           headers: requestHeaders,
-          body: data ? JSON.stringify(data) : undefined,
+          body: data ? (typeof data === 'string' ? data : JSON.stringify(data)) : undefined,
           signal: controller.signal,
         });
 

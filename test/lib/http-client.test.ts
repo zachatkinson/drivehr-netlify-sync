@@ -223,7 +223,7 @@ describe('HttpClient', () => {
           headers: expect.objectContaining({
             'Content-Type': 'text/plain',
           }),
-          body: '"raw data"',
+          body: 'raw data',
         })
       );
     });
