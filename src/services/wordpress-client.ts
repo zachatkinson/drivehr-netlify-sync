@@ -480,6 +480,7 @@ class WordPressWebhookSyncOperation extends SyncOperationTemplate {
     const response = await this.httpClient.post<JobSyncResponse>(this.config.baseUrl, payload, {
       'Content-Type': 'application/json',
       'X-Webhook-Signature': signature,
+      'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
       'X-Request-ID': context.requestId,
       'User-Agent': 'DriveHR-Sync-Netlify/1.0',
     });
@@ -747,6 +748,7 @@ export class WordPressWebhookClient implements IWordPressClient {
       const response = await this.httpClient.post(this.config.baseUrl, payload, {
         'Content-Type': 'application/json',
         'X-Webhook-Signature': signature,
+        'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
         'User-Agent': 'DriveHR-Sync-Netlify/1.0',
       });
 
