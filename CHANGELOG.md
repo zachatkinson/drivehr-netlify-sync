@@ -1,3 +1,11 @@
+## [1.7.6](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.5...v1.7.6) (2025-10-22)
+
+### Bug Fixes
+
+- **webhook:** add missing X-Webhook-Timestamp header required by WordPress
+  plugin
+  ([de3c22c](https://github.com/zachatkinson/drivehr-netlify-sync/commit/de3c22c973304ecad78d50c02c8a1cd11f83858d))
+
 ## [1.7.5](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.4...v1.7.5) (2025-10-22)
 
 ### Bug Fixes
