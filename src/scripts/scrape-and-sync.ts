@@ -183,6 +183,7 @@ class WordPressWebhookClient {
         headers: {
           'Content-Type': 'application/json',
           'X-Webhook-Signature': `sha256=${signature}`,
+          'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
           'User-Agent': 'DriveHR-GitHub-Actions/2.0',
         },
         body: payloadJson,
