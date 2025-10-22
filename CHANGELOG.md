@@ -1,3 +1,10 @@
+## [1.7.3](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.2...v1.7.3) (2025-10-22)
+
+### Bug Fixes
+
+- **ci:** add TypeScript build step to scrape-jobs workflow
+  ([6a0868d](https://github.com/zachatkinson/drivehr-netlify-sync/commit/6a0868d23f9b306520771e3e5d165f5b6ac36342))
+
 ## [1.7.2](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.1...v1.7.2) (2025-10-22)
 
 ### Bug Fixes
