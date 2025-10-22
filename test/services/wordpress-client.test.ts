@@ -515,7 +515,8 @@ class WordPressClientTestUtils extends BaseTestUtils {
     expectedHeaders: Record<string, string>
   ): void {
     // Get the actual call to verify the stringified payload
-    const calls = this.mockHttpClient.post.mock.calls;
+    const postMock = this.mockHttpClient.post as ReturnType<typeof vi.fn>;
+    const calls = postMock.mock.calls;
     const lastCall = calls[calls.length - 1];
 
     if (!lastCall) {
