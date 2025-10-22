@@ -28,7 +28,7 @@
     "docs:serve": "typedoc --watch",
     "prepare": "husky install",
     "precommit": "lint-staged",
-    "scrape-and-sync": "node dist/scripts/scrape-and-sync.mjs",
+    "scrape-and-sync": "node dist/scripts/scrape-and-sync.js",
     "inspect-jobs": "tsx scripts/job-data-tools.mts",
     "inspect-test-data": "tsx scripts/inspect-test-data.mts",
     "browse-jobs": "tsx scripts/browse-job-data.mts",
