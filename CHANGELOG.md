@@ -1,3 +1,10 @@
+## [1.7.2](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.1...v1.7.2) (2025-10-22)
+
+### Bug Fixes
+
+- **deps:** resolve moderate security vulnerabilities in Playwright
+  ([d155c9a](https://github.com/zachatkinson/drivehr-netlify-sync/commit/d155c9a67cf65529ec8929fd76d3fa1413cc8e24))
+
 ## [1.7.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.0...v1.7.1) (2025-08-25)
 
 ### Bug Fixes
