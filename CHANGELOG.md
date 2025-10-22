@@ -1,3 +1,10 @@
+## [1.7.4](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.3...v1.7.4) (2025-10-22)
+
+### Bug Fixes
+
+- **ci:** correct script extension from .mjs to .js
+  ([4c4d85d](https://github.com/zachatkinson/drivehr-netlify-sync/commit/4c4d85d6b017e25b9b0179239c9a20980f8befb4))
+
 ## [1.7.3](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.2...v1.7.3) (2025-10-22)
 
 ### Bug Fixes
