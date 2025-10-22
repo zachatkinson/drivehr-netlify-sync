@@ -1,3 +1,10 @@
+## [1.7.7](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.6...v1.7.7) (2025-10-22)
+
+### Bug Fixes
+
+- **webhook:** add X-Webhook-Timestamp to scrape-and-sync direct fetch
+  ([e369e0d](https://github.com/zachatkinson/drivehr-netlify-sync/commit/e369e0df8d4b02600e793f8ce2b1fc0b231bd023))
+
 ## [1.7.6](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.5...v1.7.6) (2025-10-22)
 
 ### Bug Fixes
