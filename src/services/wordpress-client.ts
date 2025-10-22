@@ -476,11 +476,21 @@ class WordPressWebhookSyncOperation extends SyncOperationTemplate {
 
     const payload = JSON.stringify(context.syncRequest);
     const signature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+
+    logger.info('[DEBUG] WordPress Webhook Request', {
+      url: this.config.baseUrl,
+      payloadLength: payload.length,
+      signature,
+      timestamp,
+      secretLength: this.webhookSecret.length,
+      payloadPreview: payload.substring(0, 200),
+    });
 
     const response = await this.httpClient.post<JobSyncResponse>(this.config.baseUrl, payload, {
       'Content-Type': 'application/json',
       'X-Webhook-Signature': signature,
-      'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
+      'X-Webhook-Timestamp': timestamp,
       'X-Request-ID': context.requestId,
       'User-Agent': 'DriveHR-Sync-Netlify/1.0',
     });
