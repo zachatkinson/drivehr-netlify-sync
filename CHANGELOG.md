@@ -1,3 +1,12 @@
+## [1.7.5](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.4...v1.7.5) (2025-10-22)
+
+### Bug Fixes
+
+- **tests:** resolve TypeScript error in mock type assertion
+  ([41e8823](https://github.com/zachatkinson/drivehr-netlify-sync/commit/41e88232eb7f3efceac5c25f4d9ed80d252c4947))
+- **webhook:** resolve HMAC signature mismatch causing 401 errors
+  ([c81dd6a](https://github.com/zachatkinson/drivehr-netlify-sync/commit/c81dd6a0836c06fe2c42fed338fa51efeea718b3))
+
 ## [1.7.4](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.3...v1.7.4) (2025-10-22)
 
 ### Bug Fixes
