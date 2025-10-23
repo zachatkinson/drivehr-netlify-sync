@@ -816,6 +816,43 @@ export class PlaywrightScraper {
         }
       }
 
+      function extractIframeDescription(specificContent: Element): string {
+        try {
+          const iframe = specificContent.querySelector('iframe') as HTMLIFrameElement;
+          if (!iframe) {
+            // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging for iframe discovery in Playwright's page.evaluate(). Console logging is essential for diagnosing iframe extraction issues.
+            console.log('No iframe found in content');
+            return '';
+          }
+
+          const iframeDoc = iframe.contentDocument ?? iframe.contentWindow?.document;
+          if (!iframeDoc) {
+            // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging for iframe document access in Playwright's page.evaluate(). Console logging is critical for diagnosing cross-origin or loading issues.
+            console.log('Cannot access iframe document');
+            return '';
+          }
+
+          const iframeBody = iframeDoc.body;
+          if (!iframeBody) {
+            // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging for iframe body access in Playwright's page.evaluate(). Console logging helps diagnose iframe content loading issues.
+            console.log('Iframe has no body');
+            return '';
+          }
+
+          // Get clean text from iframe body
+          const descriptionText = iframeBody.textContent?.trim() ?? '';
+          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging for iframe content extraction in Playwright's page.evaluate(). Console logging provides essential feedback about extracted content length.
+          console.log(`Iframe description extracted: ${descriptionText.length} characters`);
+          return descriptionText;
+        } catch (error) {
+          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context error logging in Playwright's page.evaluate(). Console logging is the only mechanism to report extraction errors from browser context.
+          console.log(
+            `Error extracting iframe: ${error instanceof Error ? error.message : String(error)}`
+          );
+          return '';
+        }
+      }
+
       function createJobDescription(buttonText: string, contentText: string): string {
         const cleanButtonText = buttonText.replace(/\s+/g, ' ').trim();
         const cleanContentText = contentText.replace(/\s+/g, ' ').trim();
@@ -854,7 +891,14 @@ export class PlaywrightScraper {
           const metadata = extractJobMetadata(elementText);
           const department = extractDepartment(buttonInfo.fullButtonText);
           const apply_url = extractApplyUrl(specificContent);
-          const description = createJobDescription(buttonInfo.fullButtonText, elementText);
+
+          // Extract description from iframe (clean job description)
+          const iframeDescription = extractIframeDescription(specificContent);
+          // Fallback to metadata text if iframe is empty (use || for empty string fallback)
+          const description =
+            iframeDescription !== ''
+              ? iframeDescription
+              : createJobDescription(buttonInfo.fullButtonText, elementText);
           const jobId = generateJobId(buttonInfo.title, buttonIndex);
 
           return {
