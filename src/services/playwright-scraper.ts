@@ -842,35 +842,7 @@ export class PlaywrightScraper {
           }
         });
 
-        // Convert bold paragraphs to H3 headings for better semantic HTML
-        // Pattern: <p><b>Text</b></p> or <p><b>Text</b><br></p>
-        const paragraphs = tempDiv.querySelectorAll('p');
-        paragraphs.forEach(p => {
-          // Check if paragraph contains only bold text (and maybe a br tag)
-          const children = Array.from(p.childNodes);
-          if (children.length === 0) return;
-
-          const firstChild = children[0];
-          const secondChild = children[1];
-
-          const isSingleBold = children.length === 1 && firstChild?.nodeName === 'B';
-          const isBoldWithBr =
-            children.length === 2 &&
-            firstChild?.nodeName === 'B' &&
-            (secondChild?.nodeName === 'BR' || secondChild?.textContent?.trim() === '');
-
-          if (isSingleBold || isBoldWithBr) {
-            const boldText = p.querySelector('b')?.textContent?.trim() ?? '';
-            // Convert to H3 if text is short enough to be a heading (< 100 chars)
-            if (boldText.length > 0 && boldText.length < 100) {
-              const h3 = document.createElement('h3');
-              h3.textContent = boldText;
-              p.replaceWith(h3);
-            }
-          }
-        });
-
-        // Get the cleaned HTML
+        // Return the normalized HTML with original structure preserved
         return tempDiv.innerHTML.trim();
       }
 
@@ -929,14 +901,36 @@ export class PlaywrightScraper {
         return cleanButtonText || cleanContentText || '';
       }
 
-      function generateJobId(title: string, buttonIndex: number): string {
+      function generateJobId(title: string, location: string, buttonId?: string): string {
+        // Use button ID if available and not empty (most stable)
+        if (buttonId && buttonId.trim() !== '') {
+          return `drivehr-${buttonId}`;
+        }
+
+        // Fallback: Generate stable hash from title + location
         const normalizedTitle = title
           .toLowerCase()
           .replace(/[^a-z0-9\s]/g, '')
           .replace(/\s+/g, '-')
           .substring(0, 30);
-        const timestamp = Date.now();
-        const fullId = `scraped-${normalizedTitle}-${buttonIndex}-${timestamp}`;
+
+        const normalizedLocation = location
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .replace(/\s+/g, '-')
+          .substring(0, 20);
+
+        // Simple hash function for stability (not cryptographic)
+        const hashInput = `${title}-${location}`;
+        let hash = 0;
+        for (let i = 0; i < hashInput.length; i++) {
+          const char = hashInput.charCodeAt(i);
+          hash = (hash << 5) - hash + char;
+          hash = hash & hash; // Convert to 32bit integer
+        }
+        const hashStr = Math.abs(hash).toString(36);
+
+        const fullId = `scraped-${normalizedTitle}-${normalizedLocation}-${hashStr}`;
         return fullId.length > 70 ? fullId.substring(0, 67) + '...' : fullId;
       }
 
@@ -963,7 +957,7 @@ export class PlaywrightScraper {
             iframeDescription !== ''
               ? iframeDescription
               : createJobDescription(buttonInfo.fullButtonText, elementText);
-          const jobId = generateJobId(buttonInfo.title, buttonIndex);
+          const jobId = generateJobId(buttonInfo.title, metadata.location, buttonInfo.buttonId);
 
           return {
             id: jobId,
