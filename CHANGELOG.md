@@ -1,3 +1,12 @@
+# [1.8.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.8...v1.8.0) (2025-10-23)
+
+### Features
+
+- **scraper:** convert bold section titles to semantic H3 headings
+  ([3e244cd](https://github.com/zachatkinson/drivehr-netlify-sync/commit/3e244cd5103b1027b553f2b9775ef320fe5d90ef))
+- **scraper:** preserve HTML formatting while normalizing job descriptions
+  ([6877a09](https://github.com/zachatkinson/drivehr-netlify-sync/commit/6877a0987187b8413b5db3bb780345bb5ca0a599))
+
 ## [1.7.8](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.7...v1.7.8) (2025-10-23)
 
 ### Bug Fixes
