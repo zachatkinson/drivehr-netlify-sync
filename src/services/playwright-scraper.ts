@@ -816,6 +816,36 @@ export class PlaywrightScraper {
         }
       }
 
+      function normalizeJobHTML(html: string): string {
+        // Create a temporary container to parse and clean HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+
+        // Remove all inline styles
+        const elementsWithStyle = tempDiv.querySelectorAll('[style]');
+        elementsWithStyle.forEach(el => el.removeAttribute('style'));
+
+        // Remove language attributes
+        const elementsWithLang = tempDiv.querySelectorAll('[lang]');
+        elementsWithLang.forEach(el => el.removeAttribute('lang'));
+
+        // Unwrap unnecessary span tags (keep the content, remove the tag)
+        const spans = tempDiv.querySelectorAll('span');
+        spans.forEach(span => {
+          // If span has no attributes, unwrap it
+          if (!span.hasAttributes()) {
+            const parent = span.parentNode;
+            while (span.firstChild) {
+              parent?.insertBefore(span.firstChild, span);
+            }
+            parent?.removeChild(span);
+          }
+        });
+
+        // Get the cleaned HTML
+        return tempDiv.innerHTML.trim();
+      }
+
       function extractIframeDescription(specificContent: Element): string {
         try {
           const iframe = specificContent.querySelector('iframe') as HTMLIFrameElement;
@@ -839,11 +869,17 @@ export class PlaywrightScraper {
             return '';
           }
 
-          // Get clean text from iframe body
-          const descriptionText = iframeBody.textContent?.trim() ?? '';
+          // Get HTML content from iframe body to preserve formatting (bold, italics, links, paragraphs, etc.)
+          const rawHTML = iframeBody.innerHTML?.trim() ?? '';
+
+          // Normalize HTML: remove inline styles, clean up unnecessary tags
+          const cleanHTML = normalizeJobHTML(rawHTML);
+
           // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging for iframe content extraction in Playwright's page.evaluate(). Console logging provides essential feedback about extracted content length.
-          console.log(`Iframe description extracted: ${descriptionText.length} characters`);
-          return descriptionText;
+          console.log(
+            `Iframe description extracted: ${cleanHTML.length} characters (normalized HTML)`
+          );
+          return cleanHTML;
         } catch (error) {
           // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context error logging in Playwright's page.evaluate(). Console logging is the only mechanism to report extraction errors from browser context.
           console.log(
