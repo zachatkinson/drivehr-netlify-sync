@@ -842,6 +842,34 @@ export class PlaywrightScraper {
           }
         });
 
+        // Convert bold paragraphs to H3 headings for better semantic HTML
+        // Pattern: <p><b>Text</b></p> or <p><b>Text</b><br></p>
+        const paragraphs = tempDiv.querySelectorAll('p');
+        paragraphs.forEach(p => {
+          // Check if paragraph contains only bold text (and maybe a br tag)
+          const children = Array.from(p.childNodes);
+          if (children.length === 0) return;
+
+          const firstChild = children[0];
+          const secondChild = children[1];
+
+          const isSingleBold = children.length === 1 && firstChild?.nodeName === 'B';
+          const isBoldWithBr =
+            children.length === 2 &&
+            firstChild?.nodeName === 'B' &&
+            (secondChild?.nodeName === 'BR' || secondChild?.textContent?.trim() === '');
+
+          if (isSingleBold || isBoldWithBr) {
+            const boldText = p.querySelector('b')?.textContent?.trim() ?? '';
+            // Convert to H3 if text is short enough to be a heading (< 100 chars)
+            if (boldText.length > 0 && boldText.length < 100) {
+              const h3 = document.createElement('h3');
+              h3.textContent = boldText;
+              p.replaceWith(h3);
+            }
+          }
+        });
+
         // Get the cleaned HTML
         return tempDiv.innerHTML.trim();
       }
