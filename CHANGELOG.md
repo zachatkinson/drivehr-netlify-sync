@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.8.0...v1.8.1) (2025-10-23)
+
+### Bug Fixes
+
+- **scraper:** generate stable job IDs based on title and location
+  ([caa8028](https://github.com/zachatkinson/drivehr-netlify-sync/commit/caa8028722d28cbc5fe9b7471479eb40d8df48e6))
+
 # [1.8.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.8...v1.8.0) (2025-10-23)
 
 ### Features
