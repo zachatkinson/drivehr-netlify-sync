@@ -1,3 +1,10 @@
+## [1.7.8](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.7...v1.7.8) (2025-10-23)
+
+### Bug Fixes
+
+- **scraper:** extract clean job description from iframe instead of metadata
+  ([4f3dc9f](https://github.com/zachatkinson/drivehr-netlify-sync/commit/4f3dc9ff9cd83bed3f05f537281ff0bb87bd1f88))
+
 ## [1.7.7](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.7.6...v1.7.7) (2025-10-22)
 
 ### Bug Fixes
