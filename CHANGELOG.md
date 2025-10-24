@@ -1,3 +1,11 @@
+## [1.9.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.9.0...v1.9.1) (2025-10-24)
+
+### Bug Fixes
+
+- **scraper:** change selector from button to div for Element UI collapse
+  headers
+  ([3727d99](https://github.com/zachatkinson/drivehr-netlify-sync/commit/3727d99b3f2b1325a8767193e4339ea0d756ff40))
+
 # [1.9.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.8.1...v1.9.0) (2025-10-24)
 
 ### Features
