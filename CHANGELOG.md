@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.8.1...v1.9.0) (2025-10-24)
+
+### Features
+
+- **scraper:** construct apply URLs from detail page pattern instead of scraping
+  ([c6eae77](https://github.com/zachatkinson/drivehr-netlify-sync/commit/c6eae77f62da285263bfdf57dd7ed246bd748643))
+
 ## [1.8.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.8.0...v1.8.1) (2025-10-23)
 
 ### Bug Fixes
