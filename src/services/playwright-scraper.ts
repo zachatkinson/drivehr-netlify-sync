@@ -719,12 +719,13 @@ export class PlaywrightScraper {
         return [];
       }
 
-      // Step 2: Extract job button information
+      // Step 2: Extract job button information including detail page URLs
       const buttonData: Array<{
         index: number;
         buttonId: string;
         title: string;
         fullButtonText: string;
+        detailUrl: string;
       }> = [];
 
       Array.from(jobButtons).forEach((button, index) => {
@@ -732,14 +733,16 @@ export class PlaywrightScraper {
         // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for job extraction diagnostics. Console logging is the only available debugging mechanism in browser context for tracking job processing iterations.
         console.log(`Processing button ${index}: ${text.substring(0, 50)}...`);
 
-        // Extract title from button text - use the link text or first meaningful part
+        // Extract title and detail page URL from the link
         let title = '';
-        const titleLink = button.querySelector('a.list-title-link');
+        let detailUrl = '';
+        const titleLink = button.querySelector('a.list-title-link') as HTMLAnchorElement;
         if (titleLink) {
           title = titleLink.textContent?.trim() || '';
+          detailUrl = titleLink.href || '';
         }
 
-        // Fallback: extract from button text if no link found
+        // Fallback: extract title from button text if no link found
         if (!title) {
           const match = text.match(/^([^,]+)/); // Take everything before first comma
           if (match?.[1]) {
@@ -753,9 +756,10 @@ export class PlaywrightScraper {
             buttonId: (button as HTMLButtonElement).id,
             title,
             fullButtonText: text.trim(),
+            detailUrl,
           });
           // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for tracking successful job data extraction. Console logging provides essential feedback for job discovery validation in browser context.
-          console.log(`Added job: ${title}`);
+          console.log(`Added job: ${title} (detail: ${detailUrl})`);
         }
       });
 
@@ -807,13 +811,22 @@ export class PlaywrightScraper {
         return deptMatch?.[0]?.trim() ?? '';
       }
 
-      function extractApplyUrl(specificContent: Element): string {
-        try {
-          const linkEl = specificContent.querySelector('a[href]') as HTMLAnchorElement;
-          return linkEl?.href ?? '';
-        } catch {
+      /**
+       * Constructs apply URL from detail page URL
+       *
+       * Apply URLs follow the pattern: {detailUrl}/form
+       * For example: https://drivehris.app/careers/{companyId}/list/{jobId}/form
+       *
+       * @param detailUrl - The job detail page URL
+       * @returns The constructed apply URL, or empty string if detail URL is invalid
+       * @since 1.9.4
+       */
+      function extractApplyUrl(detailUrl: string): string {
+        if (!detailUrl || detailUrl.trim() === '') {
           return '';
         }
+        // Apply URL is detail URL + /form
+        return `${detailUrl}/form`;
       }
 
       function normalizeJobHTML(html: string): string {
@@ -948,7 +961,7 @@ export class PlaywrightScraper {
           const elementText = specificContent.textContent ?? '';
           const metadata = extractJobMetadata(elementText);
           const department = extractDepartment(buttonInfo.fullButtonText);
-          const apply_url = extractApplyUrl(specificContent);
+          const apply_url = extractApplyUrl(buttonInfo.detailUrl);
 
           // Extract description from iframe (clean job description)
           const iframeDescription = extractIframeDescription(specificContent);
@@ -999,7 +1012,9 @@ export class PlaywrightScraper {
     } else {
       logger.info('✅ SUCCESS: Jobs successfully extracted');
       extractionResult.forEach((job, index) => {
-        logger.info(`  Job ${index + 1}: ${job.title} (${job.department})`);
+        logger.info(
+          `  Job ${index + 1}: ${job.title} (${job.department}) - Apply: ${job.apply_url}`
+        );
       });
     }
 

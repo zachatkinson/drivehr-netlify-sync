@@ -136,3 +136,7 @@ test-output.json
 # See wordpress-connection/README.md for plugin development instructions
 wordpress-connection/
 *.zip*.bak
+
+# Reference/Research directories
+# Third-party codebases used for research and reference only
+kadence-blocks/
