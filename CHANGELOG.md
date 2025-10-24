@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.9.1...v1.10.0) (2025-10-24)
+
+### Features
+
+- **scraper:** remove redundant company name suffix from job titles
+  ([d9337df](https://github.com/zachatkinson/drivehr-netlify-sync/commit/d9337df3f8ab36e1aa35437b07420af8fb99e07b))
+
 ## [1.9.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.9.0...v1.9.1) (2025-10-24)
 
 ### Bug Fixes
