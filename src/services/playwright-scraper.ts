@@ -749,6 +749,10 @@ export class PlaywrightScraper {
           }
         }
 
+        // Remove redundant company name suffix (e.g., ", Consolidated Dealers")
+        // Users are already on the company website, so company name is redundant
+        title = title.replace(/,\s*Consolidated Dealers\s*$/i, '').trim();
+
         if (title) {
           buttonData.push({
             index,
