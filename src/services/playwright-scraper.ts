@@ -643,14 +643,13 @@ export class PlaywrightScraper {
         title: document.title,
         readyState: document.readyState,
         collapseItems: document.querySelectorAll('.el-collapse-item').length,
-        collapseButtons: document.querySelectorAll('button.el-collapse-item__header').length,
+        collapseButtons: document.querySelectorAll('.el-collapse-item__header').length,
         titleLinks: document.querySelectorAll('a.list-title-link').length,
         bodyTextLength: document.body.textContent?.length ?? 0,
         hasElementUI: document.querySelectorAll('[class*="el-"]').length > 0,
         firstJobText:
-          document
-            .querySelector('button.el-collapse-item__header')
-            ?.textContent?.substring(0, 100) ?? 'No job found',
+          document.querySelector('.el-collapse-item__header')?.textContent?.substring(0, 100) ??
+          'No job found',
       };
       /* eslint-enable no-undef */
     });
@@ -660,7 +659,7 @@ export class PlaywrightScraper {
     logger.info(`  Title: ${pageState.title}`);
     logger.info(`  Ready State: ${pageState.readyState}`);
     logger.info(`  .el-collapse-item elements: ${pageState.collapseItems}`);
-    logger.info(`  button.el-collapse-item__header elements: ${pageState.collapseButtons}`);
+    logger.info(`  .el-collapse-item__header elements: ${pageState.collapseButtons}`);
     logger.info(`  a.list-title-link elements: ${pageState.titleLinks}`);
     logger.info(`  Body text length: ${pageState.bodyTextLength}`);
     logger.info(`  Has Element UI: ${pageState.hasElementUI}`);
@@ -676,7 +675,7 @@ export class PlaywrightScraper {
     logger.info('🖱️ Expanding all Element UI job buttons...');
     const expandResult = await page.evaluate(() => {
       /* eslint-disable no-undef */
-      const jobButtons = document.querySelectorAll('button.el-collapse-item__header');
+      const jobButtons = document.querySelectorAll('.el-collapse-item__header');
       let clickedCount = 0;
 
       Array.from(jobButtons).forEach((button, index) => {
@@ -711,7 +710,7 @@ export class PlaywrightScraper {
       const jobs: RawJobData[] = [];
 
       // Step 1: Find all job buttons (Element UI collapse headers)
-      const jobButtons = document.querySelectorAll('button.el-collapse-item__header');
+      const jobButtons = document.querySelectorAll('.el-collapse-item__header');
       // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() requires console statements for diagnostic logging. This provides essential debugging information for Element UI component discovery and is captured by Playwright's debugging infrastructure.
       console.log(`Found ${jobButtons.length} job buttons for extraction`);
 
