@@ -424,7 +424,9 @@ export class JobNormalizer {
    *
    * Extracts job description/summary information from raw job data by checking
    * multiple possible field names commonly used across different data sources.
-   * Normalizes whitespace and returns empty string if no description is found.
+   * Sanitizes HTML to remove non-standard attributes that may cause WordPress
+   * wp_kses_post() to truncate content. Normalizes whitespace and returns empty
+   * string if no description is found.
    *
    * Supported field name variations:
    * - 'description': Standard job description field
@@ -432,7 +434,7 @@ export class JobNormalizer {
    * - 'overview': Job overview field
    *
    * @param rawJob - Raw job data object from any supported source
-   * @returns Normalized description string with trimmed whitespace
+   * @returns Sanitized and normalized description string with trimmed whitespace
    * @example
    * ```typescript
    * const normalizer = new JobNormalizer();
@@ -449,7 +451,97 @@ export class JobNormalizer {
    */
   private extractJobDescription(rawJob: RawJobData): string {
     const description = rawJob.description ?? rawJob.summary ?? rawJob.overview ?? '';
-    return description.trim();
+    return this.sanitizeHtml(description.trim());
+  }
+
+  /**
+   * Sanitize HTML content for WordPress compatibility
+   *
+   * Removes non-standard HTML attributes that may cause WordPress wp_kses_post()
+   * to truncate or malform content. This includes attributes like `start` on `<p>`
+   * tags (which is only valid on `<ol>` tags) and other deprecated or non-standard
+   * attributes that may appear in scraped content from various job board platforms.
+   *
+   * The sanitization process:
+   * 1. Removes `start` attribute from non-list elements (p, div, span, etc.)
+   * 2. Removes deprecated HTML attributes (align, bgcolor, border on non-table elements)
+   * 3. Removes empty style attributes
+   * 4. Removes Microsoft Office/Word specific attributes (mso-*, o:*)
+   * 5. Normalizes multiple consecutive whitespace
+   *
+   * @param html - Raw HTML content that may contain non-standard attributes
+   * @returns Sanitized HTML safe for WordPress processing
+   * @example
+   * ```typescript
+   * const normalizer = new JobNormalizer();
+   *
+   * const dirtyHtml = '<p start="3">Some text</p><p start="4">More text</p>';
+   * const cleanHtml = normalizer.sanitizeHtml(dirtyHtml);
+   * console.log(cleanHtml); // '<p>Some text</p><p>More text</p>'
+   *
+   * const msHtml = '<p class="MsoNormal" style="mso-line-height:normal">Text</p>';
+   * const cleanMsHtml = normalizer.sanitizeHtml(msHtml);
+   * console.log(cleanMsHtml); // '<p class="MsoNormal">Text</p>'
+   * ```
+   * @since 2.1.0
+   */
+  private sanitizeHtml(html: string): string {
+    if (!html) {
+      return '';
+    }
+
+    let sanitized = html;
+
+    // Remove 'start' attribute from non-list elements (only valid on <ol>)
+    // Matches: <p start="3">, <div start="1">, <span start="2">, etc.
+    sanitized = sanitized.replace(
+      /<(p|div|span|h[1-6]|section|article|aside|header|footer|main|nav)(\s[^>]*?)\sstart\s*=\s*["'][^"']*["']([^>]*)>/gi,
+      '<$1$2$3>'
+    );
+    sanitized = sanitized.replace(
+      /<(p|div|span|h[1-6]|section|article|aside|header|footer|main|nav)\sstart\s*=\s*["'][^"']*["'](\s[^>]*)>/gi,
+      '<$1$2>'
+    );
+    sanitized = sanitized.replace(
+      /<(p|div|span|h[1-6]|section|article|aside|header|footer|main|nav)\sstart\s*=\s*["'][^"']*["']>/gi,
+      '<$1>'
+    );
+
+    // Remove deprecated HTML attributes on non-table elements
+    // align attribute (deprecated in HTML5, only valid on specific elements like table/td/th)
+    // Handle align as middle attribute: <p class="x" align="center" id="y">
+    sanitized = sanitized.replace(
+      /<(p|div|span|h[1-6]|section|article)(\s[^>]*?)\salign\s*=\s*["'][^"']*["']([^>]*)>/gi,
+      '<$1$2$3>'
+    );
+    // Handle align as first attribute with others after: <p align="center" class="x">
+    sanitized = sanitized.replace(
+      /<(p|div|span|h[1-6]|section|article)\salign\s*=\s*["'][^"']*["'](\s[^>]*)>/gi,
+      '<$1$2>'
+    );
+    // Handle align as only attribute: <p align="center">
+    sanitized = sanitized.replace(
+      /<(p|div|span|h[1-6]|section|article)\salign\s*=\s*["'][^"']*["']>/gi,
+      '<$1>'
+    );
+
+    // Remove Microsoft Office specific style properties (mso-*)
+    // Use [^;"']+ to stop at semicolons OR quotes (prevents matching past style attribute)
+    sanitized = sanitized.replace(/mso-[a-z-]+\s*:\s*[^;"']+;?\s*/gi, '');
+
+    // Remove empty style attributes that may result from above cleanup
+    sanitized = sanitized.replace(/\sstyle\s*=\s*["']\s*["']/gi, '');
+
+    // Remove o: namespace attributes (Microsoft Office XML)
+    sanitized = sanitized.replace(/\so:[a-z]+\s*=\s*["'][^"']*["']/gi, '');
+
+    // Normalize multiple spaces to single space (but preserve newlines)
+    sanitized = sanitized.replace(/[ \t]+/g, ' ');
+
+    // Clean up any resulting empty tags with just whitespace attributes
+    sanitized = sanitized.replace(/<(\w+)\s+>/g, '<$1>');
+
+    return sanitized.trim();
   }
 
   /**

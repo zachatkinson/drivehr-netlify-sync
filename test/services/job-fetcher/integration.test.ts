@@ -233,6 +233,57 @@ describe('Job Fetcher Integration Tests', () => {
     expect(normalizedJob.processedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 
+  it('should sanitize HTML descriptions with non-standard attributes', async () => {
+    const rawJobsWithDirtyHtml = [
+      {
+        id: 'html-test-1',
+        title: 'Operations Coordinator',
+        department: 'Operations',
+        location: 'Edmonton, AB',
+        type: 'Full-time',
+        description:
+          '<p start="1">First paragraph with invalid start attr.</p>' +
+          '<p start="2">Second paragraph.</p>' +
+          '<p start="3" class="info">Third with class.</p>' +
+          '<div start="4">Div with start.</div>' +
+          '<p style="mso-line-height:normal">MS Office styled text.</p>' +
+          '<p align="center">Deprecated align.</p>' +
+          '<ol start="5"><li>Valid start on ol</li></ol>',
+        posted_date: '2024-01-20T10:00:00Z',
+        apply_url: 'https://example.com/apply/html-test-1',
+      },
+    ];
+
+    vi.mocked(IntegrationTestUtils.mockHtmlParser.parseJobsFromHtml).mockReturnValue(
+      rawJobsWithDirtyHtml
+    );
+
+    const result = await service.fetchJobs(IntegrationTestUtils.STANDARD_CONFIG, 'webhook');
+
+    expect(result.success).toBe(true);
+    expect(result.jobs).toHaveLength(1);
+
+    const normalizedJob = result.jobs[0] as NormalizedJob;
+
+    // Verify start attribute is removed from p, div but preserved on ol
+    expect(normalizedJob.description).not.toContain('<p start=');
+    expect(normalizedJob.description).not.toContain('<div start=');
+    expect(normalizedJob.description).toContain('<ol start="5">');
+
+    // Verify MS Office styles are removed
+    expect(normalizedJob.description).not.toContain('mso-');
+
+    // Verify deprecated align attribute is removed
+    expect(normalizedJob.description).not.toContain('align=');
+
+    // Verify content is preserved
+    expect(normalizedJob.description).toContain('First paragraph');
+    expect(normalizedJob.description).toContain('Second paragraph');
+    expect(normalizedJob.description).toContain('Third with class');
+    expect(normalizedJob.description).toContain('class="info"');
+    expect(normalizedJob.description).toContain('Valid start on ol');
+  });
+
   it('should handle concurrent fetch operations safely', async () => {
     const concurrentPromises = Array.from({ length: 3 }, (_, index) =>
       service.fetchJobs(IntegrationTestUtils.STANDARD_CONFIG, `source-${index}` as JobSource)
