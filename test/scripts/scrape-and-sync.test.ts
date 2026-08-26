@@ -44,7 +44,7 @@ import {
   type PlaywrightScraperConfig,
   type PlaywrightScrapeResult,
 } from '../../src/services/playwright-scraper.js';
-import { getEnvironmentConfig } from '../../src/lib/env.js';
+import { getEnvironmentConfig, getEnvVar } from '../../src/lib/env.js';
 import { getLogger } from '../../src/lib/logger.js';
 import { createHmac } from 'crypto';
 import type { NormalizedJob } from '../../src/types/job.js';
@@ -479,6 +479,29 @@ describe('Scrape and Sync Script', () => {
 
       // The script should still sync to WordPress when force sync is enabled
       expect(true).toBe(true); // Placeholder assertion
+    });
+
+    it('should fail the run when zero jobs are scraped and ALLOW_EMPTY_SCRAPE is not enabled', async () => {
+      ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
+
+      const result = await executeScrapeAndSync();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Scraped 0 jobs');
+      expect(result.jobsSynced).toBe(0);
+    });
+
+    it('should complete successfully when zero jobs are scraped but ALLOW_EMPTY_SCRAPE is enabled', async () => {
+      ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
+      vi.mocked(getEnvVar).mockImplementation((name: string) =>
+        name === 'ALLOW_EMPTY_SCRAPE' ? 'true' : undefined
+      );
+
+      const result = await executeScrapeAndSync();
+
+      expect(result.success).toBe(true);
+      expect(result.jobsScraped).toBe(0);
+      expect(result.jobsSynced).toBe(0);
     });
   });
 

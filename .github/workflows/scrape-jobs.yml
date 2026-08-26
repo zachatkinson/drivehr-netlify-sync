@@ -12,6 +12,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+      allow_empty:
+        description: 'Allow a zero-job scrape to pass (use only when the careers page is genuinely empty)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   scrape-and-sync:
@@ -48,6 +53,7 @@ jobs:
           ENVIRONMENT: production
           LOG_LEVEL: info
           FORCE_SYNC: ${{ github.event.inputs.force_sync || 'false' }}
+          ALLOW_EMPTY_SCRAPE: ${{ github.event.inputs.allow_empty || 'false' }}
         run: pnpm run scrape-and-sync
 
       - name: Upload job data artifact

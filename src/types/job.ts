@@ -377,13 +377,7 @@ export type FetchMethod = 'api' | 'json' | 'html' | 'json-ld' | 'embedded-js' | 
  * @since 1.0.0
  */
 export type JobType =
-  | 'Full-time'
-  | 'Part-time'
-  | 'Contract'
-  | 'Temporary'
-  | 'Internship'
-  | 'Remote'
-  | 'Hybrid';
+  'Full-time' | 'Part-time' | 'Contract' | 'Temporary' | 'Internship' | 'Remote' | 'Hybrid';
 
 /**
  * Job validation error interface

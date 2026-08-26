@@ -374,9 +374,8 @@ describe('Telemetry API Interface', () => {
     });
 
     it('should handle getBusinessMetrics errors gracefully when not initialized', async () => {
-      const { getBusinessMetrics, isTelemetryInitialized } = await import(
-        '../../src/lib/telemetry.js'
-      );
+      const { getBusinessMetrics, isTelemetryInitialized } =
+        await import('../../src/lib/telemetry.js');
 
       // Ensure telemetry is not initialized
       expect(isTelemetryInitialized()).toBe(false);
