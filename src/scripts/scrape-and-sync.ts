@@ -393,6 +393,35 @@ async function saveLogArtifact(
 }
 
 /**
+ * Fails the run when a scrape unexpectedly returns zero jobs
+ *
+ * Guards against silent sync outages: a zero-job scrape almost always means the
+ * careers page changed its markup or failed to render, not that hiring stopped.
+ * Failing loudly makes CI report a red run instead of a green no-op, so page
+ * structure changes are noticed immediately instead of weeks later. Operators
+ * can acknowledge a genuinely empty careers page with ALLOW_EMPTY_SCRAPE=true.
+ *
+ * @param totalCount - Number of jobs returned by the scrape
+ * @throws {Error} When zero jobs were scraped and ALLOW_EMPTY_SCRAPE is not 'true'
+ * @example
+ * ```typescript
+ * assertNonEmptyScrape(scrapeResult.totalCount);
+ * // Continues silently when jobs were found or the empty result is allowed
+ * ```
+ * @since 1.10.0
+ */
+function assertNonEmptyScrape(totalCount: number): void {
+  const allowEmptyScrape = getEnvVar('ALLOW_EMPTY_SCRAPE') === 'true';
+  if (totalCount === 0 && !allowEmptyScrape) {
+    throw new Error(
+      'Scraped 0 jobs from the careers page. Treating this as a failure because the live ' +
+        'page structure may have changed. If the careers page is genuinely empty, re-run ' +
+        'with ALLOW_EMPTY_SCRAPE=true to accept the empty result.'
+    );
+  }
+}
+
+/**
  * Main scrape and sync execution function
  *
  * Orchestrates the complete workflow from configuration loading through
@@ -441,6 +470,8 @@ async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
     }
 
     logger.info(`Successfully scraped ${scrapeResult.totalCount} jobs in ${scrapingTime}ms`);
+
+    assertNonEmptyScrape(scrapeResult.totalCount);
 
     // Save jobs artifact
     const jobsFile = await saveJobsArtifact(scrapeResult.jobs, runId);

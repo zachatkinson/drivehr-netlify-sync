@@ -2,15 +2,15 @@
  * Playwright-based Web Scraper for DriveHR Job Listings
  *
  * Enterprise-grade browser automation system using Playwright for dynamic job data extraction
- * from DriveHR Single Page Applications. Built specifically for Element UI components with
- * comprehensive fallback strategies, retry mechanisms, and detailed diagnostic logging.
+ * from DriveHR Single Page Applications. Built specifically for DriveHR's AG Grid job listing
+ * layout with comprehensive fallback strategies, retry mechanisms, and detailed diagnostic logging.
  *
  * This scraper handles complex SPA interactions, JavaScript-heavy content, and provides
- * multiple extraction strategies (Element UI, JSON-LD) with extensive error recovery.
+ * multiple extraction strategies (AG Grid, JSON-LD) with extensive error recovery.
  * Designed for reliability in CI/CD environments and production job synchronization workflows.
  *
  * Key Features:
- * - Element UI collapse component interaction and expansion
+ * - AG Grid row extraction with per-row detail expansion for full descriptions
  * - JSON-LD structured data extraction for fallback scenarios
  * - Configurable retry logic with exponential backoff
  * - Debug screenshot capture for troubleshooting
@@ -78,7 +78,7 @@ export interface PlaywrightScraperConfig {
   /**
    * CSS selector to wait for indicating page load completion
    *
-   * @default '.el-collapse-item'
+   * @default '.ag-row'
    * @since 1.0.0
    */
   waitForSelector?: string;
@@ -177,12 +177,31 @@ export interface PlaywrightScrapeResult {
 }
 
 /**
+ * Diagnostic snapshot of the careers page state prior to job extraction
+ *
+ * Captured in the browser context to verify the AG Grid job listing rendered
+ * before extraction begins, and logged for troubleshooting scraping issues.
+ *
+ * @since 1.10.0
+ */
+interface AgGridPageState {
+  url: string;
+  title: string;
+  readyState: string;
+  jobRows: number;
+  titleLinks: number;
+  bodyTextLength: number;
+  hasAgGrid: boolean;
+  firstJobText: string;
+}
+
+/**
  * Advanced web scraper using Playwright browser automation
  *
  * High-performance browser automation system designed specifically for DriveHR
- * Single Page Applications with Element UI components. Provides comprehensive
- * job data extraction with multiple fallback strategies, retry mechanisms,
- * and extensive error handling.
+ * Single Page Applications using an AG Grid job listing layout. Provides
+ * comprehensive job data extraction with multiple fallback strategies, retry
+ * mechanisms, and extensive error handling.
  *
  * The scraper handles complex JavaScript interactions, dynamic content loading,
  * and provides detailed diagnostic information for troubleshooting extraction
@@ -243,7 +262,7 @@ export class PlaywrightScraper {
     this.config = {
       headless: config.headless ?? true,
       timeout: config.timeout ?? 30000,
-      waitForSelector: config.waitForSelector ?? '.el-collapse-item',
+      waitForSelector: config.waitForSelector ?? '.ag-row',
       retries: config.retries ?? 3,
       debug: config.debug ?? false,
       userAgent: config.userAgent ?? 'DriveHR-Scraper/2.0 (GitHub Actions)',
@@ -265,7 +284,7 @@ export class PlaywrightScraper {
    * using Playwright browser automation. Implements retry logic, multiple
    * extraction strategies, and extensive error handling for production reliability.
    *
-   * The method handles SPA loading, Element UI interactions, and provides
+   * The method handles SPA loading, AG Grid interactions, and provides
    * detailed diagnostic information for troubleshooting extraction issues.
    *
    * @param apiConfig - DriveHR API configuration including company ID
@@ -443,7 +462,7 @@ export class PlaywrightScraper {
    *
    * Sets up timeouts, resource blocking, and debug logging for the page.
    * Blocks unnecessary resources (images, fonts, media) to improve loading
-   * speed while preserving stylesheets needed for Element UI rendering.
+   * speed while preserving stylesheets needed for AG Grid rendering.
    *
    * @param page - Playwright page instance to configure
    * @throws {Error} When page setup fails
@@ -459,7 +478,7 @@ export class PlaywrightScraper {
     page.setDefaultTimeout(this.config.timeout);
     page.setDefaultNavigationTimeout(this.config.timeout);
 
-    // Block unnecessary resources to speed up loading (but keep stylesheets for Element UI)
+    // Block unnecessary resources to speed up loading (but keep stylesheets for AG Grid)
     await page.route('**/*', route => {
       const resourceType = route.request().resourceType();
       if (['image', 'font', 'media'].includes(resourceType)) {
@@ -482,7 +501,7 @@ export class PlaywrightScraper {
    * Waits for job listings to load using multiple strategies
    *
    * Implements a multi-strategy approach to detect when job content is ready:
-   * 1. Wait for Element UI collapse components
+   * 1. Wait for AG Grid job rows
    * 2. Fallback to network idle state
    * 3. Additional timeout for SPA rendering
    * 4. Check for "no jobs" indicators
@@ -519,6 +538,7 @@ export class PlaywrightScraper {
 
     // Check for "no jobs" indicators
     const noJobsSelectors = [
+      'text="No job found"',
       'text="No positions available"',
       'text="No current openings"',
       'text="No job opportunities"',
@@ -538,7 +558,7 @@ export class PlaywrightScraper {
    * Orchestrates job data extraction using multiple strategies
    *
    * Implements a hierarchical extraction approach with fallback mechanisms:
-   * 1. Primary: Extract from Element UI structured components
+   * 1. Primary: Extract from AG Grid job listing rows
    * 2. Fallback: Extract from JSON-LD structured data
    *
    * Returns the first successful extraction method results.
@@ -552,7 +572,7 @@ export class PlaywrightScraper {
    * console.log(`Extracted ${jobs.length} jobs`);
    * ```
    * @since 1.0.0
-   * @see {@link extractFromStructuredElements} for Element UI extraction
+   * @see {@link extractFromStructuredElements} for AG Grid extraction
    * @see {@link extractFromJsonLd} for JSON-LD extraction
    */
   private async extractJobData(page: Page, baseUrl: string): Promise<RawJobData[]> {
@@ -580,35 +600,61 @@ export class PlaywrightScraper {
   /**
    * Extracts job data from structured HTML elements
    *
-   * Delegates to Element UI specific extraction logic since DriveHR
-   * uses Element UI exclusively. This method provides a clear separation
-   * between different extraction strategies.
+   * Delegates to AG Grid specific extraction logic since DriveHR renders
+   * its job listings with AG Grid exclusively. This method provides a clear
+   * separation between different extraction strategies.
    *
    * @param page - Playwright page instance
    * @param baseUrl - Base URL for link resolution
    * @returns Promise resolving to extracted job data array
    * @since 1.0.0
-   * @see {@link extractFromElementUICollapse} for implementation details
+   * @see {@link extractFromAgGrid} for implementation details
    */
   private async extractFromStructuredElements(page: Page, baseUrl: string): Promise<RawJobData[]> {
-    // DriveHR uses Element UI exclusively - no fallback needed
+    // DriveHR renders job listings with AG Grid exclusively - no fallback needed
     const logger = getLogger();
-    logger.debug('DriveHR extraction: Using Element UI collapse extraction');
-    return this.extractFromElementUICollapse(page, baseUrl);
+    logger.debug('DriveHR extraction: Using AG Grid extraction');
+    return this.extractFromAgGrid(page, baseUrl);
   }
 
   /**
-   * Extracts job data from Element UI collapse components
+   * Logs the diagnostic page state captured before AG Grid extraction
    *
-   * Comprehensive extraction system specifically designed for DriveHR's Element UI
-   * implementation. Uses an expand-all-first approach to ensure all job content
-   * is available for extraction.
+   * Emits a structured analysis of what the careers page contained at scrape
+   * time so failed or empty extractions can be diagnosed from CI logs alone.
+   * Tolerates an undefined snapshot (e.g. when page evaluation is mocked).
+   *
+   * @param pageState - Page state snapshot from the browser context, if available
+   * @since 1.10.0
+   */
+  private logAgGridPageState(pageState: AgGridPageState | undefined): void {
+    const logger = getLogger();
+    const state: Partial<AgGridPageState> = pageState ?? {};
+    logger.info('🔍 Page State Analysis:');
+    logger.info(`  URL: ${state.url}`);
+    logger.info(`  Title: ${state.title}`);
+    logger.info(`  Ready State: ${state.readyState}`);
+    logger.info(`  AG Grid job rows: ${state.jobRows}`);
+    logger.info(`  Job title links: ${state.titleLinks}`);
+    logger.info(`  Body text length: ${state.bodyTextLength}`);
+    logger.info(`  Has AG Grid: ${state.hasAgGrid}`);
+    logger.info(`  First job text: "${state.firstJobText}"`);
+  }
+
+  /**
+   * Extracts job data from DriveHR's AG Grid job listing
+   *
+   * Comprehensive extraction system specifically designed for DriveHR's AG Grid
+   * implementation (introduced by DriveHR in July 2026, replacing the previous
+   * Element UI collapse layout). Each grid row carries the job's stable ID in
+   * its `row-id` attribute and exposes per-column data via `col-id` cells
+   * (title, location, openedOn, workType, payRate, payType).
    *
    * Process:
    * 1. Wait for SPA content loading
    * 2. Diagnostic analysis of page state
-   * 3. Expand all collapse components
-   * 4. Extract job data from expanded content
+   * 3. Expand all grid rows (click) so detail rows with description iframes render
+   * 4. Extract job data from grid cells and expanded detail iframes
    * 5. Validate and process results
    *
    * @param page - Playwright page instance
@@ -617,16 +663,16 @@ export class PlaywrightScraper {
    * @throws {Error} When critical page elements are missing
    * @example
    * ```typescript
-   * const jobs = await scraper.extractFromElementUICollapse(page, baseUrl);
+   * const jobs = await scraper.extractFromAgGrid(page, baseUrl);
    * jobs.forEach(job => {
    *   console.log(`${job.title} - ${job.department} (${job.location})`);
    * });
    * ```
-   * @since 1.0.0
+   * @since 1.10.0
    */
-  private async extractFromElementUICollapse(page: Page, baseUrl: string): Promise<RawJobData[]> {
+  private async extractFromAgGrid(page: Page, baseUrl: string): Promise<RawJobData[]> {
     const logger = getLogger();
-    logger.info('🔍 Starting Element UI collapse extraction (expand-all-first approach)');
+    logger.info('🔍 Starting AG Grid extraction (expand-all-rows approach)');
     logger.info(`📄 Page URL: ${page.url()}`);
     logger.info(`🔗 Base URL: ${baseUrl}`);
 
@@ -642,176 +688,106 @@ export class PlaywrightScraper {
         url: window.location.href,
         title: document.title,
         readyState: document.readyState,
-        collapseItems: document.querySelectorAll('.el-collapse-item').length,
-        collapseButtons: document.querySelectorAll('.el-collapse-item__header').length,
-        titleLinks: document.querySelectorAll('a.list-title-link').length,
+        jobRows: document.querySelectorAll('.ag-center-cols-container .ag-row[row-id]').length,
+        titleLinks: document.querySelectorAll('[col-id="title"] a[href*="/list/"]').length,
         bodyTextLength: document.body.textContent?.length ?? 0,
-        hasElementUI: document.querySelectorAll('[class*="el-"]').length > 0,
+        hasAgGrid: document.querySelectorAll('[class*="ag-"]').length > 0,
         firstJobText:
-          document.querySelector('.el-collapse-item__header')?.textContent?.substring(0, 100) ??
-          'No job found',
+          document
+            .querySelector('[col-id="title"] a[href*="/list/"]')
+            ?.textContent?.substring(0, 100) ?? 'No job found',
       };
       /* eslint-enable no-undef */
     });
 
-    logger.info('🔍 Page State Analysis:');
-    logger.info(`  URL: ${pageState.url}`);
-    logger.info(`  Title: ${pageState.title}`);
-    logger.info(`  Ready State: ${pageState.readyState}`);
-    logger.info(`  .el-collapse-item elements: ${pageState.collapseItems}`);
-    logger.info(`  .el-collapse-item__header elements: ${pageState.collapseButtons}`);
-    logger.info(`  a.list-title-link elements: ${pageState.titleLinks}`);
-    logger.info(`  Body text length: ${pageState.bodyTextLength}`);
-    logger.info(`  Has Element UI: ${pageState.hasElementUI}`);
-    logger.info(`  First job text: "${pageState.firstJobText}"`);
+    this.logAgGridPageState(pageState);
 
-    if (pageState.collapseButtons === 0) {
-      logger.error('❌ CRITICAL: No Element UI job buttons found on page');
-      logger.error('❌ This indicates page loading or timing issue');
+    if (!pageState?.jobRows) {
+      logger.error('❌ CRITICAL: No AG Grid job rows found on page');
+      logger.error(
+        '❌ This indicates the careers page has no jobs, changed layout, or failed to load'
+      );
       return [];
     }
 
-    // Step 2: Expand all Element UI jobs by clicking buttons
-    logger.info('🖱️ Expanding all Element UI job buttons...');
+    // Step 2: Expand all AG Grid rows so their detail rows (with description iframes) render
+    logger.info('🖱️ Expanding all AG Grid job rows...');
     const expandResult = await page.evaluate(() => {
       /* eslint-disable no-undef */
-      const jobButtons = document.querySelectorAll('.el-collapse-item__header');
+      const jobRows = document.querySelectorAll('.ag-center-cols-container .ag-row[row-id]');
       let clickedCount = 0;
 
-      Array.from(jobButtons).forEach((button, index) => {
+      Array.from(jobRows).forEach((row, index) => {
         try {
-          (button as HTMLButtonElement).click();
+          // Click a non-link cell so the SPA router does not navigate to the detail page.
+          // AG Grid's row click handler toggles the full-width detail row expansion.
+          const cell = row.querySelector('[col-id="openedOn"]') ?? row;
+          cell.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
           clickedCount++;
         } catch (e) {
-          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging requires console statements for troubleshooting Element UI interactions. This runs in Playwright's page.evaluate() where console is the only debugging mechanism available, and the output is captured by Playwright for diagnostic purposes.
+          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging requires console statements for troubleshooting AG Grid interactions. This runs in Playwright's page.evaluate() where console is the only debugging mechanism available, and the output is captured by Playwright for diagnostic purposes.
           console.error(
-            `Failed to click button ${index}: ${e instanceof Error ? e.message : String(e)}`
+            `Failed to click row ${index}: ${e instanceof Error ? e.message : String(e)}`
           );
         }
       });
 
-      return { totalButtons: jobButtons.length, clickedCount };
+      return { totalRows: jobRows.length, clickedCount };
       /* eslint-enable no-undef */
     });
 
-    logger.info(
-      `🖱️ Clicked ${expandResult.clickedCount} of ${expandResult.totalButtons} job buttons`
-    );
+    logger.info(`🖱️ Row expansion clicks: ${JSON.stringify(expandResult)}`);
 
-    // Wait for all expansions to complete (critical for Element UI animations)
-    logger.info('⏳ Waiting 3000ms for expansion animations to complete...');
+    // Wait for all expansions to complete (detail rows render iframes asynchronously)
+    logger.info('⏳ Waiting 3000ms for row expansion to complete...');
     await page.waitForTimeout(3000);
     logger.info('✅ Job expansion completed');
 
-    // Step 3: Extract job data from expanded content (proven working approach)
+    // Step 3: Extract job data from grid rows and expanded detail iframes
     logger.info('🔍 Starting job data extraction...');
     const extractionResult = await page.evaluate(() => {
       /* eslint-disable no-undef */
       const jobs: RawJobData[] = [];
 
-      // Step 1: Find all job buttons (Element UI collapse headers)
-      const jobButtons = document.querySelectorAll('.el-collapse-item__header');
-      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() requires console statements for diagnostic logging. This provides essential debugging information for Element UI component discovery and is captured by Playwright's debugging infrastructure.
-      console.log(`Found ${jobButtons.length} job buttons for extraction`);
+      // Step 1: Find all AG Grid job rows (each carries the job ID in its row-id attribute)
+      const jobRows = document.querySelectorAll('.ag-center-cols-container .ag-row[row-id]');
+      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() requires console statements for diagnostic logging. This provides essential debugging information for AG Grid row discovery and is captured by Playwright's debugging infrastructure.
+      console.log(`Found ${jobRows.length} job rows for extraction`);
 
-      if (jobButtons.length === 0) {
+      if (jobRows.length === 0) {
         return [];
       }
 
-      // Step 2: Extract job button information including detail page URLs
-      const buttonData: Array<{
-        index: number;
-        buttonId: string;
-        title: string;
-        fullButtonText: string;
-        detailUrl: string;
-      }> = [];
+      // Helper functions for job data extraction (broken down for complexity reduction)
+      function cellText(row: Element, colId: string): string {
+        return row.querySelector(`[col-id="${colId}"]`)?.textContent?.trim() ?? '';
+      }
 
-      Array.from(jobButtons).forEach((button, index) => {
-        const text = button.textContent || '';
-        // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for job extraction diagnostics. Console logging is the only available debugging mechanism in browser context for tracking job processing iterations.
-        console.log(`Processing button ${index}: ${text.substring(0, 50)}...`);
-
-        // Extract title and detail page URL from the link
-        let title = '';
-        let detailUrl = '';
-        const titleLink = button.querySelector('a.list-title-link') as HTMLAnchorElement;
-        if (titleLink) {
-          title = titleLink.textContent?.trim() || '';
-          detailUrl = titleLink.href || '';
-        }
-
-        // Fallback: extract title from button text if no link found
-        if (!title) {
-          const match = text.match(/^([^,]+)/); // Take everything before first comma
-          if (match?.[1]) {
-            title = match[1].trim();
-          }
-        }
+      function extractTitleAndDetailUrl(row: Element): { title: string; detailUrl: string } {
+        const titleLink = row.querySelector(
+          '[col-id="title"] a[href*="/list/"]'
+        ) as HTMLAnchorElement | null;
+        let title = titleLink?.textContent?.trim() ?? '';
 
         // Remove redundant company name suffix (e.g., ", Consolidated Dealers")
         // Users are already on the company website, so company name is redundant
         title = title.replace(/,\s*Consolidated Dealers\s*$/i, '').trim();
 
-        if (title) {
-          buttonData.push({
-            index,
-            buttonId: (button as HTMLButtonElement).id,
-            title,
-            fullButtonText: text.trim(),
-            detailUrl,
-          });
-          // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for tracking successful job data extraction. Console logging provides essential feedback for job discovery validation in browser context.
-          console.log(`Added job: ${title} (detail: ${detailUrl})`);
+        // Resolve to an absolute URL and strip the ?title=... query string so the
+        // /form suffix can be appended cleanly for apply URLs
+        const href = titleLink?.getAttribute('href') ?? '';
+        let detailUrl = '';
+        if (href !== '') {
+          detailUrl = new URL(href, window.location.origin).href.split('?')[0] ?? '';
         }
-      });
 
-      // Step 3: Extract from each specific .el-collapse-item__content (now expanded)
-      const allCollapseContents = document.querySelectorAll('.el-collapse-item__content');
-      // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for Element UI component expansion validation. Console logging provides critical diagnostic information for verifying collapse animations completed successfully.
-      console.log(`Found ${allCollapseContents.length} expanded content areas`);
-
-      // Helper functions for job data extraction (broken down for complexity reduction)
-      function validateJobContent(
-        buttonIndex: number,
-        allCollapseContents: NodeListOf<Element>
-      ): Element | null {
-        if (buttonIndex >= allCollapseContents.length) {
-          return null;
-        }
-        const specificContent = allCollapseContents[buttonIndex];
-        if (!specificContent) {
-          return null;
-        }
-        const elementText = specificContent.textContent ?? '';
-        if (elementText.length < 10) {
-          return null;
-        }
-        return specificContent;
+        return { title, detailUrl };
       }
 
-      function extractJobMetadata(elementText: string): {
-        location: string;
-        posted_date: string;
-        type: string;
-        payType: string;
-      } {
-        const locationMatch = elementText.match(/([A-Za-z\s]+,\s*[A-Z]{2})/);
-        const dateMatch = elementText.match(/\d{2}\/\d{2}\/\d{4}/);
-        const workTypeMatch = elementText.match(/Full-Time|Part-Time|Contract/i);
-        const payTypeMatch = elementText.match(/Hourly|Salary|Salary yearly/i);
-
-        return {
-          location: locationMatch?.[1]?.trim() ?? 'Truro, NS',
-          posted_date: dateMatch?.[0] ?? '',
-          type: workTypeMatch?.[0] ?? 'Full-Time',
-          payType: payTypeMatch?.[0] ?? '',
-        };
-      }
-
-      function extractDepartment(fullButtonText: string): string {
-        const deptMatch = fullButtonText.match(/Pye Chevrolet|[A-Za-z\s]+(?=\s*\||\s*,|\s*-)/);
-        return deptMatch?.[0]?.trim() ?? '';
+      function extractDepartment(row: Element): string {
+        // The title cell's subtitle line reads "Organization | Position"
+        const subtitle = row.querySelector('[col-id="title"] .text-xs')?.textContent?.trim() ?? '';
+        return subtitle.split('|')[0]?.trim() ?? '';
       }
 
       /**
@@ -917,10 +893,10 @@ export class PlaywrightScraper {
         return cleanButtonText || cleanContentText || '';
       }
 
-      function generateJobId(title: string, location: string, buttonId?: string): string {
-        // Use button ID if available and not empty (most stable)
-        if (buttonId && buttonId.trim() !== '') {
-          return `drivehr-${buttonId}`;
+      function generateJobId(title: string, location: string, rowId?: string): string {
+        // Use the grid row's job ID if available and not empty (most stable)
+        if (rowId && rowId.trim() !== '') {
+          return `drivehr-${rowId}`;
         }
 
         // Fallback: Generate stable hash from title + location
@@ -950,49 +926,61 @@ export class PlaywrightScraper {
         return fullId.length > 70 ? fullId.substring(0, 67) + '...' : fullId;
       }
 
-      function processButtonDataItem(
-        buttonInfo: (typeof buttonData)[0],
-        buttonIndex: number,
-        allCollapseContents: NodeListOf<Element>
-      ): RawJobData | null {
+      function processJobRow(row: Element): RawJobData | null {
         try {
-          const specificContent = validateJobContent(buttonIndex, allCollapseContents);
-          if (!specificContent) {
+          const rowId = row.getAttribute('row-id') ?? '';
+          const { title, detailUrl } = extractTitleAndDetailUrl(row);
+          if (!title) {
             return null;
           }
 
-          const elementText = specificContent.textContent ?? '';
-          const metadata = extractJobMetadata(elementText);
-          const department = extractDepartment(buttonInfo.fullButtonText);
-          const apply_url = extractApplyUrl(buttonInfo.detailUrl);
+          const location = cellText(row, 'location');
+          const posted_date = cellText(row, 'openedOn');
+          const workType = cellText(row, 'workType');
+          const type = workType === '' ? 'Full-Time' : workType;
+          const payRate = cellText(row, 'payRate');
+          const payType = cellText(row, 'payType');
+          const department = extractDepartment(row);
+          const apply_url = extractApplyUrl(detailUrl);
 
-          // Extract description from iframe (clean job description)
-          const iframeDescription = extractIframeDescription(specificContent);
-          // Fallback to metadata text if iframe is empty (use || for empty string fallback)
-          const description =
-            iframeDescription !== ''
-              ? iframeDescription
-              : createJobDescription(buttonInfo.fullButtonText, elementText);
-          const jobId = generateJobId(buttonInfo.title, metadata.location, buttonInfo.buttonId);
+          // Extract description from the expanded full-width detail row's iframe,
+          // matched to this row by AG Grid's detail_<rowId> convention
+          let iframeDescription = '';
+          const detailRow = document.querySelector(`.ag-full-width-row[row-id="detail_${rowId}"]`);
+          if (detailRow) {
+            iframeDescription = extractIframeDescription(detailRow);
+          }
+
+          // Fallback to metadata text if iframe is empty
+          let description = iframeDescription;
+          if (description === '') {
+            const metadataText = [department, location, posted_date, type, payRate, payType]
+              .filter(part => part !== '')
+              .join(' | ');
+            description = createJobDescription(title, metadataText);
+          }
+
+          const jobId = generateJobId(title, location, rowId);
 
           return {
             id: jobId,
-            title: buttonInfo.title,
-            location: metadata.location,
+            title,
+            location,
             department,
             description,
-            type: metadata.type,
-            posted_date: metadata.posted_date,
+            type,
+            posted_date,
             apply_url,
-            payType: metadata.payType,
+            payType,
+            payRate,
           };
         } catch {
           return null;
         }
       }
 
-      buttonData.forEach((buttonInfo, buttonIndex) => {
-        const job = processButtonDataItem(buttonInfo, buttonIndex, allCollapseContents);
+      Array.from(jobRows).forEach(row => {
+        const job = processJobRow(row);
         if (job) {
           jobs.push(job);
           // eslint-disable-next-line no-console -- ARCHITECTURAL JUSTIFICATION: Browser context debugging in Playwright's page.evaluate() for job creation validation. Console logging provides essential feedback for successful job object construction with extracted data.
@@ -1010,7 +998,7 @@ export class PlaywrightScraper {
 
     logger.info(`📊 Extraction completed: ${extractionResult.length} jobs found`);
     if (extractionResult.length === 0) {
-      logger.error('❌ CRITICAL: Zero jobs extracted despite finding Element UI components');
+      logger.error('❌ CRITICAL: Zero jobs extracted despite finding AG Grid rows');
       logger.error('❌ This indicates an issue with the extraction logic');
     } else {
       logger.info('✅ SUCCESS: Jobs successfully extracted');

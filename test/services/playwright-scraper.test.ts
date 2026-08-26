@@ -163,7 +163,7 @@ class PlaywrightSimpleTestUtils extends BaseTestUtils {
     return {
       headless: true,
       timeout: 30000,
-      waitForSelector: '.el-collapse-item',
+      waitForSelector: '.ag-row',
       retries: 3,
       debug: false,
       ...overrides,
