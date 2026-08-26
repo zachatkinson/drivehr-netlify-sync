@@ -813,6 +813,12 @@ export class PlaywrightScraper {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
 
+        // Remove non-content elements entirely. DriveHR's description iframes embed
+        // the Syncfusion rich-text editor's <style> block alongside the content;
+        // without this, the CSS renders as plain text on the WordPress site.
+        const nonContentElements = tempDiv.querySelectorAll('style, script, link, meta, title');
+        nonContentElements.forEach(el => el.remove());
+
         // Remove all inline styles
         const elementsWithStyle = tempDiv.querySelectorAll('[style]');
         elementsWithStyle.forEach(el => el.removeAttribute('style'));
