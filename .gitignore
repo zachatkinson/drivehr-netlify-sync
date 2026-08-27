@@ -103,6 +103,9 @@ public
 tmp/
 temp/
 
+# Generated signed job feed (published to the job-data branch by CI)
+feed/
+
 # Security
 *.pem
 *.key

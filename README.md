@@ -53,8 +53,8 @@ netlify deploy --prod
 
 DriveHR Netlify Sync is a modern serverless application that automatically
 scrapes job postings from DriveHR and synchronizes them with WordPress sites via
-secure webhooks. Built for enterprise environments with reliability, security,
-and observability as core principles.
+a pull-based, HMAC-signed job feed. Built for enterprise environments with
+reliability, security, and observability as core principles.
 
 ### Key Benefits
 
@@ -70,12 +70,14 @@ and observability as core principles.
 
 - Real-time job scraping from DriveHR platforms
 - Intelligent data normalization and validation
-- Secure webhook delivery to WordPress endpoints
+- Pull-based sync: an HMAC-signed feed published to the `job-data` branch,
+  fetched by WordPress on a WP-Cron schedule (immune to host-level bot
+  protection that blocks inbound webhook deliveries)
 - Automatic retry with exponential backoff
 
 ### 🛡️ Enterprise Security
 
-- HMAC SHA-256 webhook signature validation
+- HMAC SHA-256 feed signature validation
 - Comprehensive input sanitization
 - Security headers and CSRF protection
 - Vulnerability scanning and dependency auditing
@@ -155,19 +157,26 @@ graph TD
 
 ### Environment Variables
 
-| Variable             | Description                               | Required | Default |
-| -------------------- | ----------------------------------------- | -------- | ------- |
-| `DRIVEHR_COMPANY_ID` | DriveHR company identifier                | ✅       | -       |
-| `WP_API_URL`         | WordPress webhook endpoint                | ✅       | -       |
-| `WEBHOOK_SECRET`     | HMAC signature secret                     | ✅       | -       |
-| `GITHUB_TOKEN`       | GitHub API token for automation           | ✅       | -       |
-| `GITHUB_REPOSITORY`  | Repository for workflow triggers          | ✅       | -       |
-| `LOG_LEVEL`          | Logging verbosity (debug/info/warn/error) | ❌       | `info`  |
-| `ENABLE_TELEMETRY`   | OpenTelemetry tracing                     | ❌       | `true`  |
+| Variable             | Description                               | Required | Default  |
+| -------------------- | ----------------------------------------- | -------- | -------- |
+| `DRIVEHR_COMPANY_ID` | DriveHR company identifier                | ✅       | -        |
+| `WP_API_URL`         | WordPress webhook endpoint (legacy)       | ✅       | -        |
+| `WEBHOOK_SECRET`     | HMAC signature secret (signs the feed)    | ✅       | -        |
+| `FEED_OUTPUT_DIR`    | Directory for the generated signed feed   | ❌       | `./feed` |
+| `GITHUB_TOKEN`       | GitHub API token for automation           | ✅       | -        |
+| `GITHUB_REPOSITORY`  | Repository for workflow triggers          | ✅       | -        |
+| `LOG_LEVEL`          | Logging verbosity (debug/info/warn/error) | ❌       | `info`   |
+| `ENABLE_TELEMETRY`   | OpenTelemetry tracing                     | ❌       | `true`   |
 
 ### WordPress Integration
 
-The WordPress endpoint must be configured at:
+Primary (pull-based, v2.2.0+): the GitHub Actions workflow publishes `jobs.json`
+and `jobs.json.sig` to the repository's `job-data` branch. The WordPress plugin
+fetches the feed hourly via WP-Cron, verifies its HMAC signature, and applies
+the changes. See `wordpress-connection/drivehr-webhook/INSTALL.txt` for plugin
+configuration.
+
+Legacy fallback (push webhook): the WordPress endpoint is available at:
 
 ```
 https://yoursite.com/webhook/drivehr-sync
@@ -177,14 +186,18 @@ https://yoursite.com/webhook/drivehr-sync
 
 ### Security Configuration
 
-All webhook requests include HMAC SHA-256 signatures:
+The published feed is signed with HMAC SHA-256 over the exact feed bytes:
 
 ```typescript
 const signature = crypto
   .createHmac('sha256', WEBHOOK_SECRET)
-  .update(JSON.stringify(payload))
+  .update(feedJson)
   .digest('hex');
 ```
+
+WordPress verifies the signature with a timing-safe comparison before
+processing, so a forged or tampered feed is rejected even if the public
+repository were compromised (the secret never leaves the two trusted ends).
 
 ## Usage
 

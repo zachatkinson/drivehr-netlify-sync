@@ -1,14 +1,14 @@
 /**
  * GitHub Actions Scrape and Sync Script Test Suite
  *
- * Comprehensive test coverage for the DriveHR job scraper and WordPress sync script
+ * Comprehensive test coverage for the DriveHR job scraper and feed publish script
  * following enterprise testing standards with DRY principles and SOLID architecture.
  * This test suite validates the complete GitHub Actions automation workflow including
- * browser automation, WordPress webhook integration, error handling, and artifact generation.
+ * browser automation, signed feed publication, error handling, and artifact generation.
  *
  * Test Features:
  * - Playwright scraper integration with SPA job extraction
- * - HMAC-SHA256 authenticated WordPress webhook validation
+ * - HMAC-SHA256 signed feed generation for pull-based WordPress sync
  * - GitHub Actions environment simulation and optimization
  * - Error boundary testing with comprehensive failure scenarios
  * - Artifact generation for debugging and monitoring
@@ -19,7 +19,7 @@
  * @example
  * ```typescript
  * // Example of running specific test group
- * pnpm test test/scripts/scrape-and-sync.test.ts -- --grep "webhook"
+ * pnpm test test/scripts/scrape-and-sync.test.ts -- --grep "feed"
  * ```
  *
  * @module scrape-and-sync-test-suite
@@ -223,28 +223,6 @@ class ScrapeAndSyncTestUtils {
     };
     vi.mocked(createHmac).mockReturnValue(mockHash as unknown as ReturnType<typeof createHmac>);
 
-    // Mock successful fetch for WordPress webhook
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: () =>
-        Promise.resolve(
-          JSON.stringify({
-            success: true,
-            message: 'Jobs synchronized successfully',
-            jobsProcessed: 2,
-          })
-        ),
-      json: () =>
-        Promise.resolve({
-          success: true,
-          message: 'Jobs synchronized successfully',
-          jobsProcessed: 2,
-        }),
-    });
-    globalThis.fetch = mockFetch;
-
     // Mock GitHub environment variables (only if not already set)
     process.env['GITHUB_RUN_ID'] ??= 'test-run-123';
     process.env['GITHUB_ACTIONS'] ??= 'true';
@@ -303,41 +281,28 @@ class ScrapeAndSyncTestUtils {
   }
 
   /**
-   * Setup failed WordPress sync mocks
+   * Setup failed feed publish mocks
    *
-   * Configures mocks to simulate WordPress webhook failures for testing
-   * error handling and retry mechanisms in the sync workflow.
+   * Configures mocks to simulate a feed write failure for testing error
+   * handling in the publish stage. The first writeFile call (jobs artifact)
+   * succeeds; the second (feed file) rejects.
    *
    * @example
    * ```typescript
-   * ScrapeAndSyncTestUtils.setupFailedSyncMocks();
+   * ScrapeAndSyncTestUtils.setupFailedPublishMocks();
    * const result = await executeScrapeAndSync();
-   * expect(result.syncSuccess).toBe(false);
+   * expect(result.success).toBe(false);
    * ```
-   * @since 1.0.0
+   * @since 1.10.0
    */
-  static setupFailedSyncMocks(): void {
+  static setupFailedPublishMocks(): void {
     this.setupSuccessfulMocks();
 
-    // Mock failed fetch for WordPress webhook
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      text: () =>
-        Promise.resolve(
-          JSON.stringify({
-            success: false,
-            error: 'Database connection failed',
-          })
-        ),
-      json: () =>
-        Promise.resolve({
-          success: false,
-          error: 'Database connection failed',
-        }),
-    });
-    globalThis.fetch = mockFetch;
+    // First writeFile call saves the jobs artifact; the second writes the
+    // feed file and fails, aborting the publish stage.
+    vi.mocked(writeFile)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('ENOSPC: no space left on device'));
   }
 
   /**
@@ -434,11 +399,22 @@ describe('Scrape and Sync Script', () => {
       expect(writeFile).toBeDefined();
     });
 
-    it('should generate proper webhook signature for WordPress', async () => {
+    it('should generate HMAC signature files for the published feed', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Verify HMAC signature generation for webhook authentication
-      expect(createHmac).toBeDefined();
+      await executeScrapeAndSync();
+
+      // The feed and its detached signature must both be written
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('jobs.json'),
+        expect.stringContaining('"total_count"'),
+        'utf-8'
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('jobs.json.sig'),
+        'sha256=mock-signature',
+        'utf-8'
+      );
     });
 
     it('should create output directories for artifacts', async () => {
@@ -461,24 +437,40 @@ describe('Scrape and Sync Script', () => {
       expect(result.jobs).toHaveLength(0);
     });
 
-    it('should not sync to WordPress when no jobs found and force sync disabled', async () => {
+    it('should not publish feed when no jobs found and force sync disabled', async () => {
       ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
+      vi.mocked(getEnvVar).mockImplementation((name: string) =>
+        name === 'ALLOW_EMPTY_SCRAPE' ? 'true' : undefined
+      );
 
-      // Ensure force sync is not enabled
-      delete process.env['INPUT_FORCE_SYNC'];
+      const result = await executeScrapeAndSync();
 
-      // The script should skip WordPress sync when no jobs are found
-      expect(true).toBe(true); // Placeholder assertion
+      // Publish is skipped, so no feed file may be written
+      expect(result.success).toBe(true);
+      expect(result.jobsPublished).toBe(0);
+      expect(writeFile).not.toHaveBeenCalledWith(
+        expect.stringContaining('jobs.json.sig'),
+        expect.anything(),
+        expect.anything()
+      );
     });
 
-    it('should sync to WordPress when no jobs found but force sync enabled', async () => {
+    it('should publish empty feed when no jobs found but force sync enabled', async () => {
       ScrapeAndSyncTestUtils.setupEmptyScrapeMocks();
+      vi.mocked(getEnvVar).mockImplementation((name: string) => {
+        if (name === 'ALLOW_EMPTY_SCRAPE') return 'true';
+        if (name === 'FORCE_SYNC') return 'true';
+        return undefined;
+      });
 
-      // Enable force sync
-      process.env['INPUT_FORCE_SYNC'] = 'true';
+      const result = await executeScrapeAndSync();
 
-      // The script should still sync to WordPress when force sync is enabled
-      expect(true).toBe(true); // Placeholder assertion
+      expect(result.success).toBe(true);
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('jobs.json.sig'),
+        expect.anything(),
+        'utf-8'
+      );
     });
 
     it('should fail the run when zero jobs are scraped and ALLOW_EMPTY_SCRAPE is not enabled', async () => {
@@ -488,7 +480,7 @@ describe('Scrape and Sync Script', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Scraped 0 jobs');
-      expect(result.jobsSynced).toBe(0);
+      expect(result.jobsPublished).toBe(0);
     });
 
     it('should complete successfully when zero jobs are scraped but ALLOW_EMPTY_SCRAPE is enabled', async () => {
@@ -501,7 +493,7 @@ describe('Scrape and Sync Script', () => {
 
       expect(result.success).toBe(true);
       expect(result.jobsScraped).toBe(0);
-      expect(result.jobsSynced).toBe(0);
+      expect(result.jobsPublished).toBe(0);
     });
   });
 
@@ -513,16 +505,18 @@ describe('Scrape and Sync Script', () => {
 
       expect(result.success).toBe(false);
       expect(result.jobsScraped).toBe(0);
-      expect(result.jobsSynced).toBe(0);
+      expect(result.jobsPublished).toBe(0);
       expect(result.error).toContain('scraping failed');
       expect(PlaywrightScraper).toHaveBeenCalled();
     });
 
-    it('should handle WordPress sync failures gracefully', async () => {
-      ScrapeAndSyncTestUtils.setupFailedSyncMocks();
+    it('should handle feed publish failures gracefully', async () => {
+      ScrapeAndSyncTestUtils.setupFailedPublishMocks();
 
-      // The script should handle WordPress sync failures and log appropriate errors
-      expect(true).toBe(true); // Placeholder assertion
+      const result = await executeScrapeAndSync();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Feed publish failed');
     });
 
     it('should handle missing environment configuration', async () => {
@@ -603,20 +597,6 @@ describe('Scrape and Sync Script', () => {
       expect(result.error).toBe('DRIVEHR_COMPANY_ID is required');
     });
 
-    it('should validate required WP_API_URL', async () => {
-      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
-
-      // Mock missing WP_API_URL
-      vi.mocked(getEnvironmentConfig).mockReturnValue({
-        ...ScrapeAndSyncTestUtils.mockEnvConfig,
-        wpApiUrl: '',
-      } as ReturnType<typeof getEnvironmentConfig>);
-
-      const result = await executeScrapeAndSync();
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('WP_API_URL is required');
-    });
-
     it('should validate required WEBHOOK_SECRET', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
@@ -667,35 +647,34 @@ describe('Scrape and Sync Script', () => {
     });
   });
 
-  describe('WordPress webhook integration', () => {
-    it('should generate correct HMAC signature for webhook', async () => {
+  describe('Signed feed publication', () => {
+    it('should sign the feed with HMAC-SHA256 using the webhook secret', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test HMAC signature generation for webhook authentication
-      const mockHash = createHmac('sha256', 'test-secret');
-      expect(mockHash.update).toBeDefined();
-      expect(mockHash.digest).toBeDefined();
+      await executeScrapeAndSync();
+
+      expect(createHmac).toHaveBeenCalledWith(
+        'sha256',
+        'test-secret-key-at-least-32-characters-long'
+      );
     });
 
-    it('should send jobs in correct format to WordPress', async () => {
+    it('should include feed and signature paths in result artifacts', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test that jobs are sent in the expected format for WordPress processing
-      expect(globalThis.fetch).toBeDefined();
+      const result = await executeScrapeAndSync();
+
+      expect(result.success).toBe(true);
+      expect(result.artifacts.feedFile).toContain('jobs.json');
+      expect(result.artifacts.signatureFile).toContain('jobs.json.sig');
     });
 
-    it('should handle WordPress webhook authentication errors', async () => {
-      // Mock 401 Unauthorized response
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 401,
-        statusText: 'Unauthorized',
-        text: () => Promise.resolve('{"error": "Invalid signature"}'),
-      });
-      globalThis.fetch = mockFetch;
+    it('should report the number of jobs published in the feed', async () => {
+      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test that authentication errors are handled appropriately
-      expect(mockFetch).toBeDefined();
+      const result = await executeScrapeAndSync();
+
+      expect(result.jobsPublished).toBe(2);
     });
   });
 
@@ -739,49 +718,28 @@ describe('Scrape and Sync Script', () => {
       expect(result.totalCount).toBe(2);
     });
 
-    it('should log sync statistics', async () => {
+    it('should log publish statistics', async () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
-      // Test that sync statistics are properly logged
-      expect(globalThis.fetch).toBeDefined();
+      await executeScrapeAndSync();
+
+      expect(ScrapeAndSyncTestUtils.mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('published')
+      );
     });
   });
 
-  describe('WordPress webhook network errors', () => {
-    it('should handle WordPress webhook timeout/network errors gracefully', async () => {
-      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
-
-      // Override the fetch mock after successful setup to simulate webhook failure
-      globalThis.fetch = vi
-        .fn()
-        .mockRejectedValueOnce(new Error('ECONNRESET: Connection reset by peer'));
+  describe('Feed publish failures', () => {
+    it('should fail the run when the feed file cannot be written', async () => {
+      ScrapeAndSyncTestUtils.setupFailedPublishMocks();
 
       const result = await executeScrapeAndSync();
 
-      // When webhook fails, the entire operation fails and result counters are reset in catch block
+      // When the publish fails, the entire operation fails and result counters are reset in catch block
       expect(result.success).toBe(false);
-      expect(result.error).toContain('WordPress sync failed');
+      expect(result.error).toContain('Feed publish failed');
       expect(result.jobsScraped).toBe(0); // Error state resets counters
-      expect(result.jobsSynced).toBe(0); // Sync failed
-    });
-
-    it('should handle WordPress webhook server errors gracefully', async () => {
-      ScrapeAndSyncTestUtils.setupSuccessfulMocks();
-
-      // Override the fetch mock to return server error
-      globalThis.fetch = vi.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        text: async () => 'Database connection failed',
-      } as Response);
-
-      const result = await executeScrapeAndSync();
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('WordPress sync failed');
-      expect(result.jobsScraped).toBe(0); // Error state resets counters
-      expect(result.jobsSynced).toBe(0); // Sync failed
+      expect(result.jobsPublished).toBe(0); // Publish failed
     });
   });
 
@@ -804,7 +762,7 @@ describe('Scrape and Sync Script', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Browser cleanup failed');
       expect(result.jobsScraped).toBe(0); // Error state resets counters
-      expect(result.jobsSynced).toBe(0);
+      expect(result.jobsPublished).toBe(0);
     });
 
     it('should handle scraper creation failure', async () => {
@@ -820,7 +778,7 @@ describe('Scrape and Sync Script', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Failed to initialize browser');
       expect(result.jobsScraped).toBe(0);
-      expect(result.jobsSynced).toBe(0);
+      expect(result.jobsPublished).toBe(0);
     });
   });
 });
