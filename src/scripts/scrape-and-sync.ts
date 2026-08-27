@@ -1,15 +1,20 @@
 #!/usr/bin/env node
 /**
- * DriveHR Job Scraper and WordPress Sync Script
+ * DriveHR Job Scraper and Feed Publish Script
  *
  * Enterprise GitHub Actions automation script that orchestrates the complete
- * job scraping and WordPress synchronization workflow. This script replaces
- * complex API-based fetching with browser automation for SPA handling, then
- * sends the results directly to WordPress via secure webhook integration.
+ * job scraping and feed publication workflow. This script uses browser
+ * automation for SPA handling, then publishes the results as a static,
+ * HMAC-signed JSON feed that WordPress pulls on a WP-Cron schedule.
+ *
+ * The pull-based architecture replaces the legacy webhook push: outbound
+ * requests from shared CI runner IPs were subject to host-level bot
+ * protection (e.g. Imunify360 splash screens), while a WordPress-initiated
+ * outbound fetch is never challenged.
  *
  * Key Features:
  * - Playwright-powered browser automation for SPA job scraping
- * - HMAC-SHA256 authenticated WordPress webhook integration
+ * - HMAC-SHA256 signed static feed for pull-based WordPress sync
  * - Comprehensive error handling and retry mechanisms
  * - Artifact generation for debugging and monitoring
  * - GitHub Actions optimized with structured logging
@@ -21,7 +26,8 @@
  * 1. Load and validate environment configuration
  * 2. Initialize Playwright scraper with GitHub Actions optimization
  * 3. Scrape job data from DriveHR careers page using browser automation
- * 4. Send scraped data to WordPress via authenticated webhook
+ * 4. Publish scraped data as a signed feed (committed to the job-data branch
+ *    by the GitHub Actions workflow)
  * 5. Handle errors with comprehensive logging and artifact generation
  * 6. Save debugging artifacts for monitoring and troubleshooting
  *
@@ -31,7 +37,7 @@
  * @example
  * ```bash
  * # GitHub Actions execution
- * DRIVEHR_COMPANY_ID=123 WP_API_URL=https://site.com/webhook/drivehr-sync WEBHOOK_SECRET=secret node scrape-and-sync.ts
+ * DRIVEHR_COMPANY_ID=123 WEBHOOK_SECRET=secret node scrape-and-sync.ts
  *
  * # Local development
  * ENVIRONMENT=development FORCE_SYNC=true node scrape-and-sync.ts
@@ -40,14 +46,14 @@
  * @module scrape-and-sync
  * @since 1.0.0
  * @see {@link ../services/playwright-scraper.ts} for browser automation implementation
- * @see {@link ../services/wordpress-client.ts} for WordPress integration patterns
+ * @see {@link ../services/feed-publisher.ts} for signed feed generation
  * @see {@link ../../CLAUDE.md} for development standards and security requirements
  */
 
 import { writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createHmac } from 'crypto';
+import { JobFeedPublisher, type FeedPublishResult } from '../services/feed-publisher.js';
 import { PlaywrightScraper, type PlaywrightScraperConfig } from '../services/playwright-scraper.js';
 import { getLogger } from '../lib/logger.js';
 import { getEnvironmentConfig, getEnvVar } from '../lib/env.js';
@@ -69,9 +75,9 @@ const __dirname = dirname(__filename);
 interface ScrapeAndSyncConfig {
   /** DriveHR API configuration */
   driveHr: DriveHrApiConfig;
-  /** WordPress webhook configuration */
-  wordpress: {
-    apiUrl: string;
+  /** Signed feed output configuration */
+  feed: {
+    outputDir: string;
     webhookSecret: string;
   };
   /** Playwright scraper configuration */
@@ -82,22 +88,6 @@ interface ScrapeAndSyncConfig {
     environment: string;
     logLevel: string;
   };
-}
-
-/**
- * Result from WordPress webhook call
- *
- * Comprehensive response structure for tracking webhook
- * communication success, failure scenarios, and
- * job processing metrics for monitoring and debugging.
- *
- * @since 1.0.0
- */
-interface WebhookResult {
-  success: boolean;
-  message: string;
-  jobsProcessed: number;
-  error?: string;
 }
 
 /**
@@ -112,122 +102,18 @@ interface WebhookResult {
 interface ScrapeAndSyncResult {
   success: boolean;
   jobsScraped: number;
-  jobsSynced: number;
+  jobsPublished: number;
   scrapingTime: number;
-  syncTime: number;
+  publishTime: number;
   totalTime: number;
   error?: string;
   artifacts: {
     jobsFile?: string;
     logFile?: string;
     screenshotFile?: string;
+    feedFile?: string;
+    signatureFile?: string;
   };
-}
-
-/**
- * WordPress webhook client for sending job data
- *
- * Handles authenticated communication with WordPress webhook endpoints
- * using HMAC-SHA256 signature verification for enterprise security.
- * Provides retry mechanisms, comprehensive error handling, and
- * structured logging for production deployment reliability.
- *
- * @since 1.0.0
- */
-class WordPressWebhookClient {
-  constructor(
-    private readonly apiUrl: string,
-    private readonly webhookSecret: string
-  ) {}
-
-  /**
-   * Send job data to WordPress via webhook
-   *
-   * Transmits normalized job data to WordPress using secure HMAC-SHA256
-   * authentication. Handles payload serialization, signature generation,
-   * and comprehensive error handling for production reliability.
-   *
-   * @param jobs - Normalized job data to send to WordPress
-   * @param source - Source identifier for tracking and analytics
-   * @returns Promise resolving to webhook result with success status
-   * @throws {Error} When webhook request fails or receives non-2xx response
-   * @example
-   * ```typescript
-   * const client = new WordPressWebhookClient(apiUrl, secret);
-   * const result = await client.sendJobs(jobs, 'github-actions');
-   * if (result.success) {
-   *   console.log(`Synced ${result.jobsProcessed} jobs successfully`);
-   * }
-   * ```
-   * @since 1.0.0
-   */
-  async sendJobs(jobs: NormalizedJob[], source: string = 'github-actions'): Promise<WebhookResult> {
-    const logger = getLogger();
-    const webhookUrl = this.apiUrl;
-
-    const payload = {
-      source,
-      jobs,
-      timestamp: new Date().toISOString(),
-      total_count: jobs.length,
-    };
-
-    const payloadJson = JSON.stringify(payload);
-    const signature = this.generateSignature(payloadJson);
-
-    logger.info(`Sending ${jobs.length} jobs to WordPress webhook`);
-
-    try {
-      const response = await globalThis.fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Signature': `sha256=${signature}`,
-          'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
-          'User-Agent': 'DriveHR-GitHub-Actions/2.0',
-        },
-        body: payloadJson,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Webhook failed: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const result = await response.json();
-
-      return {
-        success: true,
-        message: result.message ?? 'Jobs synced successfully',
-        jobsProcessed: result.jobs_processed ?? jobs.length,
-      };
-    } catch (error) {
-      logger.error(
-        'WordPress webhook failed: ' + (error instanceof Error ? error.message : String(error))
-      );
-      return {
-        success: false,
-        message: 'Failed to send jobs to WordPress',
-        jobsProcessed: 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  /**
-   * Generate HMAC-SHA256 signature for webhook authentication
-   *
-   * Creates cryptographic signature for webhook payload verification
-   * using SHA-256 hashing algorithm with shared secret for security.
-   *
-   * @private
-   * @param payload - JSON payload to sign for authentication
-   * @returns Hex-encoded HMAC-SHA256 signature
-   * @since 1.0.0
-   */
-  private generateSignature(payload: string): string {
-    return createHmac('sha256', this.webhookSecret).update(payload).digest('hex');
-  }
 }
 
 /**
@@ -259,10 +145,6 @@ async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
     throw new Error('DRIVEHR_COMPANY_ID is required');
   }
 
-  if (!env.wpApiUrl) {
-    throw new Error('WP_API_URL is required');
-  }
-
   if (!env.webhookSecret) {
     throw new Error('WEBHOOK_SECRET is required');
   }
@@ -274,8 +156,8 @@ async function loadConfiguration(): Promise<ScrapeAndSyncConfig> {
       timeout: 30000,
       retries: 3,
     },
-    wordpress: {
-      apiUrl: env.wpApiUrl,
+    feed: {
+      outputDir: getEnvVar('FEED_OUTPUT_DIR') ?? './feed',
       webhookSecret: env.webhookSecret,
     },
     scraper: {
@@ -422,10 +304,66 @@ function assertNonEmptyScrape(totalCount: number): void {
 }
 
 /**
+ * Publish the signed feed when the run qualifies for publication
+ *
+ * A publish happens when jobs were scraped or force sync is enabled. An
+ * empty publish (with ALLOW_EMPTY_SCRAPE acknowledged) removes all jobs
+ * in WordPress to maintain parity, so it is gated the same way as a
+ * non-empty one.
+ *
+ * @param jobs - Normalized jobs from the scrape
+ * @param config - Validated scrape and sync configuration
+ * @returns Promise resolving to the publish result and elapsed time
+ * @throws {Error} When the feed files cannot be written
+ * @example
+ * ```typescript
+ * const { publishResult, publishTime } = await publishFeedIfNeeded(jobs, config);
+ * console.log(`Published ${publishResult.jobsPublished} jobs in ${publishTime}ms`);
+ * ```
+ * @since 1.10.0
+ */
+async function publishFeedIfNeeded(
+  jobs: NormalizedJob[],
+  config: ScrapeAndSyncConfig
+): Promise<{ publishResult: FeedPublishResult; publishTime: number }> {
+  const logger = getLogger();
+
+  if (jobs.length === 0 && !config.script.forceSync) {
+    logger.info('No jobs to publish and force sync not enabled');
+    return {
+      publishResult: {
+        success: true,
+        message: 'No jobs to publish',
+        jobsPublished: 0,
+        feedPath: '',
+        signaturePath: '',
+      },
+      publishTime: 0,
+    };
+  }
+
+  const publishStartTime = Date.now();
+  const publisher = new JobFeedPublisher(config.feed.outputDir, config.feed.webhookSecret);
+
+  const publishResult = await publisher.publish(jobs, 'github-actions');
+  const publishTime = Date.now() - publishStartTime;
+
+  if (!publishResult.success) {
+    throw new Error(`Feed publish failed: ${publishResult.error}`);
+  }
+
+  logger.info(
+    `Successfully published ${publishResult.jobsPublished} jobs to feed in ${publishTime}ms`
+  );
+
+  return { publishResult, publishTime };
+}
+
+/**
  * Main scrape and sync execution function
  *
  * Orchestrates the complete workflow from configuration loading through
- * job scraping to WordPress synchronization. Handles comprehensive error
+ * job scraping to signed feed publication. Handles comprehensive error
  * scenarios, performance monitoring, and artifact generation for enterprise
  * production deployments with full observability.
  *
@@ -435,7 +373,7 @@ function assertNonEmptyScrape(totalCount: number): void {
  * ```typescript
  * const result = await executeScrapeAndSync();
  * if (result.success) {
- *   console.log(`✅ Synced ${result.jobsSynced} jobs in ${result.totalTime}ms`);
+ *   console.log(`✅ Published ${result.jobsPublished} jobs in ${result.totalTime}ms`);
  * } else {
  *   console.error(`❌ Failed: ${result.error}`);
  * }
@@ -455,7 +393,7 @@ async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
     await createOutputDirectories();
 
     logger.info(`Scraping jobs for company: ${config.driveHr.companyId}`);
-    logger.info(`Target WordPress: ${config.wordpress.apiUrl}`);
+    logger.info(`Feed output directory: ${config.feed.outputDir}`);
 
     // Initialize scraper
     const scraper = new PlaywrightScraper(config.scraper);
@@ -476,35 +414,8 @@ async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
     // Save jobs artifact
     const jobsFile = await saveJobsArtifact(scrapeResult.jobs, runId);
 
-    // Send to WordPress if we have jobs or force sync is enabled
-    let syncResult: WebhookResult;
-    let syncTime = 0;
-
-    if (scrapeResult.jobs.length > 0 || config.script.forceSync) {
-      const syncStartTime = Date.now();
-      const webhookClient = new WordPressWebhookClient(
-        config.wordpress.apiUrl,
-        config.wordpress.webhookSecret
-      );
-
-      syncResult = await webhookClient.sendJobs(scrapeResult.jobs, 'github-actions');
-      syncTime = Date.now() - syncStartTime;
-
-      if (!syncResult.success) {
-        throw new Error(`WordPress sync failed: ${syncResult.error}`);
-      }
-
-      logger.info(
-        `Successfully synced ${syncResult.jobsProcessed} jobs to WordPress in ${syncTime}ms`
-      );
-    } else {
-      logger.info('No jobs to sync and force sync not enabled');
-      syncResult = {
-        success: true,
-        message: 'No jobs to sync',
-        jobsProcessed: 0,
-      };
-    }
+    // Publish the signed feed (skipped for empty scrapes without force sync)
+    const { publishResult, publishTime } = await publishFeedIfNeeded(scrapeResult.jobs, config);
 
     // Cleanup
     await scraper.dispose();
@@ -513,13 +424,15 @@ async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
     const result: ScrapeAndSyncResult = {
       success: true,
       jobsScraped: scrapeResult.totalCount,
-      jobsSynced: syncResult.jobsProcessed,
+      jobsPublished: publishResult.jobsPublished,
       scrapingTime,
-      syncTime,
+      publishTime,
       totalTime,
       artifacts: {
         jobsFile,
         screenshotFile: scrapeResult.screenshotPath,
+        ...(publishResult.feedPath && { feedFile: publishResult.feedPath }),
+        ...(publishResult.signaturePath && { signatureFile: publishResult.signaturePath }),
       },
     };
 
@@ -538,9 +451,9 @@ async function executeScrapeAndSync(): Promise<ScrapeAndSyncResult> {
     const result: ScrapeAndSyncResult = {
       success: false,
       jobsScraped: 0,
-      jobsSynced: 0,
+      jobsPublished: 0,
       scrapingTime: 0,
-      syncTime: 0,
+      publishTime: 0,
       totalTime,
       error: errorMessage,
       artifacts: {},
@@ -587,15 +500,15 @@ async function main(): Promise<void> {
     const result = await executeScrapeAndSync();
 
     if (result.success) {
-      logger.info('Scrape and sync completed successfully');
+      logger.info('Scrape and publish completed successfully');
       logger.info(`Jobs scraped: ${result.jobsScraped}`);
-      logger.info(`Jobs synced: ${result.jobsSynced}`);
+      logger.info(`Jobs published: ${result.jobsPublished}`);
       logger.info(`Total time: ${result.totalTime}ms`);
 
       // GitHub Actions output
-      process.stdout.write('✅ Scrape and sync completed successfully\n');
+      process.stdout.write('✅ Scrape and publish completed successfully\n');
       process.stdout.write(`📊 Jobs scraped: ${result.jobsScraped}\n`);
-      process.stdout.write(`🔄 Jobs synced: ${result.jobsSynced}\n`);
+      process.stdout.write(`🔄 Jobs published: ${result.jobsPublished}\n`);
       process.stdout.write(`⏱️  Total time: ${result.totalTime}ms\n`);
       process.exit(0);
     } else {
