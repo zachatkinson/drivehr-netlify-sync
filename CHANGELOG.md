@@ -1,3 +1,18 @@
+## [1.10.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.10.0...v1.10.1) (2026-09-26)
+
+### Bug Fixes
+
+- **deps:** update dependencies to resolve 165 audit vulnerabilities
+  ([029091e](https://github.com/zachatkinson/drivehr-netlify-sync/commit/029091ef7c56193cf078a05625d65409c350100f))
+- **normalizer:** sanitize HTML to remove non-standard attributes
+  ([04ada2d](https://github.com/zachatkinson/drivehr-netlify-sync/commit/04ada2d035d631020de95ee45e0bef2f203114cf))
+- **scraper:** rewrite extraction for DriveHR's new AG Grid careers page layout
+  ([4e22266](https://github.com/zachatkinson/drivehr-netlify-sync/commit/4e2226668ee1f446282c5f0035c1eec3807022c7))
+- **scraper:** strip embedded style tags from job descriptions
+  ([db04af8](https://github.com/zachatkinson/drivehr-netlify-sync/commit/db04af88a3e3c27993b6a52231a00509643dd1d6))
+- **security:** require timestamp-bound webhook signatures and harden pipeline
+  ([87cae6a](https://github.com/zachatkinson/drivehr-netlify-sync/commit/87cae6a4a610a4162bda758d98654dd2728b4905))
+
 # [1.10.0](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.9.1...v1.10.0) (2025-10-24)
 
 ### Features
