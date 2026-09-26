@@ -220,12 +220,13 @@ export default async (req: Request, context: Context): Promise<Response> => {
       });
     }
 
-    // Validate webhook signature
+    // Validate the timestamp-bound webhook signature (plugin 2.3.0+)
     const payload = await req.text();
-    const signature = req.headers.get('x-webhook-signature');
+    const signature = req.headers.get('x-webhook-signature-v2');
+    const requestTimestamp = req.headers.get('x-webhook-timestamp');
 
-    if (!signature) {
-      logger.warn('Missing webhook signature', { requestId });
+    if (!signature || !requestTimestamp) {
+      logger.warn('Missing webhook signature or timestamp', { requestId });
       return new Response(JSON.stringify({
         success: false,
         error: 'Missing webhook signature',
@@ -250,7 +251,7 @@ export default async (req: Request, context: Context): Promise<Response> => {
       });
     }
 
-    if (!validateWebhookSignature(payload, signature, env.webhookSecret)) {
+    if (!validateWebhookSignature(payload, requestTimestamp, signature, env.webhookSecret)) {
       logger.warn('Invalid webhook signature', { requestId });
       return new Response(JSON.stringify({
         success: false,
@@ -507,7 +508,8 @@ async function triggerGitHubWorkflow(
  * are logged for security monitoring and incident response.
  *
  * @param payload - Raw request payload string used for signature computation
- * @param signature - Provided HMAC signature from request headers (format: "sha256=hash")
+ * @param requestTimestamp - X-Webhook-Timestamp header value (unix seconds) bound into the signature
+ * @param signature - X-Webhook-Signature-V2 header value (format: "sha256=hash")
  * @param secret - Shared webhook secret for signature validation
  * @returns True if signature is valid and request is authenticated, false otherwise
  * @example
@@ -526,8 +528,13 @@ async function triggerGitHubWorkflow(
  * ```
  * @since 1.0.0
  */
-function validateWebhookSignature(payload: string, signature: string, secret: string): boolean {
-  return SecurityUtils.validateHmacSignature(payload, signature, secret);
+function validateWebhookSignature(
+  payload: string,
+  requestTimestamp: string,
+  signature: string,
+  secret: string
+): boolean {
+  return SecurityUtils.validateTimestampedHmacSignature(payload, requestTimestamp, signature, secret);
 }
 
 /**

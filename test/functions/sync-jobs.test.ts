@@ -202,27 +202,34 @@ class SyncJobsTestUtils {
   }
 
   /**
-   * Generates valid HMAC SHA-256 webhook signature for authentication testing
+   * Builds the authentication headers the webhook receiver requires
    *
-   * Creates properly formatted webhook signatures using HMAC SHA-256 algorithm
-   * for testing webhook receiver function authentication flows. Produces signatures
-   * compatible with GitHub Actions webhook signature validation standards.
+   * Produces the timestamp-bound V2 signature (HMAC-SHA256 over
+   * "{timestamp}.{payload}") together with its timestamp header, matching what
+   * the GitHub Actions scraper and the WordPress plugin send in production.
    *
-   * @param payload - Request body content for signature calculation
-   * @param secret - Webhook secret key for HMAC signature generation
-   * @returns Formatted webhook signature with 'sha256=' prefix
+   * @param payload - Request body content exactly as it will be sent
+   * @param secret - Webhook secret; defaults to the suite's test secret
+   * @param timestamp - Unix seconds to bind into the signature; defaults to now
+   * @returns Header map with x-webhook-signature-v2 and x-webhook-timestamp
    * @example
    * ```typescript
-   * const signature = SyncJobsTestUtils.generateValidSignature(
-   *   JSON.stringify(payload), 'webhook-secret'
+   * const req = SyncJobsTestUtils.createMockRequest(
+   *   'POST', payloadJson, SyncJobsTestUtils.signedHeaders(payloadJson)
    * );
-   * // Returns: 'sha256=abc123def456...'
    * ```
-   * @since 1.0.0
+   * @since 1.10.0
    */
-  static generateValidSignature(payload: string, secret: string): string {
-    const signature = createHmac('sha256', secret).update(payload).digest('hex');
-    return `sha256=${signature}`;
+  static signedHeaders(
+    payload: string,
+    secret: string = SyncJobsTestUtils.WEBHOOK_SECRET,
+    timestamp: string = Math.floor(Date.now() / 1000).toString()
+  ): Record<string, string> {
+    const digest = createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex');
+    return {
+      'x-webhook-signature-v2': `sha256=${digest}`,
+      'x-webhook-timestamp': timestamp,
+    };
   }
 
   /**
@@ -297,7 +304,7 @@ class SyncJobsTestUtils {
 
     // Utils
     vi.mocked(utils.StringUtils.generateRequestId).mockReturnValue('test-id-123');
-    vi.mocked(utils.SecurityUtils.validateHmacSignature).mockReturnValue(true);
+    vi.mocked(utils.SecurityUtils.validateTimestampedHmacSignature).mockReturnValue(true);
 
     // WordPress Client
     const mockWordPressClient = {
@@ -410,14 +417,12 @@ describe('Sync Jobs Webhook Receiver', () => {
 
       const webhookPayload = SyncJobsTestUtils.createGitHubActionsPayload();
       const payloadJson = JSON.stringify(webhookPayload);
-      const signature = SyncJobsTestUtils.generateValidSignature(
-        payloadJson,
-        SyncJobsTestUtils.WEBHOOK_SECRET
-      );
 
-      const req = SyncJobsTestUtils.createMockRequest('POST', payloadJson, {
-        'x-webhook-signature': signature,
-      });
+      const req = SyncJobsTestUtils.createMockRequest(
+        'POST',
+        payloadJson,
+        SyncJobsTestUtils.signedHeaders(payloadJson)
+      );
       const context = SyncJobsTestUtils.createMockContext();
 
       const response = await handler(req, context);
@@ -436,14 +441,12 @@ describe('Sync Jobs Webhook Receiver', () => {
 
       const webhookPayload = SyncJobsTestUtils.createGitHubActionsPayload([]);
       const payloadJson = JSON.stringify(webhookPayload);
-      const signature = SyncJobsTestUtils.generateValidSignature(
-        payloadJson,
-        SyncJobsTestUtils.WEBHOOK_SECRET
-      );
 
-      const req = SyncJobsTestUtils.createMockRequest('POST', payloadJson, {
-        'x-webhook-signature': signature,
-      });
+      const req = SyncJobsTestUtils.createMockRequest(
+        'POST',
+        payloadJson,
+        SyncJobsTestUtils.signedHeaders(payloadJson)
+      );
       const context = SyncJobsTestUtils.createMockContext();
 
       const response = await handler(req, context);
@@ -455,15 +458,52 @@ describe('Sync Jobs Webhook Receiver', () => {
       expect(data.data?.message).toBeDefined();
     });
 
-    it('should validate HMAC signature when present', async () => {
+    it('should reject requests without a signature instead of forwarding them to WordPress', async () => {
       SyncJobsTestUtils.setupSuccessfulMocks();
-      vi.mocked(utils.SecurityUtils.validateHmacSignature).mockReturnValue(false);
+
+      const webhookPayload = SyncJobsTestUtils.createGitHubActionsPayload();
+      const payloadJson = JSON.stringify(webhookPayload);
+
+      const req = SyncJobsTestUtils.createMockRequest('POST', payloadJson);
+      const context = SyncJobsTestUtils.createMockContext();
+
+      const response = await handler(req, context);
+      const data = await SyncJobsTestUtils.parseResponse(response);
+
+      expect(response.status).toBe(401);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Missing webhook signature');
+      expect(utils.SecurityUtils.validateTimestampedHmacSignature).not.toHaveBeenCalled();
+    });
+
+    it('should reject requests that carry only the legacy body-only signature header', async () => {
+      SyncJobsTestUtils.setupSuccessfulMocks();
 
       const webhookPayload = SyncJobsTestUtils.createGitHubActionsPayload();
       const payloadJson = JSON.stringify(webhookPayload);
 
       const req = SyncJobsTestUtils.createMockRequest('POST', payloadJson, {
-        'x-webhook-signature': 'sha256=invalid-signature',
+        'x-webhook-signature': 'sha256=legacy-signature',
+      });
+      const context = SyncJobsTestUtils.createMockContext();
+
+      const response = await handler(req, context);
+      const data = await SyncJobsTestUtils.parseResponse(response);
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Missing webhook signature');
+    });
+
+    it('should reject requests with an invalid timestamp-bound signature', async () => {
+      SyncJobsTestUtils.setupSuccessfulMocks();
+      vi.mocked(utils.SecurityUtils.validateTimestampedHmacSignature).mockReturnValue(false);
+
+      const webhookPayload = SyncJobsTestUtils.createGitHubActionsPayload();
+      const payloadJson = JSON.stringify(webhookPayload);
+
+      const req = SyncJobsTestUtils.createMockRequest('POST', payloadJson, {
+        'x-webhook-signature-v2': 'sha256=invalid-signature',
+        'x-webhook-timestamp': Math.floor(Date.now() / 1000).toString(),
       });
       const context = SyncJobsTestUtils.createMockContext();
 
@@ -480,14 +520,12 @@ describe('Sync Jobs Webhook Receiver', () => {
 
       const webhookPayload = SyncJobsTestUtils.createGitHubActionsPayload();
       const payloadJson = JSON.stringify(webhookPayload);
-      const signature = SyncJobsTestUtils.generateValidSignature(
-        payloadJson,
-        SyncJobsTestUtils.WEBHOOK_SECRET
-      );
 
-      const req = SyncJobsTestUtils.createMockRequest('POST', payloadJson, {
-        'x-webhook-signature': signature,
-      });
+      const req = SyncJobsTestUtils.createMockRequest(
+        'POST',
+        payloadJson,
+        SyncJobsTestUtils.signedHeaders(payloadJson)
+      );
       const context = SyncJobsTestUtils.createMockContext();
 
       const response = await handler(req, context);
@@ -503,14 +541,12 @@ describe('Sync Jobs Webhook Receiver', () => {
       SyncJobsTestUtils.setupSuccessfulMocks();
 
       const invalidPayload = '{ invalid json }';
-      const signature = SyncJobsTestUtils.generateValidSignature(
-        invalidPayload,
-        SyncJobsTestUtils.WEBHOOK_SECRET
-      );
 
-      const req = SyncJobsTestUtils.createMockRequest('POST', invalidPayload, {
-        'x-webhook-signature': signature,
-      });
+      const req = SyncJobsTestUtils.createMockRequest(
+        'POST',
+        invalidPayload,
+        SyncJobsTestUtils.signedHeaders(invalidPayload)
+      );
       const context = SyncJobsTestUtils.createMockContext();
 
       const response = await handler(req, context);
@@ -525,14 +561,12 @@ describe('Sync Jobs Webhook Receiver', () => {
       SyncJobsTestUtils.setupSuccessfulMocks();
 
       const invalidPayload = JSON.stringify({ source: 'github-actions' }); // Missing jobs array
-      const signature = SyncJobsTestUtils.generateValidSignature(
-        invalidPayload,
-        SyncJobsTestUtils.WEBHOOK_SECRET
-      );
 
-      const req = SyncJobsTestUtils.createMockRequest('POST', invalidPayload, {
-        'x-webhook-signature': signature,
-      });
+      const req = SyncJobsTestUtils.createMockRequest(
+        'POST',
+        invalidPayload,
+        SyncJobsTestUtils.signedHeaders(invalidPayload)
+      );
       const context = SyncJobsTestUtils.createMockContext();
 
       const response = await handler(req, context);
@@ -643,14 +677,12 @@ describe('Sync Jobs Webhook Receiver', () => {
         repository: 'company/drivehr-sync',
       };
       const payloadJson = JSON.stringify(webhookPayload);
-      const signature = SyncJobsTestUtils.generateValidSignature(
-        payloadJson,
-        SyncJobsTestUtils.WEBHOOK_SECRET
-      );
 
-      const req = SyncJobsTestUtils.createMockRequest('POST', payloadJson, {
-        'x-webhook-signature': signature,
-      });
+      const req = SyncJobsTestUtils.createMockRequest(
+        'POST',
+        payloadJson,
+        SyncJobsTestUtils.signedHeaders(payloadJson)
+      );
       const context = SyncJobsTestUtils.createMockContext();
 
       const response = await handler(req, context);

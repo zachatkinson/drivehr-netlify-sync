@@ -47,9 +47,10 @@
 import { writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createHmac } from 'crypto';
 import { PlaywrightScraper, type PlaywrightScraperConfig } from '../services/playwright-scraper.js';
 import { getLogger } from '../lib/logger.js';
+import { SecurityUtils } from '../lib/utils.js';
+import { sanitizeJobDescription } from '../lib/html-sanitizer.js';
 import { getEnvironmentConfig, getEnvVar } from '../lib/env.js';
 import type { DriveHrApiConfig } from '../types/api.js';
 import type { NormalizedJob } from '../types/job.js';
@@ -165,25 +166,35 @@ class WordPressWebhookClient {
     const logger = getLogger();
     const webhookUrl = this.apiUrl;
 
+    // Descriptions are third-party HTML; reduce them to safe formatting
+    // before they are signed so the signature never vouches for markup this
+    // pipeline has not vetted. WordPress applies wp_kses_post() again.
+    const safeJobs = jobs.map(job => ({
+      ...job,
+      description: sanitizeJobDescription(job.description),
+    }));
+
     const payload = {
       source,
-      jobs,
+      jobs: safeJobs,
       timestamp: new Date().toISOString(),
-      total_count: jobs.length,
+      total_count: safeJobs.length,
     };
 
     const payloadJson = JSON.stringify(payload);
-    const signature = this.generateSignature(payloadJson);
+    const requestTimestamp = Math.floor(Date.now() / 1000).toString();
+    const { legacy, v2 } = this.generateSignatures(payloadJson, requestTimestamp);
 
-    logger.info(`Sending ${jobs.length} jobs to WordPress webhook`);
+    logger.info(`Sending ${safeJobs.length} jobs to WordPress webhook`);
 
     try {
       const response = await globalThis.fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Webhook-Signature': `sha256=${signature}`,
-          'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
+          'X-Webhook-Signature': legacy,
+          'X-Webhook-Signature-V2': v2,
+          'X-Webhook-Timestamp': requestTimestamp,
           'User-Agent': 'DriveHR-GitHub-Actions/2.0',
         },
         body: payloadJson,
@@ -217,16 +228,23 @@ class WordPressWebhookClient {
   /**
    * Generate HMAC-SHA256 signature for webhook authentication
    *
-   * Creates cryptographic signature for webhook payload verification
-   * using SHA-256 hashing algorithm with shared secret for security.
+   * Creates both webhook signatures for a payload: the legacy body-only HMAC
+   * accepted by plugin versions before 2.3.0, and the timestamp-bound V2
+   * HMAC that newer plugins require. The legacy value can be dropped once
+   * every site has upgraded.
    *
    * @private
-   * @param payload - JSON payload to sign for authentication
-   * @returns Hex-encoded HMAC-SHA256 signature
+   * @param payload - JSON payload exactly as it will be sent
+   * @param timestamp - Unix time in seconds, sent as X-Webhook-Timestamp
+   * @returns Both signatures in 'sha256=<hex>' form
    * @since 1.0.0
+   * @since 1.10.0 Returns the timestamp-bound V2 signature alongside the legacy one
    */
-  private generateSignature(payload: string): string {
-    return createHmac('sha256', this.webhookSecret).update(payload).digest('hex');
+  private generateSignatures(payload: string, timestamp: string): { legacy: string; v2: string } {
+    return {
+      legacy: SecurityUtils.generateHmacSignature(payload, this.webhookSecret),
+      v2: SecurityUtils.generateTimestampedHmacSignature(payload, timestamp, this.webhookSecret),
+    };
   }
 }
 

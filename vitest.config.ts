@@ -97,7 +97,6 @@ export default defineConfig({
           statements: 80,
         },
       },
-      all: true,
       skipFull: false,
       // Report uncovered lines
       reportOnFailure: true,
@@ -105,12 +104,7 @@ export default defineConfig({
 
     // Concurrency and timeouts
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: false,
-        isolate: true,
-      },
-    },
+    isolate: true,
 
     // Setup files
     // setupFiles: [],

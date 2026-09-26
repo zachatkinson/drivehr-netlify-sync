@@ -460,11 +460,15 @@ describe('Telemetry API Interface', () => {
       vi.resetModules();
       // Mock NodeSDK
       vi.doMock('@opentelemetry/sdk-node', () => ({
-        NodeSDK: vi.fn().mockImplementation(() => ({
-          start: vi.fn().mockResolvedValue(undefined),
-          shutdown: vi.fn().mockResolvedValue(undefined),
-          detectResources: vi.fn().mockResolvedValue({}),
-        })),
+        // Regular function, not an arrow: the SDK is instantiated with `new`
+        // and Vitest 4 forwards that to the implementation.
+        NodeSDK: vi.fn().mockImplementation(function () {
+          return {
+            start: vi.fn().mockResolvedValue(undefined),
+            shutdown: vi.fn().mockResolvedValue(undefined),
+            detectResources: vi.fn().mockResolvedValue({}),
+          };
+        }),
       }));
 
       // Mock auto-instrumentations
@@ -474,17 +478,21 @@ describe('Telemetry API Interface', () => {
 
       // Mock exporters
       vi.doMock('@opentelemetry/exporter-trace-otlp-http', () => ({
-        OTLPTraceExporter: vi.fn().mockImplementation(() => ({
-          export: vi.fn().mockResolvedValue(undefined),
-          shutdown: vi.fn().mockResolvedValue(undefined),
-        })),
+        OTLPTraceExporter: vi.fn().mockImplementation(function () {
+          return {
+            export: vi.fn().mockResolvedValue(undefined),
+            shutdown: vi.fn().mockResolvedValue(undefined),
+          };
+        }),
       }));
 
       vi.doMock('@opentelemetry/exporter-metrics-otlp-http', () => ({
-        OTLPMetricExporter: vi.fn().mockImplementation(() => ({
-          export: vi.fn().mockResolvedValue(undefined),
-          shutdown: vi.fn().mockResolvedValue(undefined),
-        })),
+        OTLPMetricExporter: vi.fn().mockImplementation(function () {
+          return {
+            export: vi.fn().mockResolvedValue(undefined),
+            shutdown: vi.fn().mockResolvedValue(undefined),
+          };
+        }),
       }));
 
       // Mock OpenTelemetry API
@@ -568,7 +576,7 @@ describe('Telemetry API Interface', () => {
     it('should handle initialization errors gracefully', async () => {
       // Re-mock NodeSDK to throw during initialization for this specific test
       vi.doMock('@opentelemetry/sdk-node', () => ({
-        NodeSDK: vi.fn().mockImplementation(() => {
+        NodeSDK: vi.fn().mockImplementation(function () {
           throw new Error('SDK initialization failed');
         }),
       }));

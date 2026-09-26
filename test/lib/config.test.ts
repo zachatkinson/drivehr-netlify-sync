@@ -669,7 +669,10 @@ describe('Config Service', () => {
       const configService = await ConfigTestUtils.getConfigService();
 
       const validateSpy = vi
-        .spyOn(configService as never, 'validateEnvironmentVariables')
+        .spyOn(
+          configService as unknown as { validateEnvironmentVariables: () => unknown },
+          'validateEnvironmentVariables'
+        )
         .mockImplementation(() => {
           throw new Error('Unexpected validation error');
         });
@@ -686,7 +689,10 @@ describe('Config Service', () => {
       const configService = await ConfigTestUtils.getConfigService();
 
       const validateSpy = vi
-        .spyOn(configService as never, 'validateEnvironmentVariables')
+        .spyOn(
+          configService as unknown as { validateEnvironmentVariables: () => unknown },
+          'validateEnvironmentVariables'
+        )
         .mockImplementation(() => {
           throw 'String error'; // Non-Error object
         });

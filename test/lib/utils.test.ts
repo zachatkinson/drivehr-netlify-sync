@@ -536,6 +536,140 @@ describe('Security Utils', () => {
       expect(SecurityUtils.timingSafeEqual('123', '123')).toBe(true);
       expect(SecurityUtils.timingSafeEqual('123', '456')).toBe(false);
     });
+
+    it('should return false rather than throw for non-string inputs', () => {
+      expect(SecurityUtils.timingSafeEqual(null as unknown as string, 'test')).toBe(false);
+      expect(SecurityUtils.timingSafeEqual('test', undefined as unknown as string)).toBe(false);
+    });
+  });
+
+  describe('generateTimestampedHmacSignature', () => {
+    const secret = 'test-secret-key-at-least-32-characters-long';
+    const body = '{"jobs":[]}';
+
+    it('should sign the timestamp-dot-body string, not the body alone', () => {
+      const timestamp = '1700000000';
+
+      const signature = SecurityUtils.generateTimestampedHmacSignature(body, timestamp, secret);
+
+      expect(signature).toBe(SecurityUtils.generateHmacSignature(`${timestamp}.${body}`, secret));
+      expect(signature).not.toBe(SecurityUtils.generateHmacSignature(body, secret));
+      expect(signature).toMatch(/^sha256=[a-f0-9]{64}$/);
+    });
+
+    it('should produce different signatures for different timestamps', () => {
+      const first = SecurityUtils.generateTimestampedHmacSignature(body, '1700000000', secret);
+      const second = SecurityUtils.generateTimestampedHmacSignature(body, '1700000001', secret);
+
+      expect(first).not.toBe(second);
+    });
+  });
+
+  describe('validateTimestampedHmacSignature', () => {
+    const secret = 'test-secret-key-at-least-32-characters-long';
+    const body = '{"force_sync":true}';
+    const now = 1700000000;
+    const timestamp = String(now);
+    const validSignature = SecurityUtils.generateTimestampedHmacSignature(body, timestamp, secret);
+
+    it('should accept a fresh, correctly signed request', () => {
+      expect(
+        SecurityUtils.validateTimestampedHmacSignature(
+          body,
+          timestamp,
+          validSignature,
+          secret,
+          300,
+          now
+        )
+      ).toBe(true);
+    });
+
+    it('should accept skew up to the configured window in either direction', () => {
+      expect(
+        SecurityUtils.validateTimestampedHmacSignature(
+          body,
+          timestamp,
+          validSignature,
+          secret,
+          300,
+          now + 300
+        )
+      ).toBe(true);
+      expect(
+        SecurityUtils.validateTimestampedHmacSignature(
+          body,
+          timestamp,
+          validSignature,
+          secret,
+          300,
+          now - 300
+        )
+      ).toBe(true);
+    });
+
+    it('should reject a request whose timestamp is outside the window', () => {
+      expect(
+        SecurityUtils.validateTimestampedHmacSignature(
+          body,
+          timestamp,
+          validSignature,
+          secret,
+          300,
+          now + 301
+        )
+      ).toBe(false);
+    });
+
+    it('should reject a replay that carries a fresh timestamp with the old signature', () => {
+      const replayTimestamp = String(now + 10);
+
+      expect(
+        SecurityUtils.validateTimestampedHmacSignature(
+          body,
+          replayTimestamp,
+          validSignature,
+          secret,
+          300,
+          now + 10
+        )
+      ).toBe(false);
+    });
+
+    it('should reject a legacy body-only signature', () => {
+      const legacy = SecurityUtils.generateHmacSignature(body, secret);
+
+      expect(
+        SecurityUtils.validateTimestampedHmacSignature(body, timestamp, legacy, secret, 300, now)
+      ).toBe(false);
+    });
+
+    it('should reject malformed timestamps', () => {
+      for (const bad of ['', 'abc', '-1', '1.5', '1700000000000000', ' 1700000000']) {
+        expect(
+          SecurityUtils.validateTimestampedHmacSignature(
+            body,
+            bad,
+            validSignature,
+            secret,
+            300,
+            now
+          )
+        ).toBe(false);
+      }
+    });
+
+    it('should reject a signature made with a different secret', () => {
+      const other = SecurityUtils.generateTimestampedHmacSignature(
+        body,
+        timestamp,
+        'another-secret-value-32-chars-long'
+      );
+
+      expect(
+        SecurityUtils.validateTimestampedHmacSignature(body, timestamp, other, secret, 300, now)
+      ).toBe(false);
+    });
   });
 });
 

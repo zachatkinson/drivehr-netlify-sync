@@ -475,21 +475,28 @@ class WordPressWebhookSyncOperation extends SyncOperationTemplate {
     });
 
     const payload = JSON.stringify(context.syncRequest);
-    const signature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    logger.info('[DEBUG] WordPress Webhook Request', {
-      url: this.config.baseUrl,
-      payloadLength: payload.length,
-      signature,
+    // Legacy header (HMAC over the body alone) keeps plugin versions before
+    // 2.3.0 working during the cutover; remove it once every site verifies
+    // the timestamp-bound V2 signature. Signatures are never logged: a valid
+    // signature for a payload is a replay token.
+    const legacySignature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
+    const signatureV2 = SecurityUtils.generateTimestampedHmacSignature(
+      payload,
       timestamp,
-      secretLength: this.webhookSecret.length,
-      payloadPreview: payload.substring(0, 200),
+      this.webhookSecret
+    );
+
+    logger.debug('Sending WordPress webhook request', {
+      requestId: context.requestId,
+      payloadLength: payload.length,
     });
 
     const response = await this.httpClient.post<JobSyncResponse>(this.config.baseUrl, payload, {
       'Content-Type': 'application/json',
-      'X-Webhook-Signature': signature,
+      'X-Webhook-Signature': legacySignature,
+      'X-Webhook-Signature-V2': signatureV2,
       'X-Webhook-Timestamp': timestamp,
       'X-Request-ID': context.requestId,
       'User-Agent': 'DriveHR-Sync-Netlify/1.0',
@@ -753,12 +760,19 @@ export class WordPressWebhookClient implements IWordPressClient {
         action: 'health_check',
         timestamp: new Date().toISOString(),
       });
-      const signature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const legacySignature = SecurityUtils.generateHmacSignature(payload, this.webhookSecret);
+      const signatureV2 = SecurityUtils.generateTimestampedHmacSignature(
+        payload,
+        timestamp,
+        this.webhookSecret
+      );
 
       const response = await this.httpClient.post(this.config.baseUrl, payload, {
         'Content-Type': 'application/json',
-        'X-Webhook-Signature': signature,
-        'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
+        'X-Webhook-Signature': legacySignature,
+        'X-Webhook-Signature-V2': signatureV2,
+        'X-Webhook-Timestamp': timestamp,
         'User-Agent': 'DriveHR-Sync-Netlify/1.0',
       });
 
