@@ -223,7 +223,7 @@ class ManualTriggerTestUtils {
     vi.spyOn(logger, 'getLogger').mockReturnValue(mockLogger);
     vi.spyOn(httpClient, 'createHttpClient').mockReturnValue(mockHttpClient);
     vi.spyOn(utils.StringUtils, 'generateRequestId').mockReturnValue('test-id-123');
-    vi.spyOn(utils.SecurityUtils, 'validateHmacSignature').mockReturnValue(true);
+    vi.spyOn(utils.SecurityUtils, 'validateTimestampedHmacSignature').mockReturnValue(true);
 
     // Mock successful GitHub API response
     vi.mocked(mockHttpClient.post).mockResolvedValue({
@@ -470,7 +470,7 @@ describe('Manual Trigger Function', () => {
 
     it('should reject requests with invalid webhook signature', async () => {
       ManualTriggerTestUtils.setupSuccessfulMocks();
-      vi.spyOn(utils.SecurityUtils, 'validateHmacSignature').mockReturnValue(false);
+      vi.spyOn(utils.SecurityUtils, 'validateTimestampedHmacSignature').mockReturnValue(false);
 
       mockManualTriggerFunction.mockImplementation(async (_req: Request, _context: Context) => {
         return new Response(

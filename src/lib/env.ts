@@ -171,10 +171,39 @@ const getRequiredEnvVar = (key: string): string => {
  * @see {@link EnvironmentConfig} for the configuration structure
  * @see {@link ../lib/config.ts} for full application configuration with validation
  */
+/**
+ * Require an environment variable to be an absolute https:// URL
+ *
+ * The webhook secret is the only thing standing between the public internet
+ * and the WordPress job store. Sending it over plain HTTP, or to a URL that
+ * does not parse at all, is always a misconfiguration and is refused at
+ * startup rather than discovered on the first failed sync.
+ *
+ * @param name - Environment variable name, used only in the error message
+ * @param value - Raw value already confirmed to be present
+ * @returns The same value when it is a valid https URL
+ * @throws {Error} When the value is not parseable or does not use https
+ * @since 1.10.0
+ */
+const assertHttpsUrl = (name: string, value: string): string => {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Environment variable ${name} must be an absolute URL`);
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`Environment variable ${name} must use https://`);
+  }
+
+  return value;
+};
+
 export const getEnvironmentConfig = (): EnvironmentConfig => {
   return {
     driveHrCompanyId: getRequiredEnvVar('DRIVEHR_COMPANY_ID'),
-    wpApiUrl: getRequiredEnvVar('WP_API_URL'),
+    wpApiUrl: assertHttpsUrl('WP_API_URL', getRequiredEnvVar('WP_API_URL')),
     webhookSecret: getRequiredEnvVar('WEBHOOK_SECRET'),
     environment: (getEnvVar('ENVIRONMENT') as EnvironmentConfig['environment']) || 'production',
     logLevel: (getEnvVar('LOG_LEVEL') as EnvironmentConfig['logLevel']) || 'info',

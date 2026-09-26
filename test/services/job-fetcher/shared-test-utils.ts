@@ -10,7 +10,7 @@
  * @see {@link ../../shared/base-test-utils.ts} for base utilities
  */
 
-import { vi, expect } from 'vitest';
+import { vi, expect, type Mock } from 'vitest';
 import type { IHttpClient, HttpResponse } from '../../../src/lib/http-client.js';
 import type { IHtmlParser, IJobFetchStrategy } from '../../../src/services/job-fetcher/types.js';
 import type { DriveHrApiConfig } from '../../../src/types/api.js';
@@ -51,7 +51,7 @@ export class JobFetcherTestUtils extends BaseTestUtils {
    * Mock logger for testing logging behavior
    * @since 1.0.0
    */
-  static mockLogger = {
+  static mockLogger: Record<'debug' | 'info' | 'warn' | 'error' | 'trace', Mock> = {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),

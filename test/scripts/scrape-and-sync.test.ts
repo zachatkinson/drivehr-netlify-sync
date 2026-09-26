@@ -207,9 +207,9 @@ class ScrapeAndSyncTestUtils {
       scrapeJobs: vi.fn().mockResolvedValue(this.mockScrapeResult),
       dispose: vi.fn().mockResolvedValue(undefined),
     };
-    vi.mocked(PlaywrightScraper).mockImplementation(
-      () => mockPlaywrightScraper as unknown as PlaywrightScraper
-    );
+    vi.mocked(PlaywrightScraper).mockImplementation(function () {
+      return mockPlaywrightScraper as unknown as PlaywrightScraper;
+    });
 
     // Mock file system operations
     vi.mocked(mkdir).mockResolvedValue(undefined);
@@ -271,9 +271,9 @@ class ScrapeAndSyncTestUtils {
       scrapeJobs: vi.fn().mockResolvedValue(this.mockEmptyScrapeResult),
       dispose: vi.fn().mockResolvedValue(undefined),
     };
-    vi.mocked(PlaywrightScraper).mockImplementation(
-      () => mockPlaywrightScraper as unknown as PlaywrightScraper
-    );
+    vi.mocked(PlaywrightScraper).mockImplementation(function () {
+      return mockPlaywrightScraper as unknown as PlaywrightScraper;
+    });
   }
 
   /**
@@ -297,9 +297,9 @@ class ScrapeAndSyncTestUtils {
       scrapeJobs: vi.fn().mockResolvedValue(this.mockFailedScrapeResult),
       dispose: vi.fn().mockResolvedValue(undefined),
     };
-    vi.mocked(PlaywrightScraper).mockImplementation(
-      () => mockPlaywrightScraper as unknown as PlaywrightScraper
-    );
+    vi.mocked(PlaywrightScraper).mockImplementation(function () {
+      return mockPlaywrightScraper as unknown as PlaywrightScraper;
+    });
   }
 
   /**
@@ -794,9 +794,9 @@ describe('Scrape and Sync Script', () => {
         scrapeJobs: vi.fn().mockResolvedValue(ScrapeAndSyncTestUtils.mockScrapeResult),
         dispose: vi.fn().mockRejectedValue(new Error('Browser cleanup failed')),
       };
-      vi.mocked(PlaywrightScraper).mockImplementation(
-        () => mockPlaywrightScraper as unknown as PlaywrightScraper
-      );
+      vi.mocked(PlaywrightScraper).mockImplementation(function () {
+        return mockPlaywrightScraper as unknown as PlaywrightScraper;
+      });
 
       const result = await executeScrapeAndSync();
 
@@ -811,7 +811,7 @@ describe('Scrape and Sync Script', () => {
       ScrapeAndSyncTestUtils.setupSuccessfulMocks();
 
       // Mock PlaywrightScraper constructor to throw
-      vi.mocked(PlaywrightScraper).mockImplementationOnce(() => {
+      vi.mocked(PlaywrightScraper).mockImplementationOnce(function () {
         throw new Error('Failed to initialize browser');
       });
 

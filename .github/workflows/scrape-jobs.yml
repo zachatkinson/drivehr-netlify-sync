@@ -18,32 +18,46 @@ on:
         default: 'false'
         type: boolean
 
+# This workflow holds the WordPress webhook secret in its environment. Give the
+# job token nothing it does not need: it only reads the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: scrape-and-sync
+  cancel-in-progress: false
+
 jobs:
   scrape-and-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
+      # Third-party actions are pinned to full commit SHAs so a moved or
+      # compromised tag cannot change what runs with the secret in scope.
+      # Dependabot (github-actions ecosystem) keeps the pins current.
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        # The lockfile is the reviewed dependency set; never re-resolve it on
+        # a scheduled run that has production secrets in its environment.
+        run: pnpm install --frozen-lockfile
 
       - name: Build TypeScript
         run: pnpm run build
 
       - name: Install Playwright browsers
-        run: npx playwright install chromium
+        run: pnpm exec playwright install chromium
 
       - name: Scrape jobs with Playwright
         env:
@@ -58,21 +72,10 @@ jobs:
 
       - name: Upload job data artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scraped-jobs-${{ github.run_number }}
           path: |
             logs/
             temp/
           retention-days: 7
-
-      - name: Notify on failure
-        if: failure()
-        env:
-          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
-          WP_API_URL: ${{ secrets.WP_API_URL }}
-        run: |
-          curl -X POST "$WP_API_URL" \
-            -H "Content-Type: application/json" \
-            -H "X-Webhook-Signature: sha256=$(echo -n '{"error":"GitHub Actions scraper failed","run_id":"${{ github.run_id }}","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}' | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -binary | base64)" \
-            -d '{"error":"GitHub Actions scraper failed","run_id":"${{ github.run_id }}","timestamp":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'

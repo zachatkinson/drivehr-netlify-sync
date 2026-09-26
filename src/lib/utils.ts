@@ -58,7 +58,7 @@
  * @see {@link UrlUtils} for URL processing utilities
  */
 
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac, randomBytes, timingSafeEqual as cryptoTimingSafeEqual } from 'crypto';
 
 /**
  * String manipulation and identifier generation utilities
@@ -378,6 +378,95 @@ export class SecurityUtils {
   }
 
   /**
+   * Maximum accepted clock skew between signer and verifier, in seconds
+   *
+   * Shared with the WordPress plugin (MAX_TIMESTAMP_DRIFT) so both ends of the
+   * webhook agree on the replay window.
+   *
+   * @since 1.10.0
+   */
+  public static readonly MAX_SIGNATURE_AGE_SECONDS = 300;
+
+  /**
+   * Generate a timestamp-bound HMAC-SHA256 signature (v2 scheme)
+   *
+   * Signs the string `${timestamp}.${data}` rather than the body alone. Because
+   * the timestamp is part of the MAC, a verifier that also enforces a freshness
+   * window turns a captured request into a token that expires, instead of one
+   * that can be replayed indefinitely with a new timestamp header. The scheme
+   * mirrors Stripe-style signed webhooks and the WordPress plugin's
+   * X-Webhook-Signature-V2 verification.
+   *
+   * @param data - Raw request body exactly as it will be transmitted
+   * @param timestamp - Unix time in seconds, as a decimal string
+   * @param secret - Shared webhook secret
+   * @returns Signature in the form 'sha256=<64 hex chars>'
+   * @example
+   * ```typescript
+   * const timestamp = Math.floor(Date.now() / 1000).toString();
+   * const signature = SecurityUtils.generateTimestampedHmacSignature(body, timestamp, secret);
+   * headers['X-Webhook-Timestamp'] = timestamp;
+   * headers['X-Webhook-Signature-V2'] = signature;
+   * ```
+   * @since 1.10.0
+   * @see {@link validateTimestampedHmacSignature} for verification
+   */
+  public static generateTimestampedHmacSignature(
+    data: string,
+    timestamp: string,
+    secret: string
+  ): string {
+    return this.generateHmacSignature(`${timestamp}.${data}`, secret);
+  }
+
+  /**
+   * Validate a timestamp-bound HMAC-SHA256 signature (v2 scheme)
+   *
+   * Rejects the request when the timestamp is not a plain unsigned integer,
+   * when it is older or newer than `maxAgeSeconds`, or when the signature does
+   * not match. All checks that depend on the secret use constant-time
+   * comparison.
+   *
+   * @param data - Raw request body exactly as received
+   * @param timestamp - Value of the X-Webhook-Timestamp header
+   * @param signature - Value of the X-Webhook-Signature-V2 header
+   * @param secret - Shared webhook secret
+   * @param maxAgeSeconds - Accepted clock skew; defaults to MAX_SIGNATURE_AGE_SECONDS
+   * @param now - Current unix time in seconds; injectable for tests
+   * @returns True only when the timestamp is fresh and the signature matches
+   * @example
+   * ```typescript
+   * const ok = SecurityUtils.validateTimestampedHmacSignature(
+   *   body,
+   *   req.headers.get('x-webhook-timestamp') ?? '',
+   *   req.headers.get('x-webhook-signature-v2') ?? '',
+   *   secret
+   * );
+   * ```
+   * @since 1.10.0
+   * @see {@link generateTimestampedHmacSignature} for signature generation
+   */
+  public static validateTimestampedHmacSignature(
+    data: string,
+    timestamp: string,
+    signature: string,
+    secret: string,
+    maxAgeSeconds: number = SecurityUtils.MAX_SIGNATURE_AGE_SECONDS,
+    now: number = Math.floor(Date.now() / 1000)
+  ): boolean {
+    if (!/^\d{1,12}$/.test(timestamp)) {
+      return false;
+    }
+
+    if (Math.abs(now - Number(timestamp)) > maxAgeSeconds) {
+      return false;
+    }
+
+    const expectedSignature = this.generateTimestampedHmacSignature(data, timestamp, secret);
+    return this.timingSafeEqual(signature, expectedSignature);
+  }
+
+  /**
    * Constant-time string comparison to prevent timing attacks
    *
    * Performs cryptographically secure string comparison that executes in constant
@@ -417,16 +506,23 @@ export class SecurityUtils {
    * @see {@link validateHmacSignature} for HMAC validation using this function
    */
   public static timingSafeEqual(a: string, b: string): boolean {
-    if (a.length !== b.length) {
+    // Fail closed on anything that is not a string (e.g. a missing header
+    // that reached here as null) instead of throwing from Buffer.from.
+    if (typeof a !== 'string' || typeof b !== 'string') {
       return false;
     }
 
-    let result = 0;
-    for (let i = 0; i < a.length; i++) {
-      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    const bufferA = Buffer.from(a, 'utf8');
+    const bufferB = Buffer.from(b, 'utf8');
+
+    // Node's crypto.timingSafeEqual throws on unequal lengths; a length
+    // mismatch is not secret-dependent for fixed-width hex digests, so it is
+    // safe to short-circuit here.
+    if (bufferA.length !== bufferB.length) {
+      return false;
     }
 
-    return result === 0;
+    return cryptoTimingSafeEqual(bufferA, bufferB);
   }
 }
 

@@ -546,27 +546,41 @@ async function handleWebhookData(
   try {
     // Get request body
     const payload = await req.text();
-    const signature = req.headers.get('x-webhook-signature');
+    const signature = req.headers.get('x-webhook-signature-v2');
+    const requestTimestamp = req.headers.get('x-webhook-timestamp');
 
-    // Validate webhook signature if present
-    if (signature) {
-      const env = getEnvironmentConfig();
-      if (!env.webhookSecret) {
-        throw new Error('WEBHOOK_SECRET environment variable is required');
-      }
+    // Authentication is mandatory. This function re-signs whatever it accepts
+    // with the WordPress secret, so an unsigned request would turn it into a
+    // signing oracle that lets anyone publish job content to the site.
+    if (!signature || !requestTimestamp) {
+      logger.warn('Missing webhook signature or timestamp', { requestId });
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing webhook signature',
+        requestId,
+        timestamp,
+      }), {
+        status: 401,
+        headers: deps.securityHeaders,
+      });
+    }
 
-      if (!validateWebhookSignature(payload, signature, env.webhookSecret)) {
-        logger.warn('Invalid webhook signature', { requestId });
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Invalid webhook signature',
-          requestId,
-          timestamp,
-        }), {
-          status: 401,
-          headers: deps.securityHeaders,
-        });
-      }
+    const env = getEnvironmentConfig();
+    if (!env.webhookSecret) {
+      throw new Error('WEBHOOK_SECRET environment variable is required');
+    }
+
+    if (!validateWebhookSignature(payload, requestTimestamp, signature, env.webhookSecret)) {
+      logger.warn('Invalid webhook signature', { requestId });
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid webhook signature',
+        requestId,
+        timestamp,
+      }), {
+        status: 401,
+        headers: deps.securityHeaders,
+      });
     }
 
     // Parse webhook payload
@@ -684,7 +698,8 @@ async function handleWebhookData(
  * are logged for security monitoring and incident response.
  *
  * @param payload - Raw webhook payload string used for signature computation
- * @param signature - Provided HMAC signature from request headers (format: "sha256=hash")
+ * @param requestTimestamp - X-Webhook-Timestamp header value (unix seconds) bound into the signature
+ * @param signature - X-Webhook-Signature-V2 header value (format: "sha256=hash")
  * @param secret - Shared webhook secret for signature validation
  * @returns True if signature is valid and request is authenticated, false otherwise
  * @example
@@ -705,8 +720,13 @@ async function handleWebhookData(
  * ```
  * @since 1.0.0
  */
-function validateWebhookSignature(payload: string, signature: string, secret: string): boolean {
-  return SecurityUtils.validateHmacSignature(payload, signature, secret);
+function validateWebhookSignature(
+  payload: string,
+  requestTimestamp: string,
+  signature: string,
+  secret: string
+): boolean {
+  return SecurityUtils.validateTimestampedHmacSignature(payload, requestTimestamp, signature, secret);
 }
 
 /**

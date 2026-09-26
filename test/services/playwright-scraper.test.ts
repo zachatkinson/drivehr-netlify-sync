@@ -1076,38 +1076,34 @@ describe('PlaywrightScraper Simple Tests', () => {
       expect(normalizeJobApplyUrl({ apply_url: true })).toBe(true);
     });
 
-    it(
-      'should handle browser launch configuration variations',
-      async () => {
-        // Test different browser configurations through scrapeJobs
-        const configs = [
-          { headless: true, browserArgs: ['--disable-gpu'] },
-          { headless: false, browserArgs: ['--no-sandbox'] },
-          { debug: true, userAgent: 'Test-Agent' },
-        ];
+    it('should handle browser launch configuration variations', { timeout: 10000 }, async () => {
+      // Test different browser configurations through scrapeJobs
+      const configs = [
+        { headless: true, browserArgs: ['--disable-gpu'] },
+        { headless: false, browserArgs: ['--no-sandbox'] },
+        { debug: true, userAgent: 'Test-Agent' },
+      ];
 
-        for (const config of configs) {
-          const scraper = new PlaywrightScraper(config);
+      for (const config of configs) {
+        const scraper = new PlaywrightScraper(config);
 
-          // Mock chromium launch to test configuration passing
-          vi.mocked(chromium.launch).mockRejectedValueOnce(new Error('Config test error'));
+        // Mock chromium launch to test configuration passing
+        vi.mocked(chromium.launch).mockRejectedValueOnce(new Error('Config test error'));
 
-          const result = await scraper.scrapeJobs(
-            {
-              companyId: 'test-company',
-              careersUrl: 'https://example.com/careers',
-            },
-            'manual'
-          );
+        const result = await scraper.scrapeJobs(
+          {
+            companyId: 'test-company',
+            careersUrl: 'https://example.com/careers',
+          },
+          'manual'
+        );
 
-          expect(result.success).toBe(false);
-          expect(result.jobs).toHaveLength(0);
+        expect(result.success).toBe(false);
+        expect(result.jobs).toHaveLength(0);
 
-          await scraper.dispose();
-        }
-      },
-      { timeout: 10000 }
-    );
+        await scraper.dispose();
+      }
+    });
 
     it('should test normalizeJobPostedDate utility method with date handling', () => {
       const scraper = new PlaywrightScraper();

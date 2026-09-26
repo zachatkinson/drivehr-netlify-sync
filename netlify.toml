@@ -37,28 +37,19 @@
   to = "/.netlify/functions/manual-trigger"
   status = 200
 
-# Security headers for all functions
+# Security headers for static responses. Function responses set their own
+# headers in code (see securityHeaders in each function). These endpoints are
+# server-to-server only, so no CORS grant is made to any browser origin.
 [[headers]]
-  for = "/.netlify/functions/*"
+  for = "/*"
   [headers.values]
-    # CORS headers
-    Access-Control-Allow-Origin = "https://yourwordpresssite.com"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-    Access-Control-Max-Age = "86400"
-    
-    # Security headers
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https:; frame-ancestors 'none';"
+    Content-Security-Policy = "default-src 'none'; frame-ancestors 'none'"
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
-    X-XSS-Protection = "1; mode=block"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=(), vibrate=(), fullscreen=(), sync-xhr=()"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
-    
-    # Custom headers for API identification
-    X-API-Version = "2.0.0"
-    X-Service = "DriveHR-Sync-GitHub-Actions"
+    Cache-Control = "no-store"
 
 # Edge function settings for better performance (none currently used)
 # Example edge function configuration:
@@ -78,10 +69,6 @@
 [context.branch-deploy.environment]
   LOG_LEVEL = "debug"
   ENVIRONMENT = "development"
-
-# Plugin configurations (if using Netlify plugins)
-[[plugins]]
-  package = "@netlify/plugin-sitemap"
 
 # Build processing
 [build.processing]

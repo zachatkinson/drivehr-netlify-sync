@@ -45,15 +45,6 @@ updates:
         update-types:
           - 'security'
 
-    # Ignore specific dependencies that need manual review
-    ignore:
-      - dependency-name: 'node-fetch'
-        # Keep on v2 for compatibility
-        versions: ['3.x', '4.x']
-      - dependency-name: 'cheerio'
-        # Keep on stable rc version
-        versions: ['>= 1.0.0']
-
   # GitHub Actions
   - package-ecosystem: 'github-actions'
     directory: '/'

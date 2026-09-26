@@ -161,25 +161,35 @@ class ManualTriggerIntegrationUtils {
   }
 
   /**
-   * Generate valid HMAC signature for webhook authentication
+   * Build the authentication headers the manual trigger requires
    *
-   * Creates cryptographic HMAC SHA-256 signature for webhook payload
-   * validation testing using the same algorithm as the implementation
-   * to ensure authentication flow validation.
+   * Produces the timestamp-bound V2 signature (HMAC-SHA256 over
+   * "{timestamp}.{payload}") and its timestamp header using the same
+   * algorithm as the implementation and the WordPress plugin, so the real
+   * verification path is exercised end to end.
    *
-   * @param payload - JSON payload to sign
+   * @param payload - JSON payload exactly as it will be sent
    * @param secret - Webhook secret for HMAC generation
-   * @returns Hex-encoded HMAC SHA-256 signature
+   * @param timestamp - Unix seconds to bind into the signature; defaults to now
+   * @returns Header map with x-webhook-signature-v2 and x-webhook-timestamp
    * @example
    * ```typescript
-   * const signature = ManualTriggerIntegrationUtils.generateValidSignature('{"test": true}', 'secret');
-   * const headers = { 'X-Webhook-Signature': `sha256=${signature}` };
+   * const req = ManualTriggerIntegrationUtils.createRequest(
+   *   'POST', payload, ManualTriggerIntegrationUtils.signedHeaders(payload, 'secret')
+   * );
    * ```
-   * @since 1.0.0
+   * @since 1.10.0
    */
-  static generateValidSignature(payload: string, secret: string): string {
-    const signature = createHmac('sha256', secret).update(payload).digest('hex');
-    return `sha256=${signature}`;
+  static signedHeaders(
+    payload: string,
+    secret: string,
+    timestamp: string = Math.floor(Date.now() / 1000).toString()
+  ): Record<string, string> {
+    const digest = createHmac('sha256', secret).update(`${timestamp}.${payload}`).digest('hex');
+    return {
+      'x-webhook-signature-v2': `sha256=${digest}`,
+      'x-webhook-timestamp': timestamp,
+    };
   }
 
   static createMockResponse(options: {
@@ -344,7 +354,8 @@ describe('Manual Trigger Function - Integration Tests', () => {
     it('should reject POST requests with invalid webhook signature', async () => {
       const payload = JSON.stringify({ force_sync: true });
       const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': 'sha256=invalid-signature',
+        'x-webhook-signature-v2': 'sha256=invalid-signature',
+        'x-webhook-timestamp': Math.floor(Date.now() / 1000).toString(),
       });
       const context = ManualTriggerIntegrationUtils.createContext();
 
@@ -356,17 +367,56 @@ describe('Manual Trigger Function - Integration Tests', () => {
       expect(data.error).toBe('Invalid webhook signature');
     });
 
+    it('should reject POST requests that carry only the legacy body-only signature', async () => {
+      const payload = JSON.stringify({ force_sync: true });
+      const legacy = createHmac('sha256', 'test-secret-key-at-least-32-characters-long')
+        .update(payload)
+        .digest('hex');
+      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
+        'x-webhook-signature': `sha256=${legacy}`,
+      });
+      const context = ManualTriggerIntegrationUtils.createContext();
+
+      const response = await manualTriggerFunction(req, context);
+      const data = await ManualTriggerIntegrationUtils.parseResponse(response);
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Missing webhook signature');
+    });
+
+    it('should reject a replayed request whose timestamp is outside the freshness window', async () => {
+      const payload = JSON.stringify({ force_sync: true });
+      const staleTimestamp = String(Math.floor(Date.now() / 1000) - 600);
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long',
+          staleTimestamp
+        )
+      );
+      const context = ManualTriggerIntegrationUtils.createContext();
+
+      const response = await manualTriggerFunction(req, context);
+      const data = await ManualTriggerIntegrationUtils.parseResponse(response);
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Invalid webhook signature');
+    });
+
     it('should handle missing WEBHOOK_SECRET environment variable', async () => {
       delete process.env['WEBHOOK_SECRET'];
 
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
         payload,
-        'test-secret-key-at-least-32-characters-long'
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
       );
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -385,10 +435,6 @@ describe('Manual Trigger Function - Integration Tests', () => {
         reason: 'Manual test trigger',
         source: 'admin-panel',
       });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
       // Mock successful GitHub API response
       mockFetch.mockResolvedValue(
@@ -399,9 +445,14 @@ describe('Manual Trigger Function - Integration Tests', () => {
         }) as unknown as import('node-fetch').Response
       );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -429,10 +480,6 @@ describe('Manual Trigger Function - Integration Tests', () => {
 
     it('should handle empty payload with default parameters', async () => {
       const payload = '';
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
       // Mock successful GitHub API response
       mockFetch.mockResolvedValue(
@@ -443,9 +490,14 @@ describe('Manual Trigger Function - Integration Tests', () => {
         }) as unknown as import('node-fetch').Response
       );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -463,14 +515,15 @@ describe('Manual Trigger Function - Integration Tests', () => {
 
     it('should reject invalid JSON payload', async () => {
       const payload = '{ invalid json }';
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -485,10 +538,6 @@ describe('Manual Trigger Function - Integration Tests', () => {
   describe('GitHub API integration', () => {
     it('should handle GitHub API authentication errors', async () => {
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
       // Mock GitHub API 401 error
       mockFetch.mockResolvedValue(
@@ -500,9 +549,14 @@ describe('Manual Trigger Function - Integration Tests', () => {
         }) as unknown as import('node-fetch').Response
       );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -517,17 +571,18 @@ describe('Manual Trigger Function - Integration Tests', () => {
 
     it('should handle GitHub API network errors', async () => {
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
       // Mock network error - the function catches this and wraps it
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -543,14 +598,15 @@ describe('Manual Trigger Function - Integration Tests', () => {
       delete process.env['GITHUB_TOKEN'];
 
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -565,14 +621,15 @@ describe('Manual Trigger Function - Integration Tests', () => {
       delete process.env['GITHUB_REPOSITORY'];
 
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -587,14 +644,15 @@ describe('Manual Trigger Function - Integration Tests', () => {
       process.env['GITHUB_REPOSITORY'] = 'invalid-format'; // Should be owner/repo
 
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -612,14 +670,15 @@ describe('Manual Trigger Function - Integration Tests', () => {
       mockFetch.mockRejectedValue(new Error('Unexpected server error'));
 
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
-        payload,
-        'test-secret-key-at-least-32-characters-long'
-      );
 
-      const req = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req = ManualTriggerIntegrationUtils.createRequest(
+        'POST',
+        payload,
+        ManualTriggerIntegrationUtils.signedHeaders(
+          payload,
+          'test-secret-key-at-least-32-characters-long'
+        )
+      );
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response = await manualTriggerFunction(req, context);
@@ -635,7 +694,7 @@ describe('Manual Trigger Function - Integration Tests', () => {
 
     it('should generate unique request IDs for each request', async () => {
       const payload = JSON.stringify({ force_sync: true });
-      const signature = ManualTriggerIntegrationUtils.generateValidSignature(
+      const headers = ManualTriggerIntegrationUtils.signedHeaders(
         payload,
         'test-secret-key-at-least-32-characters-long'
       );
@@ -649,12 +708,8 @@ describe('Manual Trigger Function - Integration Tests', () => {
         }) as unknown as import('node-fetch').Response
       );
 
-      const req1 = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
-      const req2 = ManualTriggerIntegrationUtils.createRequest('POST', payload, {
-        'x-webhook-signature': signature,
-      });
+      const req1 = ManualTriggerIntegrationUtils.createRequest('POST', payload, headers);
+      const req2 = ManualTriggerIntegrationUtils.createRequest('POST', payload, headers);
       const context = ManualTriggerIntegrationUtils.createContext();
 
       const response1 = await manualTriggerFunction(req1, context);

@@ -62,7 +62,7 @@
 
 import type { Context } from '@netlify/functions';
 import { getEnvironmentConfig, getEnvVar } from '../lib/env.js';
-import { createLogger } from '../lib/logger.js';
+import { createLogger, getLogger } from '../lib/logger.js';
 import { createHttpClient } from '../lib/http-client.js';
 import type { SecurityHeaders } from '../types/api.js';
 
@@ -408,16 +408,17 @@ async function checkEnvironmentConfiguration(): Promise<ServiceHealthCheck> {
       details: {
         environment: env.environment,
         log_level: env.logLevel,
-        company_id: env.driveHrCompanyId,
+        company_id_configured: Boolean(env.driveHrCompanyId),
       },
     };
 
   } catch (error) {
+    getLogger().error('Environment configuration check failed', { error });
     return {
       name: 'environment_configuration',
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : 'Configuration check failed',
+      error: 'Configuration check failed',
     };
   }
 }
@@ -484,41 +485,44 @@ async function checkWordPressConnectivity(): Promise<ServiceHealthCheck> {
       userAgent: 'DriveHR-HealthCheck/2.0',
     });
 
-    // Test WordPress webhook endpoint
-    const testUrl = `${env.wpApiUrl}/webhook/health`;
-    const response = await httpClient.get(testUrl);
+    // A GET to the webhook endpoint is answered by the plugin with 405
+    // (Method Not Allowed). That status proves the site is up, WordPress is
+    // routing and the plugin is active, without sending a signed request.
+    // The endpoint URL itself is never echoed back to the caller.
+    const response = await httpClient.get(env.wpApiUrl);
 
     const responseTime = Date.now() - startTime;
 
-    if (response.success) {
+    if (response.status === 405) {
       return {
         name: 'wordpress_api',
         status: 'healthy',
         responseTime,
         details: {
-          url: testUrl,
           status_code: response.status,
-        },
-      };
-    } else {
-      return {
-        name: 'wordpress_api',
-        status: 'degraded',
-        responseTime,
-        error: `HTTP ${response.status}: ${response.statusText}`,
-        details: {
-          url: testUrl,
-          status_code: response.status,
+          plugin_active: true,
         },
       };
     }
 
+    return {
+      name: 'wordpress_api',
+      status: 'degraded',
+      responseTime,
+      error: `Unexpected HTTP ${response.status} from WordPress webhook endpoint`,
+      details: {
+        status_code: response.status,
+        plugin_active: false,
+      },
+    };
+
   } catch (error) {
+    getLogger().error('WordPress connectivity check failed', { error });
     return {
       name: 'wordpress_api',
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : 'WordPress connectivity check failed',
+      error: 'WordPress connectivity check failed',
     };
   }
 }
@@ -596,8 +600,8 @@ async function checkGitHubActionsConfiguration(): Promise<ServiceHealthCheck> {
         error: `Configuration issues: ${issues.join(', ')}`,
         details: {
           is_github_actions: isGitHubActions,
-          repository: getEnvVar('GITHUB_REPOSITORY') || 'unknown',
-          company_id: env.driveHrCompanyId || 'not configured',
+          repository_configured: Boolean(getEnvVar('GITHUB_REPOSITORY')),
+          company_id_configured: Boolean(env.driveHrCompanyId),
         },
       };
     }
@@ -608,17 +612,18 @@ async function checkGitHubActionsConfiguration(): Promise<ServiceHealthCheck> {
       responseTime,
       details: {
         is_github_actions: isGitHubActions,
-        repository: getEnvVar('GITHUB_REPOSITORY') || 'local',
-        company_id: env.driveHrCompanyId,
+        repository_configured: Boolean(getEnvVar('GITHUB_REPOSITORY')),
+        company_id_configured: Boolean(env.driveHrCompanyId),
       },
     };
 
   } catch (error) {
+    getLogger().error('GitHub Actions check failed', { error });
     return {
       name: 'github_actions',
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : 'GitHub Actions check failed',
+      error: 'GitHub Actions check failed',
     };
   }
 }
@@ -702,7 +707,6 @@ async function checkScraperDependencies(): Promise<ServiceHealthCheck> {
           status: 'healthy',
           responseTime,
           details: {
-            careers_url: careersUrl,
             status_code: response.status,
             accessible: true,
           },
@@ -714,7 +718,6 @@ async function checkScraperDependencies(): Promise<ServiceHealthCheck> {
           responseTime,
           error: `DriveHR careers page returned HTTP ${response.status}`,
           details: {
-            careers_url: careersUrl,
             status_code: response.status,
             accessible: false,
           },
@@ -722,15 +725,14 @@ async function checkScraperDependencies(): Promise<ServiceHealthCheck> {
       }
 
     } catch (networkError) {
+      getLogger().warn('DriveHR careers page not accessible', { error: networkError });
       return {
         name: 'scraper_dependencies',
         status: 'degraded',
         responseTime: Date.now() - startTime,
         error: 'DriveHR careers page not accessible',
         details: {
-          careers_url: careersUrl,
           accessible: false,
-          network_error: networkError instanceof Error ? networkError.message : 'Unknown error',
         },
       };
     }
