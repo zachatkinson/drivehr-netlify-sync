@@ -1,3 +1,12 @@
+## [1.10.2](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.10.1...v1.10.2) (2026-09-27)
+
+### Bug Fixes
+
+- **ci:** bump upload-artifact and dependency-review-action to Node 24 releases
+  ([fee4e57](https://github.com/zachatkinson/drivehr-netlify-sync/commit/fee4e573c99b9fbf52fe82a7f7e73e5dec1907d0))
+- **ci:** migrate CodeQL to v4 and resolve open code scanning alerts
+  ([2ea143e](https://github.com/zachatkinson/drivehr-netlify-sync/commit/2ea143e332d61832a6a0eb2b63ec102a8905de98))
+
 ## [1.10.1](https://github.com/zachatkinson/drivehr-netlify-sync/compare/v1.10.0...v1.10.1) (2026-09-26)
 
 ### Bug Fixes
