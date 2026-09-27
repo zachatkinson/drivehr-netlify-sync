@@ -28,6 +28,7 @@
  * @see {@link ../../CLAUDE.md} for testing standards and practices
  */
 
+import { randomInt } from 'node:crypto';
 import { vi, expect } from 'vitest';
 import type { EnvironmentConfig } from '../../src/types/common.js';
 
@@ -133,10 +134,7 @@ export class BaseTestUtils {
    */
   static generateTestToken(prefix = 'test_token', length = 32): string {
     const chars = 'abcdef1234567890';
-    const randomPart = Array.from(
-      { length },
-      () => chars[Math.floor(Math.random() * chars.length)]
-    ).join('');
+    const randomPart = Array.from({ length }, () => chars[randomInt(chars.length)]).join('');
     return `${prefix}_${randomPart}`;
   }
 
@@ -149,10 +147,7 @@ export class BaseTestUtils {
    */
   static generateTestSecret(minLength = 32): string {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_';
-    return Array.from(
-      { length: minLength },
-      () => chars[Math.floor(Math.random() * chars.length)]
-    ).join('');
+    return Array.from({ length: minLength }, () => chars[randomInt(chars.length)]).join('');
   }
 
   /**

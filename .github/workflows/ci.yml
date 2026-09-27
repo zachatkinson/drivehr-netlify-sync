@@ -33,12 +33,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Check for changed files
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         id: changes
         with:
           filters: |
@@ -149,13 +149,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -190,7 +190,7 @@ jobs:
           pnpm audit --audit-level high --prod --json > security-prod.json || true
 
       - name: Upload security artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: security-audit-results
@@ -200,7 +200,7 @@ jobs:
           retention-days: 30
 
       - name: Dependency vulnerability check
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         if: github.event_name == 'pull_request'
 
   # Smart Test Execution
@@ -216,13 +216,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: 'pnpm'
@@ -242,7 +242,7 @@ jobs:
           WEBHOOK_SECRET: 'mock-webhook-secret-for-ci-testing-12345'
 
       - name: Upload individual coverage to Codecov
-        uses: codecov/codecov-action@v5.5.0
+        uses: codecov/codecov-action@v7.1.1
         with:
           files: ./coverage/lcov.info
           flags: ${{ matrix.name }}
@@ -256,7 +256,7 @@ jobs:
           disable_search: true
 
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: coverage-${{ matrix.name }}
@@ -267,7 +267,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1.1.1
+        uses: codecov/test-results-action@v1.2.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -280,13 +280,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: 'pnpm'
@@ -303,7 +303,7 @@ jobs:
           WEBHOOK_SECRET: 'mock-webhook-secret-for-ci-testing-12345'
 
       - name: Upload baseline coverage to Codecov
-        uses: codecov/codecov-action@v5.5.0
+        uses: codecov/codecov-action@v7.1.1
         with:
           files: ./coverage/lcov.info
           flags: integration
@@ -320,13 +320,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -362,13 +362,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -383,17 +383,6 @@ jobs:
       - name: Production dependency vulnerability scan
         run: pnpm run security:prod
         continue-on-error: false
-
-      - name: CodeQL Analysis
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: '/language:javascript'
-          upload: true
 
       - name: GitHub Advanced Security - Secret Scanning
         run: |
@@ -420,7 +409,7 @@ jobs:
           echo "- Consider dependency alternatives for persistent high-risk packages" >> security-comprehensive-report.md
 
       - name: Upload comprehensive security artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: comprehensive-security-results
@@ -429,11 +418,40 @@ jobs:
             security-comprehensive-report.md
           retention-days: 90
 
+  # CodeQL Static Analysis (one job per language so each upload has its own category)
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript, actions]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:${{ matrix.language }}'
+          upload: true
+
   # CI Success Notification with Enhanced Reporting
   ci-success:
     name: CI Pipeline Complete
     runs-on: ubuntu-latest
-    needs: [detect-changes, quality, test, build, security]
+    needs: [detect-changes, quality, test, build, security, codeql]
     if: always()
 
     steps:
@@ -457,11 +475,13 @@ jobs:
           echo "- Tests: ${{ needs.test.result }}" >> ci-report.md
           echo "- Build: ${{ needs.build.result }}" >> ci-report.md
           echo "- Security: ${{ needs.security.result }}" >> ci-report.md
+          echo "- CodeQL: ${{ needs.codeql.result }}" >> ci-report.md
 
           if [ "${{ needs.quality.result }}" = "success" ] && \
              [ "${{ needs.test.result }}" = "success" ] && \
              [ "${{ needs.build.result }}" = "success" ] && \
-             [ "${{ needs.security.result }}" = "success" ]; then
+             [ "${{ needs.security.result }}" = "success" ] && \
+             [ "${{ needs.codeql.result }}" = "success" ]; then
             echo "✅ All enhanced CI checks passed - Ready for deployment"
             echo "🚀 Netlify will automatically deploy from main branch"
             echo "⚡ Smart test selection optimized CI performance"
@@ -472,7 +492,7 @@ jobs:
           fi
 
       - name: Upload CI report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: enhanced-ci-report
@@ -491,16 +511,16 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'

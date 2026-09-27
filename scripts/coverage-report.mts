@@ -184,7 +184,7 @@ Options:
   --detailed, -d           Show detailed file-by-file coverage
   --format <type>          Output format: table, json, summary (default: summary)
   --threshold <n>          Coverage threshold percentage (default: 90)
-  --filter <pattern>       Filter files by pattern (regex supported)
+  --filter <pattern>       Filter files whose path contains this text (case-insensitive)
   --help, -h               Show this help message
 
 Examples:
@@ -478,14 +478,33 @@ function displaySummary(summary: CoverageSummary): void {
 }
 
 /**
+ * Escape a string for literal use inside a RegExp
+ *
+ * The --filter CLI argument is user-controlled, so it is escaped before being
+ * compiled into a RegExp. This keeps the case-insensitive matching behaviour
+ * while preventing malformed patterns or catastrophic backtracking.
+ *
+ * @param value - Raw text to escape
+ * @returns The text with all RegExp metacharacters escaped
+ * @example
+ * ```typescript
+ * new RegExp(escapeRegExp('src/lib.ts'), 'i'); // matches the literal path
+ * ```
+ * @since 1.9.1
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Display detailed file-by-file coverage report
  *
  * Outputs tabular coverage report showing individual file metrics
  * including line, function, and branch coverage percentages with
- * status indicators. Supports optional regex filtering.
+ * status indicators. Supports optional case-insensitive substring filtering.
  *
  * @param summary - Coverage summary containing file details
- * @param filter - Optional regex pattern to filter displayed files
+ * @param filter - Optional substring used to filter displayed files by path
  * @example
  * ```typescript
  * displayDetailed(summary); // Show all files
@@ -497,7 +516,7 @@ function displayDetailed(summary: CoverageSummary, filter?: string): void {
   let files = summary.files;
   
   if (filter) {
-    const filterRegex = new RegExp(filter, 'i');
+    const filterRegex = new RegExp(escapeRegExp(filter), 'i');
     files = files.filter(f => filterRegex.test(f.file));
   }
 
